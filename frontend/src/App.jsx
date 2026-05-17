@@ -4,7 +4,7 @@ const PINK        = "#E8005A";
 const PINK_LIGHT  = "#FF3D7F";
 const PINK_PALE   = "#FFF0F5";
 const PINK_BORDER = "#FFB3CC";
-const API = import.meta.env.VITE_API_URL || "http://localhost:8000";
+const API = "https://reachct-production.up.railway.app";
 
 const Logo = () => (
   <svg width="34" height="34" viewBox="0 0 36 36" fill="none">
