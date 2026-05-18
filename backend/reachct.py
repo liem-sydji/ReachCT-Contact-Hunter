@@ -318,15 +318,16 @@ async def scrape_google_maps(query: str, city: str, country: str,
                 print(f"  ✉️  {email or 'no email'}")
 
                 results.append({
-                    "run_id":   run_id,
-                    "name":     name,
-                    "email":    email,
-                    "phone":    final_phone,
-                    "website":  website,
-                    "city":     city,
-                    "country":  country,
-                    "category": v["category"],
-                    "maps_url": page.url,
+                    "run_id":       run_id,
+                    "name":         name,
+                    "email":        email,
+                    "phone":        final_phone,
+                    "website":      website,
+                    "city":         city,
+                    "country":      country,
+                    "company_type": query,
+                    "category":     v["category"],
+                    "maps_url":     page.url,
                 })
                 print()
 
@@ -365,8 +366,8 @@ def export_to_excel(data: list, query: str, city: str, country: str) -> str:
     thin      = Side(style="thin", color="C5C5C5")
     border    = Border(left=thin, right=thin, top=thin, bottom=thin)
 
-    headers    = ["Company Name", "Email", "Phone Number", "Website", "Location", "Status"]
-    col_widths = [32, 35, 20, 40, 22, 18]
+    headers    = ["Company Name", "Email", "Phone Number", "Website", "Location", "Company Type", "Status"]
+    col_widths = [32, 35, 20, 40, 22, 25, 18]
     num_cols   = len(headers)
 
     # Title
@@ -392,12 +393,13 @@ def export_to_excel(data: list, query: str, city: str, country: str) -> str:
     for row_i, item in enumerate(data, 3):
         fill   = alt_fill if row_i % 2 == 0 else wht_fill
         values = [
-            item.get("name",     ""),
-            item.get("email",    ""),
-            item.get("phone",    ""),
-            item.get("website",  ""),
+            item.get("name",         ""),
+            item.get("email",        ""),
+            item.get("phone",        ""),
+            item.get("website",      ""),
             f"{item.get('city','')}, {item.get('country','')}",
-            item.get("category", ""),
+            item.get("company_type", ""),
+            item.get("category",     ""),
         ]
         for col, val in enumerate(values, 1):
             cell           = ws.cell(row=row_i, column=col, value=val)
