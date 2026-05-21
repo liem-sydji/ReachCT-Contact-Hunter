@@ -7,3 +7,5 @@ python-multipart
 spacy
 nltk
 psycopg2-binary
+pycountry
+rapidfuzz

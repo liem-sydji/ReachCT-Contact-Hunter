@@ -28,11 +28,20 @@ const StatusBadge = ({ status }) => {
   );
 };
 
-const Spinner = ({ message }) => (
+const Spinner = ({ message, queued }) => (
   <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:14, padding:"48px 0" }}>
-    <div style={{ width:44, height:44, borderRadius:"50%", border:`4px solid ${PINK_BORDER}`, borderTopColor:PINK, animation:"spin 0.8s linear infinite" }}/>
-    <p style={{ color:PINK, fontFamily:"'DM Sans', sans-serif", fontWeight:600, fontSize:14 }}>{message || "Searching..."}</p>
-    <p style={{ color:"#bbb", fontSize:12 }}>This may take a few minutes</p>
+    <div style={{
+      width:44, height:44, borderRadius:"50%",
+      border:`4px solid ${queued ? "#FFD700" : PINK_BORDER}`,
+      borderTopColor: queued ? "#FFD700" : PINK,
+      animation: queued ? "none" : "spin 0.8s linear infinite",
+    }}/>
+    <p style={{ color: queued ? "#D97706" : PINK, fontFamily:"'DM Sans', sans-serif", fontWeight:600, fontSize:14 }}>
+      {message || "Searching..."}
+    </p>
+    <p style={{ color:"#bbb", fontSize:12 }}>
+      {queued ? "You will be notified when your search starts" : "This may take a few minutes"}
+    </p>
     <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
   </div>
 );
@@ -176,9 +185,13 @@ export default function App() {
     try {
       const res  = await fetch(`${API}/api/scrape?query=${encodeURIComponent(query)}&city=${encodeURIComponent(city)}&country=${encodeURIComponent(country)}&start=${start}&end=${end}`);
       const data = await res.json();
+      if (res.status === 429) throw new Error("⏳ A search is already running — please wait for it to finish.");
       if (!res.ok) throw new Error(data.detail || "Failed to start search");
       const jobId = data.job_id;
-      setLoadMsg("Scraping Google Maps...");
+      const initialMsg = data.queue_position > 0
+        ? `⏳ Queued at position ${data.queue_position} — waiting for current search to finish...`
+        : "Scraping Google Maps...";
+      setLoadMsg(initialMsg);
       pollRef.current = setInterval(async () => {
         try {
           const jobRes  = await fetch(`${API}/api/job/${jobId}`);
@@ -192,6 +205,9 @@ export default function App() {
             clearInterval(pollRef.current);
             setError(jobData.error || "Something went wrong");
             setLoading(false);
+          } else if (jobData.status === "queued") {
+            const pos = jobData.queue_position;
+            setLoadMsg(`⏳ Queued at position ${pos} — waiting for current search to finish...`);
           } else {
             const found = jobData.results?.length || 0;
             setLoadMsg(`Scraping... ${found} companies found so far`);
@@ -301,7 +317,7 @@ export default function App() {
                 <Field label="City"          value={city}    set={setCity}    placeholder="e.g. Madrid"/>
                 <Field label="Country"       value={country} set={setCountry} placeholder="e.g. España"/>
                 <NumberInput label="Start Index" value={start} set={setStart} min={0}/>
-                <NumberInput label="End Index"   value={end}   set={setEnd}   min={1}/>
+                <NumberInput label="End Index (max +50)" value={end} set={(v) => setEnd(Math.min(v, start + 50))} min={1}/>
                 <button
                   onClick={handleSearch} disabled={loading}
                   style={{ background:loading?PINK_BORDER:PINK, color:"white", border:"none", padding:"10px 28px", borderRadius:8, fontSize:13, fontWeight:700, cursor:loading?"not-allowed":"pointer", fontFamily:"'Syne', sans-serif", whiteSpace:"nowrap", height:40 }}
@@ -353,7 +369,7 @@ export default function App() {
         {/* Scrape results */}
         {tab === "scrape" && (
           <>
-            {loading && <Spinner message={loadMsg}/>}
+            {loading && <Spinner message={loadMsg} queued={loadMsg.includes('Queued')}/>}
             {searched && !loading && (
               <>
                 <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:16, flexWrap:"wrap", gap:12 }}>

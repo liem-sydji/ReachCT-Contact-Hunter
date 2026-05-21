@@ -128,6 +128,52 @@ def upsert_company(run_id: str, company: dict) -> str:
     return "skipped"
 
 
+def _get_country_variants(country: str) -> list:
+    """
+    Returns all known variants of a country name using fuzzy matching.
+    Handles any language — españa, espagne, spanien all resolve to Spain.
+    Falls back to the original string if no match found.
+    """
+    try:
+        import pycountry
+        from rapidfuzz import process, fuzz
+
+        key = country.strip().lower()
+
+        # Build a lookup of all country names + common aliases
+        all_names = {}
+        for c in pycountry.countries:
+            names = [c.name.lower()]
+            if hasattr(c, "common_name"):
+                names.append(c.common_name.lower())
+            if hasattr(c, "official_name"):
+                names.append(c.official_name.lower())
+            names.append(c.alpha_2.lower())
+            names.append(c.alpha_3.lower())
+            for n in names:
+                all_names[n] = [n2 for n2 in names]
+
+        # Direct match first
+        if key in all_names:
+            return all_names[key]
+
+        # Fuzzy match — find closest country name
+        match = process.extractOne(
+            key,
+            list(all_names.keys()),
+            scorer=fuzz.WRatio,
+            score_cutoff=80
+        )
+        if match:
+            return all_names[match[0]]
+
+    except ImportError:
+        pass
+
+    # Fallback — just return the original
+    return [country.strip().lower()]
+
+
 def get_companies(query: str = None, city: str = None, country: str = None) -> list:
     conn   = get_conn()
     c      = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
@@ -135,15 +181,23 @@ def get_companies(query: str = None, city: str = None, country: str = None) -> l
     params = []
 
     if city:
-        sql += " AND city=%s"
+        # Fuzzy city match — ignore spaces, case, accents via ILIKE
+        sql += " AND TRIM(LOWER(city)) ILIKE TRIM(LOWER(%s))"
         params.append(city)
-    if country:
-        sql += " AND country=%s"
-        params.append(country)
-    if query:
-        sql += " AND company_type ILIKE %s"
-        params.append(f"%{query}%")
 
+    if country:
+        # Match all known variants of the country name
+        variants = _get_country_variants(country)
+        placeholders = ",".join(["%s"] * len(variants))
+        sql += f" AND TRIM(LOWER(country)) IN ({placeholders})"
+        params.extend(variants)
+
+    if query:
+        # Fuzzy company type match — partial match anywhere in the string
+        sql += " AND LOWER(company_type) ILIKE LOWER(%s)"
+        params.append(f"%{query.strip()}%")
+
+    sql += " ORDER BY name ASC"
     c.execute(sql, params)
     rows = c.fetchall()
     conn.close()

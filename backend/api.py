@@ -37,9 +37,46 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ── In-memory job store ───────────────────────────────────────────────────────
-# Tracks running/completed scrape jobs so the frontend can poll for status
-jobs: dict = {}
+# ── In-memory job store + queue ──────────────────────────────────────────────
+import threading
+import queue as queue_module
+
+jobs: dict       = {}
+search_queue     = queue_module.Queue()
+queue_lock       = threading.Lock()
+worker_running   = False
+
+
+def queue_worker():
+    """Background worker that processes search jobs one at a time."""
+    global worker_running
+    while True:
+        try:
+            job_id, query, city, country, start, end = search_queue.get(timeout=60)
+            jobs[job_id]["status"]        = "running"
+            jobs[job_id]["queue_position"] = 0
+
+            # Update queue positions for waiting jobs
+            waiting = [j for j in jobs.values() if j["status"] == "queued"]
+            for idx, j in enumerate(waiting):
+                j["queue_position"] = idx + 1
+
+            run_scrape_job_thread(job_id, query, city, country, start, end)
+            search_queue.task_done()
+        except queue_module.Empty:
+            with queue_lock:
+                worker_running = False
+            break
+
+
+def ensure_worker_running():
+    """Start the queue worker thread if not already running."""
+    global worker_running
+    with queue_lock:
+        if not worker_running:
+            worker_running = True
+            t = threading.Thread(target=queue_worker, daemon=True)
+            t.start()
 
 # ── Startup ───────────────────────────────────────────────────────────────────
 @app.on_event("startup")
@@ -57,7 +94,6 @@ def health():
 # ── Start a scrape job ────────────────────────────────────────────────────────
 @app.get("/api/scrape")
 async def start_scrape(
-    background_tasks: BackgroundTasks,
     query:   str,
     city:    str,
     country: str,
@@ -68,32 +104,47 @@ async def start_scrape(
     Kicks off a scrape job in the background and returns a job_id.
     The frontend polls /api/job/{job_id} to check progress.
     """
+    # Clean inputs
+    query   = query.strip()
+    city    = city.strip().title()
+    country = country.strip().title()
+
     if not query or not city or not country:
         raise HTTPException(status_code=400, detail="query, city and country are required")
 
     if end <= start:
         raise HTTPException(status_code=400, detail="end must be greater than start")
 
-    if (end - start) > 100:
-        raise HTTPException(status_code=400, detail="Maximum range is 100 listings per search")
+    if (end - start) > 50:
+        raise HTTPException(status_code=400, detail="Maximum 50 listings per search. Use start/end ranges to paginate for larger searches.")
 
     job_id = str(uuid.uuid4())[:8]
+
+    # Calculate queue position
+    queued_or_running = sum(
+        1 for j in jobs.values()
+        if j["status"] in ("running", "queued")
+    )
+    queue_position = queued_or_running  # 0 = runs immediately
+
     jobs[job_id] = {
-        "status":   "running",
-        "progress": 0,
-        "total":    end - start,
-        "results":  [],
-        "error":    None,
-        "query":    query,
-        "city":     city,
-        "country":  country,
+        "status":         "queued" if queue_position > 0 else "running",
+        "queue_position": queue_position,
+        "progress":       0,
+        "total":          end - start,
+        "results":        [],
+        "error":          None,
+        "query":          query,
+        "city":           city,
+        "country":        country,
     }
 
-    background_tasks.add_task(
-        run_scrape_job_thread, job_id, query, city, country, start, end
-    )
+    # Add to queue
+    search_queue.put((job_id, query, city, country, start, end))
+    ensure_worker_running()
 
-    return {"job_id": job_id, "message": "Scrape started"}
+    message = "Scrape started" if queue_position == 0 else f"Queued at position {queue_position}"
+    return {"job_id": job_id, "message": message, "queue_position": queue_position}
 
 
 def run_scrape_job_thread(job_id: str, query: str, city: str,
@@ -154,6 +205,9 @@ def export(
     city:    str = "",
     country: str = "",
 ):
+    query   = query.strip()
+    city    = city.strip().title()
+    country = country.strip().title()
     """
     Exports companies from the DB to Excel and returns the file for download.
     Filters by city and country if provided.
@@ -179,6 +233,8 @@ def export(
 @app.get("/api/companies")
 def get_all_companies(city: Optional[str] = None, country: Optional[str] = None):
     """Returns all companies stored in the database."""
+    if city:    city    = city.strip().title()
+    if country: country = country.strip().title()
     data = get_companies(city=city, country=country)
     return {"companies": data, "total": len(data)}
 
