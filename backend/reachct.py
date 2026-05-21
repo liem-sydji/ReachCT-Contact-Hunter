@@ -62,7 +62,8 @@ def random_delay(min_ms=2000, max_ms=5000):
 
 
 def extract_emails(text: str) -> list:
-    found = re.findall(r"[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}", text)
+    # Match standard emails and emails wrapped in angle brackets <email@domain.com>
+    found = re.findall(r"<?([a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,})>?", text)
     return list(dict.fromkeys([
         e.lower() for e in found
         if not any(b in e.lower() for b in EMAIL_BLACKLIST)
@@ -114,21 +115,7 @@ async def scrape_website(browser, url: str, retries: int = MAX_RETRIES) -> dict:
         try:
             # Full browser context that looks like a real user
             context = await browser.new_context(
-                user_agent=random.choice(USER_AGENTS),
-                viewport={"width": 1280, "height": 800},
-                locale="en-US",
-                timezone_id="Europe/Madrid",
-                extra_http_headers={
-                    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-                    "Accept-Language": "en-US,en;q=0.9,es;q=0.8",
-                    "Accept-Encoding": "gzip, deflate, br",
-                    "Connection": "keep-alive",
-                    "Upgrade-Insecure-Requests": "1",
-                    "Sec-Fetch-Dest": "document",
-                    "Sec-Fetch-Mode": "navigate",
-                    "Sec-Fetch-Site": "none",
-                    "Sec-Fetch-User": "?1",
-                }
+                user_agent=random.choice(USER_AGENTS)
             )
             page      = await context.new_page()
             email     = ""
@@ -167,7 +154,7 @@ async def scrape_website(browser, url: str, retries: int = MAX_RETRIES) -> dict:
             return {"email": email, "phone": phone, "page_text": page_text}
 
         except Exception as e:
-            print(f"    ⚠️  Skipped (timeout): {url[:50]}")
+            print(f"    ⚠️  Failed ({type(e).__name__}): {str(e)[:80]}")
         finally:
             if context:
                 try:
