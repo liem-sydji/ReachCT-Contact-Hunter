@@ -165,6 +165,7 @@ export default function App() {
   const [error,    setError]    = useState("");
   const [searched, setSearched] = useState(false);
   const [filter,   setFilter]   = useState("");
+  const [jobId,    setJobId]    = useState(null);
 
   // DB tab state
   const [dbCity,    setDbCity]    = useState("");
@@ -188,6 +189,7 @@ export default function App() {
       if (res.status === 429) throw new Error("⏳ A search is already running — please wait for it to finish.");
       if (!res.ok) throw new Error(data.detail || "Failed to start search");
       const jobId = data.job_id;
+      setJobId(jobId);
       const initialMsg = data.queue_position > 0
         ? `⏳ Queued at position ${data.queue_position} — waiting for current search to finish...`
         : "Scraping Google Maps...";
@@ -201,6 +203,13 @@ export default function App() {
             setResults(jobData.results || []);
             setSearched(true);
             setLoading(false);
+            setJobId(null);
+          } else if (jobData.status === "cancelled") {
+            clearInterval(pollRef.current);
+            setResults(jobData.results || []);
+            setSearched(true);
+            setLoading(false);
+            setJobId(null);
           } else if (jobData.status === "error") {
             clearInterval(pollRef.current);
             setError(jobData.error || "Something went wrong");
@@ -221,6 +230,16 @@ export default function App() {
     } catch (e) {
       setError(e.message);
       setLoading(false);
+    }
+  };
+
+  const handleCancel = async () => {
+    if (!jobId) return;
+    try {
+      await fetch(`${API}/api/job/${jobId}/cancel`, { method: "POST" });
+      setLoadMsg("Cancelling... saving results found so far");
+    } catch {
+      setError("Could not cancel search");
     }
   };
 
@@ -326,6 +345,16 @@ export default function App() {
                 >
                   {loading ? "Searching..." : "Search"}
                 </button>
+                {loading && (
+                  <button
+                    onClick={handleCancel}
+                    style={{ background:"white", color:"#DC2626", border:"2px solid #DC2626", padding:"10px 20px", borderRadius:8, fontSize:13, fontWeight:700, cursor:"pointer", fontFamily:"'Syne', sans-serif", whiteSpace:"nowrap", height:40 }}
+                    onMouseEnter={e => { e.target.style.background = "#DC2626"; e.target.style.color = "white"; }}
+                    onMouseLeave={e => { e.target.style.background = "white"; e.target.style.color = "#DC2626"; }}
+                  >
+                    ⏹ Stop
+                  </button>
+                )}
               </div>
               {error && <p style={{ color:"#DC2626", fontSize:12, marginTop:10, fontWeight:500 }}>{error}</p>}
             </div>

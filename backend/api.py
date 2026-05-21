@@ -168,7 +168,7 @@ async def run_scrape_job(job_id: str, query: str, city: str,
     """Runs the scraper and updates the job store."""
     try:
         run_id  = job_id
-        results = await scrape_google_maps(query, city, country, start, end, run_id)
+        results = await scrape_google_maps(query, city, country, start, end, run_id, jobs=jobs, job_id=job_id)
 
         # Save to DB
         for company in results:
@@ -176,13 +176,29 @@ async def run_scrape_job(job_id: str, query: str, city: str,
 
         save_search(run_id, query, city, country, start, end, len(results))
 
-        jobs[job_id]["status"]  = "done"
+        if jobs[job_id].get("status") == "cancelling":
+            jobs[job_id]["status"]  = "cancelled"
+        else:
+            jobs[job_id]["status"]  = "done"
         jobs[job_id]["results"] = results
 
     except Exception as e:
         jobs[job_id]["status"] = "error"
         jobs[job_id]["error"]  = str(e)
         print(f"❌ Job {job_id} failed: {e}")
+
+
+# ── Cancel a job ─────────────────────────────────────────────────────────────
+@app.post("/api/job/{job_id}/cancel")
+def cancel_job(job_id: str):
+    """Marks a job as cancelled — scraper checks this flag between listings."""
+    job = jobs.get(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    if job["status"] == "running" or job["status"] == "queued":
+        job["status"] = "cancelling"
+        return {"message": "Cancellation requested"}
+    return {"message": f"Job already {job['status']}"}
 
 
 # ── Poll job status ───────────────────────────────────────────────────────────
@@ -231,11 +247,12 @@ def export(
 
 # ── Get all companies from DB ─────────────────────────────────────────────────
 @app.get("/api/companies")
-def get_all_companies(city: Optional[str] = None, country: Optional[str] = None):
+def get_all_companies(city: Optional[str] = None, country: Optional[str] = None, query: Optional[str] = None):
     """Returns all companies stored in the database."""
     if city:    city    = city.strip().title()
     if country: country = country.strip().title()
-    data = get_companies(city=city, country=country)
+    if query:   query   = query.strip()
+    data = get_companies(query=query, city=city, country=country)
     return {"companies": data, "total": len(data)}
 
 

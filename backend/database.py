@@ -181,21 +181,34 @@ def get_companies(query: str = None, city: str = None, country: str = None) -> l
     params = []
 
     if city:
-        # Fuzzy city match — partial, case and space insensitive
+        # Partial, case and space insensitive city match
         sql += " AND TRIM(LOWER(city)) ILIKE %s"
         params.append(f"%{city.strip().lower()}%")
 
     if country:
-        # Match all known variants of the country name
+        # Match country using both exact and partial ILIKE
+        # Also try known variants (españa → spain → es)
         variants = _get_country_variants(country)
-        placeholders = ",".join(["%s"] * len(variants))
-        sql += f" AND TRIM(LOWER(country)) IN ({placeholders})"
-        params.extend(variants)
+        # Build OR clause: matches any variant OR partial ILIKE match
+        or_clauses = []
+        for v in variants:
+            or_clauses.append("TRIM(LOWER(country)) ILIKE %s")
+            params.append(f"%{v}%")
+        # Also add direct partial match on what user typed
+        or_clauses.append("TRIM(LOWER(country)) ILIKE %s")
+        params.append(f"%{country.strip().lower()}%")
+        sql += f" AND ({' OR '.join(or_clauses)})"
 
     if query:
-        # Fuzzy company type match — partial match anywhere in the string
-        sql += " AND LOWER(company_type) ILIKE LOWER(%s)"
-        params.append(f"%{query.strip()}%")
+        # Split query into words and match any word in company_type
+        # e.g. "marketing company" matches "agencia de marketing"
+        words = [w for w in query.strip().lower().split() if len(w) > 2]
+        if words:
+            word_clauses = []
+            for word in words:
+                word_clauses.append("TRIM(LOWER(company_type)) ILIKE %s")
+                params.append(f"%{word}%")
+            sql += f" AND ({' OR '.join(word_clauses)})"
 
     sql += " ORDER BY name ASC"
     c.execute(sql, params)
