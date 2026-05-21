@@ -103,26 +103,49 @@ async def scrape_website(browser, url: str, retries: int = MAX_RETRIES) -> dict:
     if not url:
         return {"email": "", "phone": "", "page_text": ""}
 
-    # Skip HTTP sites — usually old/slow/dead, not worth waiting 15s
+    # Skip HTTP sites
     if url.startswith("http://"):
         print(f"    ⏭️  Skipped HTTP site: {url[:50]}")
         return {"email": "", "phone": "", "page_text": ""}
 
+    site_timeout = 15000
+
     for attempt in range(retries):
         context = None
         try:
+            # Full browser context that looks like a real user
             context = await browser.new_context(
-                user_agent=random.choice(USER_AGENTS)
+                user_agent=random.choice(USER_AGENTS),
+                viewport={"width": 1280, "height": 800},
+                locale="en-US",
+                timezone_id="Europe/Madrid",
+                extra_http_headers={
+                    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+                    "Accept-Language": "en-US,en;q=0.9,es;q=0.8",
+                    "Accept-Encoding": "gzip, deflate, br",
+                    "Connection": "keep-alive",
+                    "Upgrade-Insecure-Requests": "1",
+                    "Sec-Fetch-Dest": "document",
+                    "Sec-Fetch-Mode": "navigate",
+                    "Sec-Fetch-Site": "none",
+                    "Sec-Fetch-User": "?1",
+                }
             )
             page = await context.new_page()
             email = ""
             phone = ""
             page_text = ""
 
-            await page.goto(url, timeout=15000, wait_until="domcontentloaded")
-            await page.wait_for_timeout(random_delay(300, 600))
-            html = await page.content()
-            page_text = await page.evaluate("() => document.body.innerText")
+            await page.goto(url, timeout=site_timeout, wait_until="domcontentloaded")
+            await page.wait_for_timeout(random_delay(800, 1500))
+
+            # Try to get content even if page hasn't fully loaded
+            try:
+                html = await page.content()
+                page_text = await page.evaluate("() => document.body.innerText")
+            except:
+                html = ""
+                page_text = ""
 
             emails = extract_emails(html + " " + page_text)
             phones = extract_phones(html + " " + page_text)
@@ -144,7 +167,6 @@ async def scrape_website(browser, url: str, retries: int = MAX_RETRIES) -> dict:
         except Exception as e:
             print(f"    ⚠️  Skipped (timeout): {url[:50]}")
         finally:
-            # Always close context to free RAM
             if context:
                 try:
                     await context.close()
