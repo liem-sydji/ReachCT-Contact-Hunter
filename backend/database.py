@@ -181,9 +181,9 @@ def get_companies(query: str = None, city: str = None, country: str = None) -> l
     params = []
 
     if city:
-        # Fuzzy city match — ignore spaces, case, accents via ILIKE
-        sql += " AND TRIM(LOWER(city)) ILIKE TRIM(LOWER(%s))"
-        params.append(city)
+        # Fuzzy city match — partial, case and space insensitive
+        sql += " AND TRIM(LOWER(city)) ILIKE %s"
+        params.append(f"%{city.strip().lower()}%")
 
     if country:
         # Match all known variants of the country name

@@ -237,10 +237,10 @@ export default function App() {
   };
 
   const handleDbPull = async () => {
-    if (!dbCity || !dbCountry) { setDbError("Please enter city and country."); return; }
+    if (!dbCity && !dbCountry && !dbQuery) { setDbError("Please enter at least one search field."); return; }
     setDbError(""); setDbLoading(true); setDbResults([]);
     try {
-      const params = new URLSearchParams({ city: dbCity, country: dbCountry });
+      const params = new URLSearchParams({ city: dbCity, country: dbCountry, ...(dbQuery && { query: dbQuery }) });
       const res    = await fetch(`${API}/api/companies?${params}`);
       const data   = await res.json();
       if (!res.ok) throw new Error(data.detail || "Failed to fetch");
@@ -336,8 +336,8 @@ export default function App() {
             <div>
               <div style={{ display:"grid", gridTemplateColumns:"2fr 1fr 1fr auto auto", gap:12, alignItems:"flex-end" }}>
                 <Field label="Company Type (optional)" value={dbQuery}   set={setDbQuery}   placeholder="e.g. agencia de marketing"/>
-                <Field label="City"                    value={dbCity}    set={setDbCity}    placeholder="e.g. Madrid"/>
-                <Field label="Country"                 value={dbCountry} set={setDbCountry} placeholder="e.g. España"/>
+                <Field label="City (optional)"          value={dbCity}    set={setDbCity}    placeholder="e.g. Madrid"/>
+                <Field label="Country (optional)"       value={dbCountry} set={setDbCountry} placeholder="e.g. España"/>
                 <button
                   onClick={handleDbPull} disabled={dbLoading}
                   style={{ background:dbLoading?PINK_BORDER:PINK, color:"white", border:"none", padding:"10px 24px", borderRadius:8, fontSize:13, fontWeight:700, cursor:dbLoading?"not-allowed":"pointer", fontFamily:"'Syne', sans-serif", whiteSpace:"nowrap", height:40 }}
