@@ -50,7 +50,7 @@ EMAIL_BLACKLIST = [
     "png", "jpg", "gif", "svg", "css", "js@", "noreply",
 ]
 
-MAX_RETRIES = 2
+MAX_RETRIES = 1
 
 
 # ─────────────────────────────────────────────────────────────────────────────
