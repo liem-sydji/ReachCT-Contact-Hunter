@@ -176,8 +176,19 @@ export default function App() {
   const [dbError,   setDbError]   = useState("");
   const [dbFilter,  setDbFilter]  = useState("");
 
+  const [filters,    setFilters]    = useState({ countries: [], cities: {}, company_types: [] });
+  const [filtersLoaded, setFiltersLoaded] = useState(false);
   const pollRef = useRef(null);
   useEffect(() => () => { if (pollRef.current) clearInterval(pollRef.current); }, []);
+
+  useEffect(() => {
+    if (tab === "database" && !filtersLoaded) {
+      fetch(`${API}/api/filters`)
+        .then(r => r.json())
+        .then(data => { setFilters(data); setFiltersLoaded(true); })
+        .catch(() => {});
+    }
+  }, [tab]);
 
   const handleSearch = async () => {
     if (!query || !city || !country) { setError("Please fill in all fields."); return; }
@@ -218,8 +229,16 @@ export default function App() {
             const pos = jobData.queue_position;
             setLoadMsg(`⏳ Queued at position ${pos} — waiting for current search to finish...`);
           } else {
-            const found = jobData.results?.length || 0;
-            setLoadMsg(`Scraping... ${found} companies found so far`);
+            const found      = jobData.results?.length || 0;
+            const onMaps     = jobData.total_on_maps;
+            const processing = jobData.processing;
+            if (onMaps && processing) {
+              setLoadMsg(`📍 ${onMaps} listings on Google Maps — scraping ${processing} in your range... (${found} done)`);
+            } else if (onMaps) {
+              setLoadMsg(`📍 ${onMaps} listings found on Google Maps — starting scrape...`);
+            } else {
+              setLoadMsg(`📜 Scrolling Google Maps to find listings...`);
+            }
           }
         } catch {
           clearInterval(pollRef.current);
@@ -231,6 +250,27 @@ export default function App() {
       setError(e.message);
       setLoading(false);
     }
+  };
+
+  const handleCopyTable = (data) => {
+    if (!data || data.length === 0) return;
+    const headers = ["Company Name", "Email", "Phone", "Website", "Location", "Company Type", "Status"];
+    const rows = data.map(r => [
+      r.name || "",
+      r.email || "",
+      r.phone || "",
+      r.website || "",
+      r.city && r.country ? `${r.city}, ${r.country}` : "",
+      r.company_type || "",
+      r.category || "",
+    ]);
+    const tsv = [headers, ...rows].map(row => row.join("	")).join("
+");
+    navigator.clipboard.writeText(tsv).then(() => {
+      alert("✅ Table copied! Paste into Google Sheets, Excel or Google Docs.");
+    }).catch(() => {
+      alert("❌ Copy failed — try selecting the table manually.");
+    });
   };
 
   const handleCancel = async () => {
@@ -332,9 +372,9 @@ export default function App() {
           {tab === "scrape" && (
             <div>
               <div style={{ display:"grid", gridTemplateColumns:"2fr 1fr 1fr 1fr 1fr auto", gap:12, alignItems:"flex-end" }}>
-                <Field label="Business Type" value={query}   set={setQuery}   placeholder="e.g. agencia de marketing"/>
-                <Field label="City"          value={city}    set={setCity}    placeholder="e.g. Madrid"/>
-                <Field label="Country"       value={country} set={setCountry} placeholder="e.g. España"/>
+                <Field label="Business Type" value={query}   set={setQuery}   placeholder="e.g. marketing agency"/>
+                <Field label="City"          value={city}    set={setCity}    placeholder="e.g. Munich"/>
+                <Field label="Country"       value={country} set={setCountry} placeholder="e.g. Germany"/>
                 <NumberInput label="Start Index" value={start} set={setStart} min={0}/>
                 <NumberInput label="End Index (max +50)" value={end} set={(v) => setEnd(Math.min(v, start + 50))} min={1}/>
                 <button
@@ -356,7 +396,8 @@ export default function App() {
                   </button>
                 )}
               </div>
-              {error && <p style={{ color:"#DC2626", fontSize:12, marginTop:10, fontWeight:500 }}>{error}</p>}
+              <p style={{ color:"#aaa", fontSize:11, marginTop:8 }}>💡 Use English spelling for city and country — e.g. "Spain" not "España", "Munich" not "München"</p>
+            {error && <p style={{ color:"#DC2626", fontSize:12, marginTop:10, fontWeight:500 }}>{error}</p>}
             </div>
           )}
 
@@ -364,9 +405,30 @@ export default function App() {
           {tab === "database" && (
             <div>
               <div style={{ display:"grid", gridTemplateColumns:"2fr 1fr 1fr auto auto", gap:12, alignItems:"flex-end" }}>
-                <Field label="Company Type (optional)" value={dbQuery}   set={setDbQuery}   placeholder="e.g. agencia de marketing"/>
-                <Field label="City (optional)"          value={dbCity}    set={setDbCity}    placeholder="e.g. Madrid"/>
-                <Field label="Country (optional)"       value={dbCountry} set={setDbCountry} placeholder="e.g. España"/>
+                <div>
+                  <label style={{ fontSize:10, fontWeight:700, color:"#888", letterSpacing:"0.08em", textTransform:"uppercase", display:"block", marginBottom:5 }}>Company Type (optional)</label>
+                  <select value={dbQuery} onChange={e => setDbQuery(e.target.value)}
+                    style={{ width:"100%", padding:"9px 12px", borderRadius:8, border:`1.5px solid ${PINK_BORDER}`, fontSize:13, color: dbQuery ? "#1a1a1a" : "#999", outline:"none", fontFamily:"'DM Sans', sans-serif", background:"white" }}>
+                    <option value="">All company types</option>
+                    {filters.company_types.map(ct => <option key={ct} value={ct}>{ct}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style={{ fontSize:10, fontWeight:700, color:"#888", letterSpacing:"0.08em", textTransform:"uppercase", display:"block", marginBottom:5 }}>Country (optional)</label>
+                  <select value={dbCountry} onChange={e => { setDbCountry(e.target.value); setDbCity(""); }}
+                    style={{ width:"100%", padding:"9px 12px", borderRadius:8, border:`1.5px solid ${PINK_BORDER}`, fontSize:13, color: dbCountry ? "#1a1a1a" : "#999", outline:"none", fontFamily:"'DM Sans', sans-serif", background:"white" }}>
+                    <option value="">All countries</option>
+                    {filters.countries.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style={{ fontSize:10, fontWeight:700, color:"#888", letterSpacing:"0.08em", textTransform:"uppercase", display:"block", marginBottom:5 }}>City (optional)</label>
+                  <select value={dbCity} onChange={e => setDbCity(e.target.value)}
+                    style={{ width:"100%", padding:"9px 12px", borderRadius:8, border:`1.5px solid ${PINK_BORDER}`, fontSize:13, color: dbCity ? "#1a1a1a" : "#999", outline:"none", fontFamily:"'DM Sans', sans-serif", background:"white" }}>
+                    <option value="">All cities</option>
+                    {(dbCountry ? (filters.cities[dbCountry] || []) : Object.values(filters.cities).flat()).map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
                 <button
                   onClick={handleDbPull} disabled={dbLoading}
                   style={{ background:dbLoading?PINK_BORDER:PINK, color:"white", border:"none", padding:"10px 24px", borderRadius:8, fontSize:13, fontWeight:700, cursor:dbLoading?"not-allowed":"pointer", fontFamily:"'Syne', sans-serif", whiteSpace:"nowrap", height:40 }}
@@ -383,6 +445,14 @@ export default function App() {
                     onMouseLeave={e => { e.target.style.background = "white"; e.target.style.color = PINK; }}
                   >
                     ↓ Export Excel
+                  </button>
+                  <button
+                    onClick={() => handleCopyTable(dbResults)}
+                    style={{ background:"white", color:"#059669", border:"2px solid #059669", padding:"9px 18px", borderRadius:8, fontSize:13, fontWeight:700, cursor:"pointer", fontFamily:"'Syne', sans-serif", whiteSpace:"nowrap", height:40 }}
+                    onMouseEnter={e => { e.target.style.background = "#059669"; e.target.style.color = "white"; }}
+                    onMouseLeave={e => { e.target.style.background = "white"; e.target.style.color = "#059669"; }}
+                  >
+                    📋 Copy Table
                   </button>
                 )}
               </div>
@@ -425,6 +495,14 @@ export default function App() {
                       onMouseLeave={e => { e.target.style.background = "white"; e.target.style.color = PINK; }}
                     >
                       ↓ Export Excel
+                    </button>
+                    <button
+                      onClick={() => handleCopyTable(results)}
+                      style={{ background:"white", color:"#059669", border:"2px solid #059669", padding:"7px 16px", borderRadius:7, fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"'Syne', sans-serif" }}
+                      onMouseEnter={e => { e.target.style.background = "#059669"; e.target.style.color = "white"; }}
+                      onMouseLeave={e => { e.target.style.background = "white"; e.target.style.color = "#059669"; }}
+                    >
+                      📋 Copy Table
                     </button>
                   </div>
                 </div>

@@ -268,8 +268,14 @@ async def scrape_google_maps(query: str, city: str, country: str,
                 break
             scroll_count += 1
 
-        batch = all_hrefs[start_idx:end_idx]
-        total = len(batch)
+        batch        = all_hrefs[start_idx:end_idx]
+        total        = len(batch)
+        total_on_maps = len(all_hrefs)
+
+        # Update job with total listings found on Maps
+        if jobs and job_id:
+            jobs[job_id]["total_on_maps"] = total_on_maps
+            jobs[job_id]["processing"]    = total
         print(f"\n✅ {len(unique_listings)} total listings — processing {start_idx}→{start_idx+total}\n")
 
         if total == 0:

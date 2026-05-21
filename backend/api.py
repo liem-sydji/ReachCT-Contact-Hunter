@@ -132,6 +132,8 @@ async def start_scrape(
         "queue_position": queue_position,
         "progress":       0,
         "total":          end - start,
+        "total_on_maps":  None,
+        "processing":     None,
         "results":        [],
         "error":          None,
         "query":          query,
@@ -254,6 +256,37 @@ def get_all_companies(city: Optional[str] = None, country: Optional[str] = None,
     if query:   query   = query.strip()
     data = get_companies(query=query, city=city, country=country)
     return {"companies": data, "total": len(data)}
+
+
+# ── Get unique filter values from DB ─────────────────────────────────────────
+@app.get("/api/filters")
+def get_filters():
+    """Returns all unique countries, cities and company types stored in the DB."""
+    from database import get_conn
+    conn = get_conn()
+    c    = conn.cursor()
+
+    c.execute("SELECT DISTINCT TRIM(country) as country FROM companies WHERE country != '' ORDER BY country ASC")
+    countries = [row[0] for row in c.fetchall()]
+
+    c.execute("SELECT DISTINCT TRIM(city) as city, TRIM(country) as country FROM companies WHERE city != '' ORDER BY city ASC")
+    cities_raw = c.fetchall()
+    cities = {}
+    for city, country in cities_raw:
+        if country not in cities:
+            cities[country] = []
+        if city not in cities[country]:
+            cities[country].append(city)
+
+    c.execute("SELECT DISTINCT TRIM(company_type) as ct FROM companies WHERE company_type != '' ORDER BY ct ASC")
+    company_types = [row[0] for row in c.fetchall()]
+
+    conn.close()
+    return {
+        "countries":     countries,
+        "cities":        cities,
+        "company_types": company_types,
+    }
 
 
 # ── Get search history ────────────────────────────────────────────────────────
