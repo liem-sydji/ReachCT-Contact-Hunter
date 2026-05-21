@@ -437,22 +437,24 @@ export default function App() {
                   {dbLoading ? "Loading..." : "Pull Data"}
                 </button>
                 {dbResults.length > 0 && (
-                  <button
-                    onClick={() => handleExport(dbQuery, dbCity, dbCountry)}
-                    style={{ background:"white", color:PINK, border:`2px solid ${PINK}`, padding:"9px 18px", borderRadius:8, fontSize:13, fontWeight:700, cursor:"pointer", fontFamily:"'Syne', sans-serif", whiteSpace:"nowrap", height:40 }}
-                    onMouseEnter={e => { e.target.style.background = PINK; e.target.style.color = "white"; }}
-                    onMouseLeave={e => { e.target.style.background = "white"; e.target.style.color = PINK; }}
-                  >
-                    ↓ Export Excel
-                  </button>
-                  <button
-                    onClick={() => handleCopyTable(dbResults)}
-                    style={{ background:"white", color:"#059669", border:"2px solid #059669", padding:"9px 18px", borderRadius:8, fontSize:13, fontWeight:700, cursor:"pointer", fontFamily:"'Syne', sans-serif", whiteSpace:"nowrap", height:40 }}
-                    onMouseEnter={e => { e.target.style.background = "#059669"; e.target.style.color = "white"; }}
-                    onMouseLeave={e => { e.target.style.background = "white"; e.target.style.color = "#059669"; }}
-                  >
-                    📋 Copy Table
-                  </button>
+                  <>
+                    <button
+                      onClick={() => handleExport(dbQuery, dbCity, dbCountry)}
+                      style={{ background:"white", color:PINK, border:`2px solid ${PINK}`, padding:"9px 18px", borderRadius:8, fontSize:13, fontWeight:700, cursor:"pointer", fontFamily:"'Syne', sans-serif", whiteSpace:"nowrap", height:40 }}
+                      onMouseEnter={e => { e.target.style.background = PINK; e.target.style.color = "white"; }}
+                      onMouseLeave={e => { e.target.style.background = "white"; e.target.style.color = PINK; }}
+                    >
+                      ↓ Export Excel
+                    </button>
+                    <button
+                      onClick={() => handleCopyTable(dbResults)}
+                      style={{ background:"white", color:"#059669", border:"2px solid #059669", padding:"9px 18px", borderRadius:8, fontSize:13, fontWeight:700, cursor:"pointer", fontFamily:"'Syne', sans-serif", whiteSpace:"nowrap", height:40 }}
+                      onMouseEnter={e => { e.target.style.background = "#059669"; e.target.style.color = "white"; }}
+                      onMouseLeave={e => { e.target.style.background = "white"; e.target.style.color = "#059669"; }}
+                    >
+                      📋 Copy Table
+                    </button>
+                  </>
                 )}
               </div>
               {dbError && <p style={{ color:"#DC2626", fontSize:12, marginTop:10, fontWeight:500 }}>{dbError}</p>}
