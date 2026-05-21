@@ -119,7 +119,7 @@ async def scrape_website(browser, url: str, retries: int = MAX_RETRIES) -> dict:
             phone = ""
             page_text = ""
 
-            await page.goto(url, timeout=8000, wait_until="domcontentloaded")
+            await page.goto(url, timeout=15000, wait_until="domcontentloaded")
             await page.wait_for_timeout(random_delay(300, 600))
             html = await page.content()
             page_text = await page.evaluate("() => document.body.innerText")
