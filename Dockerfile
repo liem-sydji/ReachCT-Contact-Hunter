@@ -21,9 +21,6 @@ COPY backend/ .
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Install pycountry data
-RUN python -c "import pycountry; print('pycountry ready')"
-
 # Install Playwright + Chromium
 RUN playwright install chromium --with-deps
 
