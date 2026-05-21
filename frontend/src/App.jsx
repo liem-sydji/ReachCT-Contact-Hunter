@@ -264,8 +264,7 @@ export default function App() {
       r.company_type || "",
       r.category || "",
     ]);
-    const tsv = [headers, ...rows].map(row => row.join("	")).join("
-");
+    const tsv = [headers, ...rows].map(row => row.join("\t")).join("\n");
     navigator.clipboard.writeText(tsv).then(() => {
       alert("✅ Table copied! Paste into Google Sheets, Excel or Google Docs.");
     }).catch(() => {
