@@ -307,12 +307,12 @@ async def scrape_google_maps(query: str, city: str, country: str,
             await browser.close()
             return []
 
-        # batch is already HREFs (strings) — no need to extract
+        # batch is already HREFs (strings)
         batch_hrefs = batch
 
         BROWSER_RESTART_EVERY = 10
 
-        for i, href in enumerate(batch_hrefs):
+        for i, listing_href in enumerate(batch_hrefs):
             # Check for cancellation between listings
             if jobs and job_id and jobs.get(job_id, {}).get("status") == "cancelling":
                 print(f"  🛑 Search cancelled at listing {start_idx + i + 1} — saving {len(results)} results")
@@ -332,11 +332,23 @@ async def scrape_google_maps(query: str, city: str, country: str,
                     viewport={"width": 1280, "height": 800},
                 )
                 page = await context.new_page()
-                print(f"  ✅ Browser restarted cleanly")
+                # Re-navigate to Maps search to restore session
+                await page.goto(maps_url, timeout=15000, wait_until="domcontentloaded")
+                await page.wait_for_timeout(random_delay(2000, 3000))
+                try:
+                    for btn_text in ["Aceptar todo", "Accept all", "Aceptar", "Accept"]:
+                        btn = page.get_by_role("button", name=btn_text)
+                        if await btn.count() > 0:
+                            await btn.first.click()
+                            await page.wait_for_timeout(1000)
+                            break
+                except:
+                    pass
+                print(f"  ✅ Browser restarted with Maps session restored")
 
             try:
-                # Navigate directly to the listing URL instead of clicking stale element
-                await page.goto(href, timeout=15000, wait_until="domcontentloaded")
+                # Navigate to the listing href directly
+                await page.goto(listing_href, timeout=15000, wait_until="domcontentloaded")
                 await page.wait_for_timeout(random_delay(1500, 2500))
 
                 name = await get_business_name(page)
@@ -359,9 +371,9 @@ async def scrape_google_maps(query: str, city: str, country: str,
                     try:
                         el = page.locator(web_sel).first
                         if await el.count() > 0:
-                            href = await el.get_attribute("href") or ""
-                            if href and "google" not in href:
-                                website = href
+                            web_href = await el.get_attribute("href") or ""
+                            if web_href and "google" not in web_href:
+                                website = web_href
                                 break
                     except:
                         continue
