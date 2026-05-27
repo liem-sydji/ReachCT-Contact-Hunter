@@ -44,16 +44,14 @@ import queue as queue_module
 jobs: dict       = {}
 search_queue     = queue_module.Queue()
 queue_lock       = threading.Lock()
-worker_running   = False
 
 
 def queue_worker():
-    """Background worker that processes search jobs one at a time."""
-    global worker_running
+    """Background worker that processes search jobs one at a time. Runs forever."""
     while True:
         try:
-            job_id, query, city, country, start, end = search_queue.get(timeout=60)
-            jobs[job_id]["status"]        = "running"
+            job_id, query, city, country, start, end = search_queue.get(timeout=300)
+            jobs[job_id]["status"]         = "running"
             jobs[job_id]["queue_position"] = 0
 
             # Update queue positions for waiting jobs
@@ -64,19 +62,16 @@ def queue_worker():
             run_scrape_job_thread(job_id, query, city, country, start, end)
             search_queue.task_done()
         except queue_module.Empty:
-            with queue_lock:
-                worker_running = False
-            break
+            # Keep running — just nothing in queue right now
+            continue
+        except Exception as e:
+            print(f"❌ Queue worker error: {e}")
+            continue
 
 
-def ensure_worker_running():
-    """Start the queue worker thread if not already running."""
-    global worker_running
-    with queue_lock:
-        if not worker_running:
-            worker_running = True
-            t = threading.Thread(target=queue_worker, daemon=True)
-            t.start()
+# Start the queue worker thread once at startup — never dies
+_worker_thread = threading.Thread(target=queue_worker, daemon=True)
+_worker_thread.start()
 
 # ── Startup ───────────────────────────────────────────────────────────────────
 @app.on_event("startup")
@@ -143,7 +138,6 @@ async def start_scrape(
 
     # Add to queue
     search_queue.put((job_id, query, city, country, start, end))
-    ensure_worker_running()
 
     message = "Scrape started" if queue_position == 0 else f"Queued at position {queue_position}"
     return {"job_id": job_id, "message": message, "queue_position": queue_position}
