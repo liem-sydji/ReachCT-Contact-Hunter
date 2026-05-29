@@ -3,8 +3,43 @@ import { useState, useEffect, useRef } from "react";
 const PINK        = "#E8005A";
 const PINK_LIGHT  = "#FF3D7F";
 const PINK_PALE   = "#FFF0F5";
-const PINK_BORDER = "#FFB3CC";
+const PINK_BORDER = "#FF80AA";
 const API         = "https://reachct-production.up.railway.app";
+
+const COMPANY_TYPES = [
+  "Marketing Company",
+  "Digital Marketing Company",
+  "Sales Company",
+  "Administration Company",
+  "Finance Company",
+  "Economics Company",
+  "Data Analytics / Science Company",
+  "Consulting Company",
+  "Business Company",
+  "Real Estate",
+  "IT Company",
+  "Engineering Company",
+  "Electrical Company",
+  "Management Company",
+  "Journalism Company",
+  "Tourism Company",
+  "Logistics Company",
+  "Operations Company",
+  "Retail Company",
+  "Hotels",
+  "Restaurants",
+  "Language Academy",
+  "Childcare",
+  "Education",
+  "Libraries",
+  "Furniture Design",
+  "HR Company",
+  "Architecture",
+  "Travel Agency",
+  "Art Company",
+  "Design Company",
+  "Fashion Company",
+];
 
 const Logo = () => (
   <svg width="34" height="34" viewBox="0 0 36 36" fill="none">
@@ -177,6 +212,10 @@ export default function App() {
   const [dbFilter,  setDbFilter]  = useState("");
 
   const [filters,    setFilters]    = useState({ countries: [], cities: {}, company_types: [] });
+  // Safety getter in case filters haven't loaded
+  const safeCountries    = filters?.countries    || [];
+  const safeCities       = filters?.cities       || {};
+  const safeCompanyTypes = filters?.company_types || [];
   const [filtersLoaded, setFiltersLoaded] = useState(false);
   const pollRef = useRef(null);
   useEffect(() => () => { if (pollRef.current) clearInterval(pollRef.current); }, []);
@@ -371,7 +410,17 @@ export default function App() {
           {tab === "scrape" && (
             <div>
               <div style={{ display:"grid", gridTemplateColumns:"2fr 1fr 1fr 1fr 1fr auto", gap:12, alignItems:"flex-end" }}>
-                <Field label="Business Type" value={query}   set={setQuery}   placeholder="e.g. marketing agency"/>
+                <div>
+                  <label style={{ fontSize:10, fontWeight:700, color:"#888", letterSpacing:"0.08em", textTransform:"uppercase", display:"block", marginBottom:5 }}>Business Type</label>
+                  <select value={query} onChange={e => setQuery(e.target.value)}
+                    style={{ width:"100%", boxSizing:"border-box", padding:"9px 12px", borderRadius:8, border:`1.5px solid ${PINK_BORDER}`, fontSize:13, color: query ? "#1a1a1a" : "#999", outline:"none", fontFamily:"'DM Sans', sans-serif", background:"white", cursor:"pointer", maxHeight:200, overflowY:"auto" }}
+                    onFocus={e => e.target.style.borderColor = PINK}
+                    onBlur={e  => e.target.style.borderColor = PINK_BORDER}
+                  >
+                    <option value="">Select company type...</option>
+                    {COMPANY_TYPES.map(ct => <option key={ct} value={ct}>{ct}</option>)}
+                  </select>
+                </div>
                 <Field label="City"          value={city}    set={setCity}    placeholder="e.g. Munich"/>
                 <Field label="Country"       value={country} set={setCountry} placeholder="e.g. Germany"/>
                 <NumberInput label="Start Index" value={start} set={setStart} min={0}/>
@@ -395,7 +444,7 @@ export default function App() {
                   </button>
                 )}
               </div>
-              <p style={{ color:"#aaa", fontSize:11, marginTop:8 }}>💡 Use English spelling for city and country — e.g. "Spain" not "España", "Munich" not "München"</p>
+              <p style={{ color:"#E8005A", fontSize:12, marginTop:8, fontWeight:600 }}>💡 Use English spelling for city and country — e.g. "Spain" not "España", "Munich" not "München"</p>
             {error && <p style={{ color:"#DC2626", fontSize:12, marginTop:10, fontWeight:500 }}>{error}</p>}
             </div>
           )}
@@ -407,25 +456,34 @@ export default function App() {
                 <div>
                   <label style={{ fontSize:10, fontWeight:700, color:"#888", letterSpacing:"0.08em", textTransform:"uppercase", display:"block", marginBottom:5 }}>Company Type (optional)</label>
                   <select value={dbQuery} onChange={e => setDbQuery(e.target.value)}
-                    style={{ width:"100%", padding:"9px 12px", borderRadius:8, border:`1.5px solid ${PINK_BORDER}`, fontSize:13, color: dbQuery ? "#1a1a1a" : "#999", outline:"none", fontFamily:"'DM Sans', sans-serif", background:"white" }}>
+                    style={{ width:"100%", padding:"9px 12px", borderRadius:8, border:`1.5px solid ${PINK_BORDER}`, fontSize:13, color: dbQuery ? "#1a1a1a" : "#999", outline:"none", fontFamily:"'DM Sans', sans-serif", background:"white", cursor:"pointer" }}
+                    onFocus={e => e.target.style.borderColor = PINK}
+                    onBlur={e  => e.target.style.borderColor = PINK_BORDER}
+                  >
                     <option value="">All company types</option>
-                    {filters.company_types.map(ct => <option key={ct} value={ct}>{ct}</option>)}
+                    {safeCompanyTypes.map(ct => <option key={ct} value={ct}>{ct}</option>)}
                   </select>
                 </div>
                 <div>
                   <label style={{ fontSize:10, fontWeight:700, color:"#888", letterSpacing:"0.08em", textTransform:"uppercase", display:"block", marginBottom:5 }}>Country (optional)</label>
                   <select value={dbCountry} onChange={e => { setDbCountry(e.target.value); setDbCity(""); }}
-                    style={{ width:"100%", padding:"9px 12px", borderRadius:8, border:`1.5px solid ${PINK_BORDER}`, fontSize:13, color: dbCountry ? "#1a1a1a" : "#999", outline:"none", fontFamily:"'DM Sans', sans-serif", background:"white" }}>
+                    style={{ width:"100%", padding:"9px 12px", borderRadius:8, border:`1.5px solid ${PINK_BORDER}`, fontSize:13, color: dbCountry ? "#1a1a1a" : "#999", outline:"none", fontFamily:"'DM Sans', sans-serif", background:"white", cursor:"pointer" }}
+                    onFocus={e => e.target.style.borderColor = PINK}
+                    onBlur={e  => e.target.style.borderColor = PINK_BORDER}
+                  >
                     <option value="">All countries</option>
-                    {filters.countries.map(c => <option key={c} value={c}>{c}</option>)}
+                    {safeCountries.map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
                 </div>
                 <div>
                   <label style={{ fontSize:10, fontWeight:700, color:"#888", letterSpacing:"0.08em", textTransform:"uppercase", display:"block", marginBottom:5 }}>City (optional)</label>
                   <select value={dbCity} onChange={e => setDbCity(e.target.value)}
-                    style={{ width:"100%", padding:"9px 12px", borderRadius:8, border:`1.5px solid ${PINK_BORDER}`, fontSize:13, color: dbCity ? "#1a1a1a" : "#999", outline:"none", fontFamily:"'DM Sans', sans-serif", background:"white" }}>
+                    style={{ width:"100%", padding:"9px 12px", borderRadius:8, border:`1.5px solid ${PINK_BORDER}`, fontSize:13, color: dbCity ? "#1a1a1a" : "#999", outline:"none", fontFamily:"'DM Sans', sans-serif", background:"white", cursor:"pointer" }}
+                    onFocus={e => e.target.style.borderColor = PINK}
+                    onBlur={e  => e.target.style.borderColor = PINK_BORDER}
+                  >
                     <option value="">All cities</option>
-                    {(dbCountry ? (filters.cities[dbCountry] || []) : Object.values(filters.cities).flat()).map(c => <option key={c} value={c}>{c}</option>)}
+                    {(dbCountry ? (safeCities[dbCountry] || []) : Object.values(safeCities).flat()).map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
                 </div>
                 <button
