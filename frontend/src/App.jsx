@@ -20,8 +20,8 @@ const COMPANY_TYPES = [
   "IT Company",
   "Marketing research Agency",
   "Advertising Agency",
-  "PR Agency"
-  "Branding Agency"
+  "PR Agency",
+  "Branding Agency",
   "Engineering Company",
   "Electrical Company",
   "Management Company",
