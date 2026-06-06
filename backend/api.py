@@ -59,7 +59,10 @@ def queue_worker():
             for idx, j in enumerate(waiting):
                 j["queue_position"] = idx + 1
 
-            run_scrape_job_thread(job_id, query, city, country, start, end)
+            # Run in thread and WAIT for it to finish before processing next job
+            t = threading.Thread(target=run_scrape_job_thread, args=(job_id, query, city, country, start, end))
+            t.start()
+            t.join()  # blocks queue worker until job is fully complete
             search_queue.task_done()
         except queue_module.Empty:
             # Keep running — just nothing in queue right now
