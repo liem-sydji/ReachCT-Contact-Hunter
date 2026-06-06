@@ -1,18 +1,49 @@
+p · JSX
 import { useState, useEffect, useRef } from "react";
 
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
 const API = "https://reachct-production.up.railway.app";
 
 const COMPANY_TYPES = [
-  "Administration Company","Architecture","Art Company","Business Company",
-  "Childcare","Consulting Company","Data Analytics Company","Data Science Company",
-  "Design Company","Digital Marketing Company","Economics Company","Education",
-  "Electrical Company","Engineering Company","Fashion Company","Finance Company",
-  "Furniture Design","Hotels","HR Company","Interior Design","IT Company",
-  "Journalism Company","Language Academy","Libraries","Logistics Company",
-  "Management Company","Marketing Company","Operations Company","Real Estate",
-  "Restaurants","Retail Company","Sales Company","Software Company",
-  "Tourism Company","Travel Agency",
+  "Administration Company",
+  "Advertising Agency",
+  "Architecture Company",
+  "Art Company",
+  "Branding Agency",
+  "Business Analytics",
+  "Business Company",
+  "Childcare Company",
+  "Consulting Company",
+  "Data Analytics Company",
+  "Data Science Company",
+  "Design Company",
+  "Digital Marketing Agency",
+  "Economic Consulting Company",
+  "Education Company",
+  "Electrical Company",
+  "Engineering Company",
+  "Fashion Company",
+  "Finance Company",
+  "Furniture Design Company",
+  "Hotel Company",
+  "HR Company",
+  "Interior Design Company",
+  "IT Company",
+  "Journalism Company",
+  "Language Academy",
+  "Library Company",
+  "Logistics Company",
+  "Management Company",
+  "Market Research Agency",
+  "Marketing Agency",
+  "Operations Company",
+  "PR Agency",
+  "Real Estate Company",
+  "Restaurant Company",
+  "Retail Company",
+  "Sales Company",
+  "Tourism Company",
+  "Travel Agency",
 ];
 
 // ─── ICONS (Lucide-style SVG) ─────────────────────────────────────────────────
@@ -72,6 +103,11 @@ const css = `
     color: #fff;
     min-height: 100vh;
     -webkit-font-smoothing: antialiased;
+    margin: 0;
+  }
+
+  #root {
+    min-height: 100vh;
   }
 
   .page { min-height: 100vh; }
@@ -202,14 +238,17 @@ const css = `
   /* Inner pages */
   .inner-page {
     min-height: 100vh;
+    width: 100%;
     background: #f8f8f8;
     animation: fadeIn 0.3s ease;
+    position: absolute;
+    top: 0; left: 0; right: 0;
   }
 
   .inner-header {
     background: #fff;
     border-bottom: 1px solid #eee;
-    padding: 0 32px;
+    padding: 0 48px;
     height: 60px;
     display: flex;
     align-items: center;
@@ -250,9 +289,9 @@ const css = `
 
   /* Form area */
   .form-area {
-    max-width: 820px;
+    max-width: 1100px;
     margin: 48px auto 0;
-    padding: 0 24px;
+    padding: 0 48px;
   }
 
   .form-card {
@@ -273,14 +312,14 @@ const css = `
   .form-grid {
     display: grid;
     grid-template-columns: 2fr 1fr 1fr;
-    gap: 14px;
-    margin-bottom: 14px;
+    gap: 16px;
+    margin-bottom: 16px;
   }
 
   .form-grid-2 {
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 14px;
+    grid-template-columns: 1fr 1fr 1fr 1fr;
+    gap: 16px;
     margin-bottom: 20px;
   }
 
@@ -402,9 +441,9 @@ const css = `
 
   /* Results */
   .results-area {
-    max-width: 820px;
+    max-width: 1100px;
     margin: 24px auto 48px;
-    padding: 0 24px;
+    padding: 0 48px;
   }
 
   .results-header {
@@ -608,7 +647,7 @@ function SearchPage({ onBack }) {
       <div className="form-area">
         <div className="form-card">
           <div className="form-title">Search Google Maps</div>
-          <div className="form-grid">
+          <div style={{display:"grid", gridTemplateColumns:"2fr 1fr 1fr 0.6fr 0.6fr", gap:16, marginBottom:16}}>
             <div>
               <label className="field-label">Business Type</label>
               <select className="field-select" value={query} onChange={e => setQuery(e.target.value)}>
@@ -624,15 +663,13 @@ function SearchPage({ onBack }) {
               <label className="field-label">Country</label>
               <input className="field-input" value={country} onChange={e => setCountry(e.target.value)} placeholder="e.g. Germany"/>
             </div>
-          </div>
-          <div className="form-grid-2">
             <div>
-              <label className="field-label">Start Index</label>
-              <input className="field-input" type="number" min="0" value={start} onChange={e => setStart(Number(e.target.value))}/>
+              <label className="field-label">Start</label>
+              <input className="field-input" type="number" min="0" value={start} onChange={e => { const v = e.target.value; setStart(v === "" ? "" : Number(v)); }} onBlur={e => { if (e.target.value === "") setStart(0); }}/>
             </div>
             <div>
-              <label className="field-label">End Index (max +100)</label>
-              <input className="field-input" type="number" min="1" value={end} onChange={e => setEnd(Math.min(Number(e.target.value), start + 100))}/>
+              <label className="field-label">End (max +100)</label>
+              <input className="field-input" type="number" min="1" value={end} onChange={e => { const v = e.target.value; setEnd(v === "" ? "" : Math.min(Number(v), (start||0) + 100)); }} onBlur={e => { if (e.target.value === "") setEnd(25); }}/>
             </div>
           </div>
           <p className="hint">Use English spelling — "Spain" not "España", "Munich" not "München"</p>
