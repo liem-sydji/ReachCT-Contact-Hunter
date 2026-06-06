@@ -1,620 +1,817 @@
 import { useState, useEffect, useRef } from "react";
 
-const PINK        = "#E8005A";
-const PINK_LIGHT  = "#FF3D7F";
-const PINK_PALE   = "#FFF0F5";
-const PINK_BORDER = "#FF80AA";
-const API         = "https://reachct-production.up.railway.app";
+// ─── CONFIG ───────────────────────────────────────────────────────────────────
+const API = "https://reachct-production.up.railway.app";
 
 const COMPANY_TYPES = [
-  "Administration Company",
-  "Architecture",
-  "Art Company",
-  "Business Company",
-  "Childcare",
-  "Consulting Company",
-  "Data Analytics / Science Company",
-  "Design Company",
-  "Digital Marketing Company",
-  "Economics Company",
-  "Education",
-  "Electrical Company",
-  "Engineering Company",
-  "Fashion Company",
-  "Finance Company",
-  "Furniture Design",
-  "Hotels",
-  "HR Company",
-  "Interior Design",
-  "IT Company",
-  "Journalism Company",
-  "Language Academy",
-  "Libraries",
-  "Logistics Company",
-  "Management Company",
-  "Marketing Company",
-  "Operations Company",
-  "Real Estate",
-  "Restaurants",
-  "Retail Company",
-  "Sales Company",
-  "Tourism Company",
-  "Travel Agency",
+  "Administration Company","Architecture","Art Company","Business Company",
+  "Childcare","Consulting Company","Data Analytics Company","Data Science Company",
+  "Design Company","Digital Marketing Company","Economics Company","Education",
+  "Electrical Company","Engineering Company","Fashion Company","Finance Company",
+  "Furniture Design","Hotels","HR Company","Interior Design","IT Company",
+  "Journalism Company","Language Academy","Libraries","Logistics Company",
+  "Management Company","Marketing Company","Operations Company","Real Estate",
+  "Restaurants","Retail Company","Sales Company","Software Company",
+  "Tourism Company","Travel Agency",
 ];
 
-const Logo = () => (
-  <svg width="34" height="34" viewBox="0 0 36 36" fill="none">
-    <circle cx="10" cy="22" r="9" fill="white"/>
-    <circle cx="26" cy="22" r="9" fill="white" opacity="0.7"/>
-    <circle cx="18" cy="10" r="9" fill="white" opacity="0.5"/>
+// ─── ICONS (Lucide-style SVG) ─────────────────────────────────────────────────
+const SearchIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+  </svg>
+);
+const DatabaseIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.66 4.03 3 9 3s9-1.34 9-3V5"/><path d="M3 12c0 1.66 4.03 3 9 3s9-1.34 9-3"/>
+  </svg>
+);
+const DownloadIcon = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+  </svg>
+);
+const CopyIcon = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+  </svg>
+);
+const ArrowLeftIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="m12 19-7-7 7-7"/><path d="M19 12H5"/>
+  </svg>
+);
+const StopIcon = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="3" y="3" width="18" height="18" rx="2"/>
   </svg>
 );
 
-const StatusBadge = ({ status }) => {
-  const map = {
-    "✅ Verified":         { bg: "#ECFDF5", color: "#059669", label: "Verified" },
-    "⚠️ Needs Checking":   { bg: "#FFFBEB", color: "#D97706", label: "Needs Checking" },
-    "📵 No Website":       { bg: "#F0F9FF", color: "#0369A1", label: "No Website" },
-  };
-  const s = map[status] || { bg: "#F9FAFB", color: "#6B7280", label: status || "—" };
-  return (
-    <span style={{ background:s.bg, color:s.color, padding:"2px 10px", borderRadius:20, fontSize:11, fontWeight:700, fontFamily:"'DM Sans', sans-serif", letterSpacing:"0.03em", whiteSpace:"nowrap" }}>
-      {s.label}
-    </span>
-  );
-};
-
-const Spinner = ({ message, queued }) => (
-  <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:14, padding:"48px 0" }}>
-    <div style={{
-      width:44, height:44, borderRadius:"50%",
-      border:`4px solid ${queued ? "#FFD700" : PINK_BORDER}`,
-      borderTopColor: queued ? "#FFD700" : PINK,
-      animation: queued ? "none" : "spin 0.8s linear infinite",
-    }}/>
-    <p style={{ color: queued ? "#D97706" : PINK, fontFamily:"'DM Sans', sans-serif", fontWeight:600, fontSize:14 }}>
-      {message || "Searching..."}
-    </p>
-    <p style={{ color:"#bbb", fontSize:12 }}>
-      {queued ? "You will be notified when your search starts" : "This may take a few minutes"}
-    </p>
-    <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-  </div>
+// ─── LOGO ─────────────────────────────────────────────────────────────────────
+const ReachCTLogo = ({ size = 36 }) => (
+  <svg width={size} height={size} viewBox="0 0 36 36" fill="none">
+    <circle cx="18" cy="18" r="17" stroke="#E8005A" strokeWidth="2"/>
+    <circle cx="18" cy="18" r="10" stroke="#E8005A" strokeWidth="2" opacity="0.6"/>
+    <circle cx="18" cy="18" r="3" fill="#E8005A"/>
+    <line x1="18" y1="1" x2="18" y2="8" stroke="#E8005A" strokeWidth="2" strokeLinecap="round"/>
+    <line x1="18" y1="28" x2="18" y2="35" stroke="#E8005A" strokeWidth="2" strokeLinecap="round"/>
+    <line x1="1" y1="18" x2="8" y2="18" stroke="#E8005A" strokeWidth="2" strokeLinecap="round"/>
+    <line x1="28" y1="18" x2="35" y2="18" stroke="#E8005A" strokeWidth="2" strokeLinecap="round"/>
+  </svg>
 );
 
-// Better number input that handles deletion properly
-const NumberInput = ({ label, value, set, min = 0 }) => {
-  const [raw, setRaw] = useState(String(value));
+// ─── STYLES ───────────────────────────────────────────────────────────────────
+const css = `
+  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap');
 
-  useEffect(() => { setRaw(String(value)); }, [value]);
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-  return (
-    <div>
-      <label style={{ fontSize:10, fontWeight:700, color:"#888", letterSpacing:"0.08em", textTransform:"uppercase", display:"block", marginBottom:5 }}>
-        {label}
-      </label>
-      <input
-        type="text"
-        inputMode="numeric"
-        value={raw}
-        onChange={e => {
-          const v = e.target.value;
-          setRaw(v);
-          const n = parseInt(v, 10);
-          if (!isNaN(n) && n >= min) set(n);
-        }}
-        onBlur={() => {
-          const n = parseInt(raw, 10);
-          if (isNaN(n) || n < min) { setRaw(String(min)); set(min); }
-          else { setRaw(String(n)); set(n); }
-        }}
-        style={{ width:"100%", boxSizing:"border-box", padding:"9px 12px", borderRadius:8, border:`1.5px solid ${PINK_BORDER}`, fontSize:13, color:"#1a1a1a", outline:"none", fontFamily:"'DM Sans', sans-serif", transition:"border-color 0.2s" }}
-        onFocus={e => e.target.style.borderColor = PINK}
-      />
-    </div>
-  );
-};
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: #0a0a0a;
+    color: #fff;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
 
-const Field = ({ label, value, set, placeholder }) => (
-  <div>
-    <label style={{ fontSize:10, fontWeight:700, color:"#888", letterSpacing:"0.08em", textTransform:"uppercase", display:"block", marginBottom:5 }}>
-      {label}
-    </label>
-    <input
-      type="text" value={value}
-      onChange={e => set(e.target.value)}
-      placeholder={placeholder}
-      style={{ width:"100%", boxSizing:"border-box", padding:"9px 12px", borderRadius:8, border:`1.5px solid ${PINK_BORDER}`, fontSize:13, color:"#1a1a1a", outline:"none", fontFamily:"'DM Sans', sans-serif", transition:"border-color 0.2s" }}
-      onFocus={e => e.target.style.borderColor = PINK}
-      onBlur={e  => e.target.style.borderColor = PINK_BORDER}
-    />
-  </div>
-);
+  .page { min-height: 100vh; }
 
-const ResultsTable = ({ results, filter }) => {
-  const filtered = results.filter(r =>
-    !filter ||
-    r.name?.toLowerCase().includes(filter.toLowerCase()) ||
-    r.email?.toLowerCase().includes(filter.toLowerCase()) ||
-    r.city?.toLowerCase().includes(filter.toLowerCase()) ||
-    r.company_type?.toLowerCase().includes(filter.toLowerCase())
-  );
+  /* Landing */
+  .landing {
+    min-height: 100vh;
+    background: #0a0a0a;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+  }
 
-  if (filtered.length === 0) return (
-    <div style={{ textAlign:"center", padding:"48px 0", color:"#aaa" }}>
-      <div style={{ fontSize:36, marginBottom:10 }}>🔍</div>
-      <p style={{ fontSize:15, fontWeight:600 }}>No results found</p>
-      <p style={{ fontSize:13 }}>Try adjusting your search or filter</p>
-    </div>
-  );
+  .landing::before {
+    content: '';
+    position: absolute;
+    width: 600px; height: 600px;
+    background: radial-gradient(circle, rgba(232,0,90,0.12) 0%, transparent 70%);
+    top: 50%; left: 50%;
+    transform: translate(-50%, -60%);
+    pointer-events: none;
+  }
 
-  return (
-    <div style={{ background:"white", borderRadius:14, border:`1.5px solid ${PINK_BORDER}`, boxShadow:"0 4px 20px rgba(232,0,90,0.07)", overflowX:"auto" }}>
-      <table style={{ width:"100%", borderCollapse:"collapse", minWidth:900 }}>
-        <thead>
-          <tr style={{ background:PINK }}>
-            {["Company","Email","Phone","Website","Location","Company Type","Status"].map(h => (
-              <th key={h} style={{ padding:"10px 14px", textAlign:"left", color:"white", fontSize:10, fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase", fontFamily:"'Syne', sans-serif", whiteSpace:"nowrap" }}>{h}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {filtered.map((r, i) => (
-            <tr key={i}
-              style={{ borderTop:`1px solid ${PINK_PALE}`, background:i%2===0?"white":PINK_PALE, transition:"background 0.15s" }}
-              onMouseEnter={e => e.currentTarget.style.background = "#FFE8F1"}
-              onMouseLeave={e => e.currentTarget.style.background = i%2===0?"white":PINK_PALE}
-            >
-              <td style={{ padding:"10px 14px", fontSize:13, fontWeight:600, color:"#1a1a1a", maxWidth:180, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{r.name||"—"}</td>
-              <td style={{ padding:"10px 14px", fontSize:13 }}>
-                {r.email ? <a href={`mailto:${r.email}`} style={{ color:PINK, textDecoration:"none", fontWeight:500 }}>{r.email}</a> : <span style={{ color:"#ccc" }}>—</span>}
-              </td>
-              <td style={{ padding:"10px 14px", fontSize:13, color:"#444", whiteSpace:"nowrap" }}>{r.phone||<span style={{ color:"#ccc" }}>—</span>}</td>
-              <td style={{ padding:"10px 14px", fontSize:13, maxWidth:160, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
-                {r.website
-                  ? <a href={r.website} target="_blank" rel="noreferrer" style={{ color:PINK, textDecoration:"none", fontWeight:500 }}>
-                      {r.website.replace(/^https?:\/\//, "").replace(/\/$/, "").slice(0, 25)}{r.website.length > 30 ? "…" : ""}
-                    </a>
-                  : <span style={{ color:"#ccc" }}>—</span>}
-              </td>
-              <td style={{ padding:"10px 14px", fontSize:13, color:"#666", whiteSpace:"nowrap" }}>{r.city && r.country ? `${r.city}, ${r.country}` : "—"}</td>
-              <td style={{ padding:"10px 14px", fontSize:13, color:"#666", whiteSpace:"nowrap" }}>{r.company_type||"—"}</td>
-              <td style={{ padding:"10px 14px" }}><StatusBadge status={r.category}/></td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-};
+  .landing::after {
+    content: '';
+    position: absolute;
+    width: 400px; height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(232,0,90,0.4), transparent);
+    bottom: 120px; left: 50%;
+    transform: translateX(-50%);
+  }
 
+  .landing-logo {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 16px;
+    animation: fadeUp 0.6s ease both;
+  }
+
+  .landing-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 52px;
+    font-weight: 800;
+    letter-spacing: -1.5px;
+    color: #fff;
+  }
+
+  .landing-title span { color: #E8005A; }
+
+  .landing-tagline {
+    color: rgba(255,255,255,0.45);
+    font-size: 15px;
+    font-weight: 400;
+    letter-spacing: 0.02em;
+    margin-bottom: 56px;
+    animation: fadeUp 0.6s 0.1s ease both;
+  }
+
+  .landing-cards {
+    display: flex;
+    gap: 20px;
+    animation: fadeUp 0.6s 0.2s ease both;
+  }
+
+  .landing-card {
+    width: 220px;
+    padding: 32px 24px;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 16px;
+    background: rgba(255,255,255,0.03);
+    cursor: pointer;
+    transition: all 0.25s ease;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    text-align: center;
+    backdrop-filter: blur(10px);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .landing-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(232,0,90,0.08), transparent);
+    opacity: 0;
+    transition: opacity 0.25s ease;
+    border-radius: 16px;
+  }
+
+  .landing-card:hover {
+    border-color: rgba(232,0,90,0.4);
+    transform: translateY(-4px);
+    box-shadow: 0 20px 40px rgba(232,0,90,0.12);
+  }
+
+  .landing-card:hover::before { opacity: 1; }
+
+  .card-icon {
+    width: 48px; height: 48px;
+    border-radius: 12px;
+    background: rgba(232,0,90,0.1);
+    border: 1px solid rgba(232,0,90,0.2);
+    display: flex; align-items: center; justify-content: center;
+    color: #E8005A;
+  }
+
+  .card-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: -0.3px;
+  }
+
+  .card-desc {
+    font-size: 12px;
+    color: rgba(255,255,255,0.4);
+    line-height: 1.5;
+  }
+
+  /* Inner pages */
+  .inner-page {
+    min-height: 100vh;
+    background: #f8f8f8;
+    animation: fadeIn 0.3s ease;
+  }
+
+  .inner-header {
+    background: #fff;
+    border-bottom: 1px solid #eee;
+    padding: 0 32px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .back-btn {
+    display: flex; align-items: center; gap: 6px;
+    background: none; border: none; cursor: pointer;
+    color: #666; font-size: 13px; font-family: 'DM Sans', sans-serif;
+    padding: 6px 10px; border-radius: 8px;
+    transition: all 0.15s ease;
+  }
+
+  .back-btn:hover { background: #f5f5f5; color: #111; }
+
+  .inner-header-logo {
+    display: flex; align-items: center; gap: 10px;
+    font-family: 'Syne', sans-serif;
+    font-size: 18px; font-weight: 800;
+    color: #111; letter-spacing: -0.5px;
+  }
+
+  .inner-header-logo span { color: #E8005A; }
+
+  .inner-header-divider {
+    width: 1px; height: 20px;
+    background: #eee; margin: 0 4px;
+  }
+
+  .inner-header-title {
+    font-size: 13px; color: #999;
+    font-family: 'DM Sans', sans-serif;
+  }
+
+  /* Form area */
+  .form-area {
+    max-width: 820px;
+    margin: 48px auto 0;
+    padding: 0 24px;
+  }
+
+  .form-card {
+    background: #fff;
+    border-radius: 16px;
+    padding: 32px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 24px rgba(0,0,0,0.04);
+    border: 1px solid #eee;
+  }
+
+  .form-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 22px; font-weight: 800;
+    color: #111; letter-spacing: -0.5px;
+    margin-bottom: 24px;
+  }
+
+  .form-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr;
+    gap: 14px;
+    margin-bottom: 14px;
+  }
+
+  .form-grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin-bottom: 20px;
+  }
+
+  .field-label {
+    display: block;
+    font-size: 11px;
+    font-weight: 600;
+    color: #999;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+    font-family: 'DM Sans', sans-serif;
+  }
+
+  .field-input, .field-select {
+    width: 100%;
+    padding: 10px 14px;
+    border: 1.5px solid #e8e8e8;
+    border-radius: 10px;
+    font-size: 14px;
+    font-family: 'DM Sans', sans-serif;
+    color: #111;
+    background: #fff;
+    outline: none;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    appearance: none;
+    -webkit-appearance: none;
+  }
+
+  .field-input:focus, .field-select:focus {
+    border-color: #E8005A;
+    box-shadow: 0 0 0 3px rgba(232,0,90,0.08);
+  }
+
+  .field-select { cursor: pointer; }
+
+  .hint {
+    font-size: 12px;
+    color: #E8005A;
+    font-weight: 500;
+    margin-bottom: 20px;
+    display: flex; align-items: center; gap: 6px;
+  }
+
+  /* Buttons */
+  .btn-primary {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: #E8005A; color: #fff;
+    border: none; border-radius: 10px;
+    padding: 11px 24px;
+    font-size: 14px; font-weight: 600;
+    font-family: 'DM Sans', sans-serif;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    letter-spacing: 0.01em;
+  }
+
+  .btn-primary:hover { background: #cc004f; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(232,0,90,0.25); }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+
+  .btn-secondary {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: #fff; color: #444;
+    border: 1.5px solid #e8e8e8; border-radius: 10px;
+    padding: 10px 18px;
+    font-size: 13px; font-weight: 500;
+    font-family: 'DM Sans', sans-serif;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .btn-secondary:hover { border-color: #ccc; background: #f9f9f9; }
+
+  .btn-danger {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: #fff; color: #E8005A;
+    border: 1.5px solid #E8005A; border-radius: 10px;
+    padding: 10px 18px;
+    font-size: 13px; font-weight: 600;
+    font-family: 'DM Sans', sans-serif;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .btn-danger:hover { background: #E8005A; color: #fff; }
+
+  .btn-row {
+    display: flex; gap: 10px; align-items: center;
+    flex-wrap: wrap;
+  }
+
+  /* Status messages */
+  .loading-area {
+    display: flex; flex-direction: column;
+    align-items: center; gap: 16px;
+    padding: 48px 0;
+  }
+
+  .spinner {
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    border: 3px solid #f0f0f0;
+    border-top-color: #E8005A;
+    animation: spin 0.8s linear infinite;
+  }
+
+  .loading-msg {
+    font-size: 14px; font-weight: 500;
+    color: #666; text-align: center;
+    max-width: 400px; line-height: 1.5;
+  }
+
+  .error-msg {
+    background: #FFF1F2; border: 1px solid #FECDD3;
+    color: #9F1239; border-radius: 10px;
+    padding: 12px 16px; font-size: 13px;
+    margin-top: 16px;
+  }
+
+  /* Results */
+  .results-area {
+    max-width: 820px;
+    margin: 24px auto 48px;
+    padding: 0 24px;
+  }
+
+  .results-header {
+    display: flex; align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+    flex-wrap: wrap; gap: 12px;
+  }
+
+  .results-count {
+    font-family: 'Syne', sans-serif;
+    font-size: 16px; font-weight: 700;
+    color: #111;
+  }
+
+  .results-count span { color: #E8005A; }
+
+  .table-wrap {
+    background: #fff;
+    border-radius: 16px;
+    border: 1px solid #eee;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  }
+
+  table {
+    width: 100%; border-collapse: collapse;
+    font-size: 13px;
+  }
+
+  thead th {
+    background: #111; color: #fff;
+    padding: 12px 16px;
+    text-align: left;
+    font-family: 'Syne', sans-serif;
+    font-size: 11px; font-weight: 700;
+    letter-spacing: 0.06em; text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  tbody tr { border-bottom: 1px solid #f5f5f5; transition: background 0.1s; }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: #fafafa; }
+
+  tbody td {
+    padding: 12px 16px;
+    color: #333; vertical-align: middle;
+    max-width: 200px; overflow: hidden;
+    text-overflow: ellipsis; white-space: nowrap;
+  }
+
+  .email-cell { color: #E8005A; font-weight: 500; }
+  .no-data { color: #ccc; font-style: italic; }
+
+  /* Animations */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  /* Number input */
+  input[type=number]::-webkit-inner-spin-button,
+  input[type=number]::-webkit-outer-spin-button { opacity: 1; }
+`;
+
+// ─── APP ──────────────────────────────────────────────────────────────────────
 export default function App() {
-  const [tab,      setTab]      = useState("scrape"); // "scrape" | "database"
+  const [page, setPage] = useState("landing"); // landing | search | database
+
+  return (
+    <>
+      <style>{css}</style>
+      {page === "landing"  && <Landing  onNav={setPage} />}
+      {page === "search"   && <SearchPage   onBack={() => setPage("landing")} />}
+      {page === "database" && <DatabasePage onBack={() => setPage("landing")} />}
+    </>
+  );
+}
+
+// ─── LANDING ──────────────────────────────────────────────────────────────────
+function Landing({ onNav }) {
+  return (
+    <div className="landing">
+      <div className="landing-logo">
+        <ReachCTLogo size={44} />
+        <span className="landing-title">Reach<span>CT</span></span>
+      </div>
+      <p className="landing-tagline">B2B Contact Intelligence — Find companies, extract emails, close deals.</p>
+      <div className="landing-cards">
+        <div className="landing-card" onClick={() => onNav("search")}>
+          <div className="card-icon"><SearchIcon /></div>
+          <div>
+            <div className="card-title">Start New Search</div>
+            <div className="card-desc">Scrape Google Maps for company contacts in any city</div>
+          </div>
+        </div>
+        <div className="landing-card" onClick={() => onNav("database")}>
+          <div className="card-icon"><DatabaseIcon /></div>
+          <div>
+            <div className="card-title">Pull From Database</div>
+            <div className="card-desc">Query and export previously scraped contacts</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── SEARCH PAGE ──────────────────────────────────────────────────────────────
+function SearchPage({ onBack }) {
   const [query,    setQuery]    = useState("");
   const [city,     setCity]     = useState("");
   const [country,  setCountry]  = useState("");
   const [start,    setStart]    = useState(0);
   const [end,      setEnd]      = useState(25);
-  const [results,  setResults]  = useState([]);
   const [loading,  setLoading]  = useState(false);
   const [loadMsg,  setLoadMsg]  = useState("");
-  const [error,    setError]    = useState("");
+  const [results,  setResults]  = useState([]);
   const [searched, setSearched] = useState(false);
-  const [filter,   setFilter]   = useState("");
+  const [error,    setError]    = useState("");
   const [jobId,    setJobId]    = useState(null);
-
-  // DB tab state
-  const [dbCity,    setDbCity]    = useState("");
-  const [dbCountry, setDbCountry] = useState("");
-  const [dbQuery,   setDbQuery]   = useState("");
-  const [dbResults, setDbResults] = useState([]);
-  const [dbLoading, setDbLoading] = useState(false);
-  const [dbError,   setDbError]   = useState("");
-  const [dbFilter,  setDbFilter]  = useState("");
-
-  const [filters,    setFilters]    = useState({ countries: [], cities: {}, company_types: [] });
-  // Safety getter in case filters haven't loaded
-  const safeCountries    = filters?.countries    || [];
-  const safeCities       = filters?.cities       || {};
-  const safeCompanyTypes = filters?.company_types || [];
-  const [filtersLoaded, setFiltersLoaded] = useState(false);
   const pollRef = useRef(null);
-  useEffect(() => () => { if (pollRef.current) clearInterval(pollRef.current); }, []);
-
-  useEffect(() => {
-    if (tab === "database" && !filtersLoaded) {
-      fetch(`${API}/api/filters`)
-        .then(r => r.json())
-        .then(data => { setFilters(data); setFiltersLoaded(true); })
-        .catch(() => {});
-    }
-  }, [tab]);
 
   const handleSearch = async () => {
     if (!query || !city || !country) { setError("Please fill in all fields."); return; }
     setError(""); setLoading(true); setSearched(false); setResults([]);
-    setLoadMsg("Starting search...");
+    setLoadMsg("Connecting to Google Maps...");
     try {
       const res  = await fetch(`${API}/api/scrape?query=${encodeURIComponent(query)}&city=${encodeURIComponent(city)}&country=${encodeURIComponent(country)}&start=${start}&end=${end}`);
       const data = await res.json();
-      if (res.status === 429) throw new Error("⏳ A search is already running — please wait for it to finish.");
       if (!res.ok) throw new Error(data.detail || "Failed to start search");
-      const jobId = data.job_id;
-      setJobId(jobId);
-      const initialMsg = data.queue_position > 0
-        ? `⏳ Queued at position ${data.queue_position} — waiting for current search to finish...`
-        : "Scraping Google Maps...";
-      setLoadMsg(initialMsg);
+      const jid = data.job_id;
+      setJobId(jid);
+      setLoadMsg(data.queue_position > 0 ? `Queued at position ${data.queue_position}…` : "Scrolling Google Maps…");
       pollRef.current = setInterval(async () => {
         try {
-          const jobRes  = await fetch(`${API}/api/job/${jobId}`);
-          const jobData = await jobRes.json();
-          if (jobData.status === "done") {
+          const jr = await fetch(`${API}/api/job/${jid}`);
+          const jd = await jr.json();
+          if (jd.status === "done" || jd.status === "cancelled") {
             clearInterval(pollRef.current);
-            setResults(jobData.results || []);
-            setSearched(true);
-            setLoading(false);
-            setJobId(null);
-          } else if (jobData.status === "cancelled") {
+            setResults(jd.results || []);
+            setSearched(true); setLoading(false); setJobId(null);
+          } else if (jd.status === "error") {
             clearInterval(pollRef.current);
-            setResults(jobData.results || []);
-            setSearched(true);
+            setError(jd.error || "Something went wrong");
             setLoading(false);
-            setJobId(null);
-          } else if (jobData.status === "error") {
-            clearInterval(pollRef.current);
-            setError(jobData.error || "Something went wrong");
-            setLoading(false);
-          } else if (jobData.status === "queued") {
-            const pos = jobData.queue_position;
-            setLoadMsg(`⏳ Queued at position ${pos} — waiting for current search to finish...`);
           } else {
-            const found      = jobData.results?.length || 0;
-            const onMaps     = jobData.total_on_maps;
-            const processing = jobData.processing;
-            if (onMaps && processing) {
-              setLoadMsg(`📍 ${onMaps} listings on Google Maps — scraping ${processing} in your range... (${found} done)`);
-            } else if (onMaps) {
-              setLoadMsg(`📍 ${onMaps} listings found on Google Maps — starting scrape...`);
-            } else {
-              setLoadMsg(`📜 Scrolling Google Maps to find listings...`);
-            }
+            const found = jd.results?.length || 0;
+            const onMaps = jd.total_on_maps;
+            const processing = jd.processing;
+            if (onMaps && processing) setLoadMsg(`Found ${onMaps} listings on Maps — scraping ${processing} in range… (${found} done)`);
+            else if (onMaps) setLoadMsg(`Found ${onMaps} listings — starting scrape…`);
+            else setLoadMsg("Scrolling Google Maps to find listings…");
           }
-        } catch {
-          clearInterval(pollRef.current);
-          setError("Lost connection to backend");
-          setLoading(false);
-        }
+        } catch {}
       }, 4000);
     } catch (e) {
-      setError(e.message);
-      setLoading(false);
+      setError(e.message); setLoading(false);
     }
-  };
-
-  const handleCopyTable = (data) => {
-    if (!data || data.length === 0) return;
-    const headers = ["Company Name", "Email", "Phone", "Website", "Location", "Company Type", "Status"];
-    const rows = data.map(r => [
-      r.name || "",
-      r.email || "",
-      r.phone || "",
-      r.website || "",
-      r.city && r.country ? `${r.city}, ${r.country}` : "",
-      r.company_type || "",
-      r.category || "",
-    ]);
-    const tsv = [headers, ...rows].map(row => row.join("\t")).join("\n");
-    navigator.clipboard.writeText(tsv).then(() => {
-      alert("✅ Table copied! Paste into Google Sheets, Excel or Google Docs.");
-    }).catch(() => {
-      alert("❌ Copy failed — try selecting the table manually.");
-    });
   };
 
   const handleCancel = async () => {
     if (!jobId) return;
-    try {
-      await fetch(`${API}/api/job/${jobId}/cancel`, { method: "POST" });
-      setLoadMsg("Cancelling... saving results found so far");
-    } catch {
-      setError("Could not cancel search");
-    }
+    try { await fetch(`${API}/api/job/${jobId}/cancel`, { method: "POST" }); setLoadMsg("Cancelling…"); } catch {}
   };
 
-  const handleExport = async (q, c, co) => {
-    const url = `${API}/api/export?query=${encodeURIComponent(q)}&city=${encodeURIComponent(c)}&country=${encodeURIComponent(co)}`;
-    const res  = await fetch(url);
-    if (!res.ok) { setError("No data to export"); return; }
-    const blob = await res.blob();
-    const a    = document.createElement("a");
-    a.href     = URL.createObjectURL(blob);
-    a.download = `reachct_${c}_${co}.xlsx`;
-    a.click();
-    URL.revokeObjectURL(a.href);
+  const handleExport = () => {
+    const url = `${API}/api/export?query=${encodeURIComponent(query)}&city=${encodeURIComponent(city)}&country=${encodeURIComponent(country)}`;
+    window.open(url, "_blank");
   };
 
-  const handleDbPull = async () => {
-    if (!dbCity && !dbCountry && !dbQuery) { setDbError("Please enter at least one search field."); return; }
-    setDbError(""); setDbLoading(true); setDbResults([]);
-    try {
-      const params = new URLSearchParams({ city: dbCity, country: dbCountry, ...(dbQuery && { query: dbQuery }) });
-      const res    = await fetch(`${API}/api/companies?${params}`);
-      const data   = await res.json();
-      if (!res.ok) throw new Error(data.detail || "Failed to fetch");
-      setDbResults(data.companies || []);
-    } catch (e) {
-      setDbError(e.message);
-    } finally {
-      setDbLoading(false);
-    }
+  const handleCopy = () => {
+    if (!results.length) return;
+    const headers = ["Company Name","Email","Phone","Website","City","Country","Company Type"];
+    const rows = results.map(r => [r.name||"",r.email||"",r.phone||"",r.website||"",r.city||"",r.country||"",r.company_type||""]);
+    const tsv = [headers,...rows].map(r => r.join("\t")).join("\n");
+    navigator.clipboard.writeText(tsv).then(() => alert("Copied! Paste into Google Sheets or Excel."));
   };
 
-  const withEmail = results.filter(r => r.email).length;
-  const withPhone = results.filter(r => r.phone).length;
-  const dbWithEmail = dbResults.filter(r => r.email).length;
-
-  const tabStyle = (t) => ({
-    padding: "10px 24px",
-    borderRadius: "8px 8px 0 0",
-    border: "none",
-    cursor: "pointer",
-    fontFamily: "'Syne', sans-serif",
-    fontWeight: 700,
-    fontSize: 13,
-    background: tab === t ? "white" : "rgba(255,255,255,0.2)",
-    color: tab === t ? PINK : "white",
-    transition: "all 0.2s",
-  });
+  useEffect(() => () => { if (pollRef.current) clearInterval(pollRef.current); }, []);
 
   return (
-    <div style={{ minHeight:"100vh", background:"#FFF8FB", fontFamily:"'DM Sans', sans-serif" }}>
-      <link rel="preconnect" href="https://fonts.googleapis.com"/>
-      <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+    <div className="inner-page">
+      <header className="inner-header">
+        <button className="back-btn" onClick={onBack}><ArrowLeftIcon /> Back</button>
+        <div className="inner-header-divider"/>
+        <div className="inner-header-logo"><ReachCTLogo size={22}/>Reach<span>CT</span></div>
+        <div className="inner-header-divider"/>
+        <span className="inner-header-title">New Search</span>
+      </header>
 
-      {/* Navbar */}
-      <nav style={{ background:PINK, padding:"0 32px", height:56, display:"flex", alignItems:"center", justifyContent:"space-between", boxShadow:"0 2px 12px rgba(232,0,90,0.18)" }}>
-        <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-          <Logo/>
-          <span style={{ color:"white", fontFamily:"'Syne', sans-serif", fontWeight:800, fontSize:20, letterSpacing:"-0.5px" }}>ReachCT</span>
-        </div>
-        <span style={{ color:"rgba(255,255,255,0.75)", fontSize:12, fontWeight:500 }}>B2B Contact Intelligence</span>
-      </nav>
-
-      {/* Hero */}
-      <div style={{ background:`linear-gradient(135deg, ${PINK} 0%, ${PINK_LIGHT} 100%)`, padding:"32px 32px 0", position:"relative", overflow:"hidden" }}>
-        {[{s:200,t:-70,r:-50,o:0.08},{s:120,t:15,r:110,o:0.06},{s:80,t:-15,r:190,o:0.1}].map((c,i) => (
-          <div key={i} style={{ position:"absolute", top:c.t, right:c.r, width:c.s, height:c.s, borderRadius:"50%", background:"white", opacity:c.o, pointerEvents:"none" }}/>
-        ))}
-
-        <div style={{ maxWidth:1100, margin:"0 auto", position:"relative" }}>
-          <h1 style={{ color:"white", fontFamily:"'Syne', sans-serif", fontSize:26, fontWeight:800, margin:"0 0 4px", letterSpacing:"-0.5px" }}>
-            Find Company Contacts
-          </h1>
-          <p style={{ color:"rgba(255,255,255,0.82)", fontSize:13, margin:"0 0 20px" }}>
-            Search Google Maps or pull from your existing database.
-          </p>
-
-          {/* Tabs */}
-          <div style={{ display:"flex", gap:4, marginBottom:0 }}>
-            <button style={tabStyle("scrape")} onClick={() => setTab("scrape")}>🔍 Scrape Google Maps</button>
-            <button style={tabStyle("database")} onClick={() => setTab("database")}>🗄️ Pull from Database</button>
+      <div className="form-area">
+        <div className="form-card">
+          <div className="form-title">Search Google Maps</div>
+          <div className="form-grid">
+            <div>
+              <label className="field-label">Business Type</label>
+              <select className="field-select" value={query} onChange={e => setQuery(e.target.value)}>
+                <option value="">Select company type…</option>
+                {COMPANY_TYPES.map(ct => <option key={ct} value={ct}>{ct}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="field-label">City</label>
+              <input className="field-input" value={city} onChange={e => setCity(e.target.value)} placeholder="e.g. Munich"/>
+            </div>
+            <div>
+              <label className="field-label">Country</label>
+              <input className="field-input" value={country} onChange={e => setCountry(e.target.value)} placeholder="e.g. Germany"/>
+            </div>
           </div>
-        </div>
-      </div>
-
-      {/* Form area */}
-      <div style={{ background:"white", borderBottom:`1.5px solid ${PINK_BORDER}`, boxShadow:"0 4px 16px rgba(232,0,90,0.08)" }}>
-        <div style={{ maxWidth:1100, margin:"0 auto", padding:"20px 32px" }}>
-
-          {/* Scrape tab */}
-          {tab === "scrape" && (
+          <div className="form-grid-2">
             <div>
-              <div style={{ display:"grid", gridTemplateColumns:"2fr 1fr 1fr 1fr 1fr auto", gap:12, alignItems:"flex-end" }}>
-                <div>
-                  <label style={{ fontSize:10, fontWeight:700, color:"#888", letterSpacing:"0.08em", textTransform:"uppercase", display:"block", marginBottom:5 }}>Business Type</label>
-                  <select value={query} onChange={e => setQuery(e.target.value)}
-                    style={{ width:"100%", boxSizing:"border-box", padding:"9px 12px", borderRadius:8, border:`1.5px solid ${PINK_BORDER}`, fontSize:13, color: query ? "#1a1a1a" : "#999", outline:"none", fontFamily:"'DM Sans', sans-serif", background:"white", cursor:"pointer", maxHeight:200, overflowY:"auto" }}
-                    onFocus={e => e.target.style.borderColor = PINK}
-                    onBlur={e  => e.target.style.borderColor = PINK_BORDER}
-                  >
-                    <option value="">Select company type...</option>
-                    {COMPANY_TYPES.map(ct => <option key={ct} value={ct}>{ct}</option>)}
-                  </select>
-                </div>
-                <Field label="City"          value={city}    set={setCity}    placeholder="e.g. Munich"/>
-                <Field label="Country"       value={country} set={setCountry} placeholder="e.g. Germany"/>
-                <NumberInput label="Start Index" value={start} set={setStart} min={0}/>
-                <NumberInput label="End Index (max +50)" value={end} set={(v) => setEnd(Math.min(v, start + 50))} min={1}/>
-                <button
-                  onClick={handleSearch} disabled={loading}
-                  style={{ background:loading?PINK_BORDER:PINK, color:"white", border:"none", padding:"10px 28px", borderRadius:8, fontSize:13, fontWeight:700, cursor:loading?"not-allowed":"pointer", fontFamily:"'Syne', sans-serif", whiteSpace:"nowrap", height:40 }}
-                  onMouseEnter={e => { if (!loading) e.target.style.background = PINK_LIGHT; }}
-                  onMouseLeave={e => { if (!loading) e.target.style.background = PINK; }}
-                >
-                  {loading ? "Searching..." : "Search"}
-                </button>
-                {loading && (
-                  <button
-                    onClick={handleCancel}
-                    style={{ background:"white", color:"#DC2626", border:"2px solid #DC2626", padding:"10px 20px", borderRadius:8, fontSize:13, fontWeight:700, cursor:"pointer", fontFamily:"'Syne', sans-serif", whiteSpace:"nowrap", height:40 }}
-                    onMouseEnter={e => { e.target.style.background = "#DC2626"; e.target.style.color = "white"; }}
-                    onMouseLeave={e => { e.target.style.background = "white"; e.target.style.color = "#DC2626"; }}
-                  >
-                    ⏹ Stop
-                  </button>
-                )}
-              </div>
-              <p style={{ color:"#E8005A", fontSize:12, marginTop:8, fontWeight:600 }}>💡 Use English spelling for city and country — e.g. "Spain" not "España", "Munich" not "München"</p>
-            {error && <p style={{ color:"#DC2626", fontSize:12, marginTop:10, fontWeight:500 }}>{error}</p>}
+              <label className="field-label">Start Index</label>
+              <input className="field-input" type="number" min="0" value={start} onChange={e => setStart(Number(e.target.value))}/>
             </div>
-          )}
-
-          {/* Database tab */}
-          {tab === "database" && (
             <div>
-              <div style={{ display:"grid", gridTemplateColumns:"2fr 1fr 1fr auto auto", gap:12, alignItems:"flex-end" }}>
-                <div>
-                  <label style={{ fontSize:10, fontWeight:700, color:"#888", letterSpacing:"0.08em", textTransform:"uppercase", display:"block", marginBottom:5 }}>Company Type (optional)</label>
-                  <select value={dbQuery} onChange={e => setDbQuery(e.target.value)}
-                    style={{ width:"100%", padding:"9px 12px", borderRadius:8, border:`1.5px solid ${PINK_BORDER}`, fontSize:13, color: dbQuery ? "#1a1a1a" : "#999", outline:"none", fontFamily:"'DM Sans', sans-serif", background:"white", cursor:"pointer" }}
-                    onFocus={e => e.target.style.borderColor = PINK}
-                    onBlur={e  => e.target.style.borderColor = PINK_BORDER}
-                  >
-                    <option value="">All company types</option>
-                    {safeCompanyTypes.map(ct => <option key={ct} value={ct}>{ct}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label style={{ fontSize:10, fontWeight:700, color:"#888", letterSpacing:"0.08em", textTransform:"uppercase", display:"block", marginBottom:5 }}>Country (optional)</label>
-                  <select value={dbCountry} onChange={e => { setDbCountry(e.target.value); setDbCity(""); }}
-                    style={{ width:"100%", padding:"9px 12px", borderRadius:8, border:`1.5px solid ${PINK_BORDER}`, fontSize:13, color: dbCountry ? "#1a1a1a" : "#999", outline:"none", fontFamily:"'DM Sans', sans-serif", background:"white", cursor:"pointer" }}
-                    onFocus={e => e.target.style.borderColor = PINK}
-                    onBlur={e  => e.target.style.borderColor = PINK_BORDER}
-                  >
-                    <option value="">All countries</option>
-                    {safeCountries.map(c => <option key={c} value={c}>{c}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label style={{ fontSize:10, fontWeight:700, color:"#888", letterSpacing:"0.08em", textTransform:"uppercase", display:"block", marginBottom:5 }}>City (optional)</label>
-                  <select value={dbCity} onChange={e => setDbCity(e.target.value)}
-                    style={{ width:"100%", padding:"9px 12px", borderRadius:8, border:`1.5px solid ${PINK_BORDER}`, fontSize:13, color: dbCity ? "#1a1a1a" : "#999", outline:"none", fontFamily:"'DM Sans', sans-serif", background:"white", cursor:"pointer" }}
-                    onFocus={e => e.target.style.borderColor = PINK}
-                    onBlur={e  => e.target.style.borderColor = PINK_BORDER}
-                  >
-                    <option value="">All cities</option>
-                    {(dbCountry ? (safeCities[dbCountry] || []) : Object.values(safeCities).flat()).map(c => <option key={c} value={c}>{c}</option>)}
-                  </select>
-                </div>
-                <button
-                  onClick={handleDbPull} disabled={dbLoading}
-                  style={{ background:dbLoading?PINK_BORDER:PINK, color:"white", border:"none", padding:"10px 24px", borderRadius:8, fontSize:13, fontWeight:700, cursor:dbLoading?"not-allowed":"pointer", fontFamily:"'Syne', sans-serif", whiteSpace:"nowrap", height:40 }}
-                  onMouseEnter={e => { if (!dbLoading) e.target.style.background = PINK_LIGHT; }}
-                  onMouseLeave={e => { if (!dbLoading) e.target.style.background = PINK; }}
-                >
-                  {dbLoading ? "Loading..." : "Pull Data"}
-                </button>
-                {dbResults.length > 0 && (
-                  <>
-                    <button
-                      onClick={() => handleExport(dbQuery, dbCity, dbCountry)}
-                      style={{ background:"white", color:PINK, border:`2px solid ${PINK}`, padding:"9px 18px", borderRadius:8, fontSize:13, fontWeight:700, cursor:"pointer", fontFamily:"'Syne', sans-serif", whiteSpace:"nowrap", height:40 }}
-                      onMouseEnter={e => { e.target.style.background = PINK; e.target.style.color = "white"; }}
-                      onMouseLeave={e => { e.target.style.background = "white"; e.target.style.color = PINK; }}
-                    >
-                      ↓ Export Excel
-                    </button>
-                    <button
-                      onClick={() => handleCopyTable(dbResults)}
-                      style={{ background:"white", color:"#059669", border:"2px solid #059669", padding:"9px 18px", borderRadius:8, fontSize:13, fontWeight:700, cursor:"pointer", fontFamily:"'Syne', sans-serif", whiteSpace:"nowrap", height:40 }}
-                      onMouseEnter={e => { e.target.style.background = "#059669"; e.target.style.color = "white"; }}
-                      onMouseLeave={e => { e.target.style.background = "white"; e.target.style.color = "#059669"; }}
-                    >
-                      📋 Copy Table
-                    </button>
-                  </>
-                )}
-              </div>
-              {dbError && <p style={{ color:"#DC2626", fontSize:12, marginTop:10, fontWeight:500 }}>{dbError}</p>}
+              <label className="field-label">End Index (max +100)</label>
+              <input className="field-input" type="number" min="1" value={end} onChange={e => setEnd(Math.min(Number(e.target.value), start + 100))}/>
+            </div>
+          </div>
+          <p className="hint">Use English spelling — "Spain" not "España", "Munich" not "München"</p>
+          <div className="btn-row">
+            <button className="btn-primary" onClick={handleSearch} disabled={loading}>
+              <SearchIcon />{loading ? "Searching…" : "Search"}
+            </button>
+            {loading && <button className="btn-danger" onClick={handleCancel}><StopIcon />Stop</button>}
+          </div>
+          {error && <div className="error-msg">{error}</div>}
+          {loading && (
+            <div className="loading-area">
+              <div className="spinner"/>
+              <p className="loading-msg">{loadMsg}</p>
             </div>
           )}
         </div>
       </div>
 
-      {/* Results */}
-      <div style={{ maxWidth:1100, margin:"0 auto", padding:"24px 32px" }}>
+      {searched && (
+        <div className="results-area">
+          <div className="results-header">
+            <div className="results-count"><span>{results.length}</span> companies found</div>
+            <div className="btn-row">
+              <button className="btn-secondary" onClick={handleExport}><DownloadIcon/>Export Excel</button>
+              <button className="btn-secondary" onClick={handleCopy}><CopyIcon/>Copy Table</button>
+            </div>
+          </div>
+          <ResultsTable data={results}/>
+        </div>
+      )}
+    </div>
+  );
+}
 
-        {/* Scrape results */}
-        {tab === "scrape" && (
-          <>
-            {loading && <Spinner message={loadMsg} queued={loadMsg.includes('Queued')}/>}
-            {searched && !loading && (
-              <>
-                <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:16, flexWrap:"wrap", gap:12 }}>
-                  <div style={{ display:"flex", gap:12 }}>
-                    {[{label:"Total",value:results.length,color:PINK},{label:"Emails",value:withEmail,color:"#059669"},{label:"Phones",value:withPhone,color:"#0369A1"}].map(({label,value,color}) => (
-                      <div key={label} style={{ background:"white", border:`1.5px solid ${PINK_BORDER}`, borderRadius:10, padding:"7px 16px", textAlign:"center", boxShadow:"0 2px 8px rgba(232,0,90,0.06)" }}>
-                        <div style={{ fontSize:20, fontWeight:800, color, fontFamily:"'Syne', sans-serif" }}>{value}</div>
-                        <div style={{ fontSize:10, color:"#999", fontWeight:600, textTransform:"uppercase", letterSpacing:"0.06em" }}>{label}</div>
-                      </div>
-                    ))}
-                  </div>
-                  <div style={{ display:"flex", gap:8, alignItems:"center" }}>
-                    <input
-                      placeholder="Filter results..." value={filter}
-                      onChange={e => setFilter(e.target.value)}
-                      style={{ padding:"7px 12px", borderRadius:7, border:`1.5px solid ${PINK_BORDER}`, fontSize:12, outline:"none", width:160, fontFamily:"'DM Sans', sans-serif" }}
-                      onFocus={e => e.target.style.borderColor = PINK}
-                      onBlur={e  => e.target.style.borderColor = PINK_BORDER}
-                    />
-                    <button
-                      onClick={() => handleExport(query, city, country)}
-                      style={{ background:"white", color:PINK, border:`2px solid ${PINK}`, padding:"7px 16px", borderRadius:7, fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"'Syne', sans-serif" }}
-                      onMouseEnter={e => { e.target.style.background = PINK; e.target.style.color = "white"; }}
-                      onMouseLeave={e => { e.target.style.background = "white"; e.target.style.color = PINK; }}
-                    >
-                      ↓ Export Excel
-                    </button>
-                    <button
-                      onClick={() => handleCopyTable(results)}
-                      style={{ background:"white", color:"#059669", border:"2px solid #059669", padding:"7px 16px", borderRadius:7, fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"'Syne', sans-serif" }}
-                      onMouseEnter={e => { e.target.style.background = "#059669"; e.target.style.color = "white"; }}
-                      onMouseLeave={e => { e.target.style.background = "white"; e.target.style.color = "#059669"; }}
-                    >
-                      📋 Copy Table
-                    </button>
-                  </div>
-                </div>
-                <ResultsTable results={results} filter={filter}/>
-              </>
-            )}
-            {!searched && !loading && (
-              <div style={{ textAlign:"center", padding:"64px 0" }}>
-                <div style={{ fontSize:40, marginBottom:10 }}>🔍</div>
-                <p style={{ fontSize:15, fontWeight:600, color:"#bbb" }}>Enter a search above to find companies</p>
-                <p style={{ fontSize:12, color:"#ccc" }}>Results will appear here</p>
-              </div>
-            )}
-          </>
-        )}
+// ─── DATABASE PAGE ────────────────────────────────────────────────────────────
+function DatabasePage({ onBack }) {
+  const [dbQuery,   setDbQuery]   = useState("");
+  const [dbCity,    setDbCity]    = useState("");
+  const [dbCountry, setDbCountry] = useState("");
+  const [dbResults, setDbResults] = useState([]);
+  const [searched,  setSearched]  = useState(false);
+  const [loading,   setLoading]   = useState(false);
+  const [error,     setError]     = useState("");
+  const [filters,   setFilters]   = useState({ countries: [], cities: {}, company_types: [] });
 
-        {/* Database results */}
-        {tab === "database" && (
-          <>
-            {dbLoading && <Spinner message="Fetching from database..."/>}
-            {!dbLoading && dbResults.length > 0 && (
-              <>
-                <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:16, flexWrap:"wrap", gap:12 }}>
-                  <div style={{ display:"flex", gap:12 }}>
-                    {[{label:"Total",value:dbResults.length,color:PINK},{label:"Emails",value:dbWithEmail,color:"#059669"}].map(({label,value,color}) => (
-                      <div key={label} style={{ background:"white", border:`1.5px solid ${PINK_BORDER}`, borderRadius:10, padding:"7px 16px", textAlign:"center" }}>
-                        <div style={{ fontSize:20, fontWeight:800, color, fontFamily:"'Syne', sans-serif" }}>{value}</div>
-                        <div style={{ fontSize:10, color:"#999", fontWeight:600, textTransform:"uppercase", letterSpacing:"0.06em" }}>{label}</div>
-                      </div>
-                    ))}
-                  </div>
-                  <input
-                    placeholder="Filter results..." value={dbFilter}
-                    onChange={e => setDbFilter(e.target.value)}
-                    style={{ padding:"7px 12px", borderRadius:7, border:`1.5px solid ${PINK_BORDER}`, fontSize:12, outline:"none", width:160, fontFamily:"'DM Sans', sans-serif" }}
-                    onFocus={e => e.target.style.borderColor = PINK}
-                    onBlur={e  => e.target.style.borderColor = PINK_BORDER}
-                  />
-                </div>
-                <ResultsTable results={dbResults} filter={dbFilter}/>
-              </>
-            )}
-            {!dbLoading && dbResults.length === 0 && (
-              <div style={{ textAlign:"center", padding:"64px 0" }}>
-                <div style={{ fontSize:40, marginBottom:10 }}>🗄️</div>
-                <p style={{ fontSize:15, fontWeight:600, color:"#bbb" }}>Pull from your database</p>
-                <p style={{ fontSize:12, color:"#ccc" }}>Enter a city and country to retrieve saved companies</p>
-              </div>
-            )}
-          </>
-        )}
+  useEffect(() => {
+    fetch(`${API}/api/filters`).then(r => r.json()).then(setFilters).catch(() => {});
+  }, []);
+
+  const safeCountries    = filters?.countries    || [];
+  const safeCities       = filters?.cities       || {};
+  const safeCompanyTypes = filters?.company_types || [];
+
+  const handlePull = async () => {
+    if (!dbCity && !dbCountry && !dbQuery) { setError("Please select at least one filter."); return; }
+    setError(""); setLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (dbCity)    params.append("city", dbCity);
+      if (dbCountry) params.append("country", dbCountry);
+      if (dbQuery)   params.append("query", dbQuery);
+      const res  = await fetch(`${API}/api/companies?${params}`);
+      const data = await res.json();
+      setDbResults(data.companies || []);
+      setSearched(true);
+    } catch { setError("Failed to load data."); }
+    setLoading(false);
+  };
+
+  const handleExport = () => {
+    const params = new URLSearchParams();
+    if (dbCity)    params.append("city", dbCity);
+    if (dbCountry) params.append("country", dbCountry);
+    if (dbQuery)   params.append("query", dbQuery);
+    window.open(`${API}/api/export?${params}`, "_blank");
+  };
+
+  const handleCopy = () => {
+    if (!dbResults.length) return;
+    const headers = ["Company Name","Email","Phone","Website","City","Country","Company Type"];
+    const rows = dbResults.map(r => [r.name||"",r.email||"",r.phone||"",r.website||"",r.city||"",r.country||"",r.company_type||""]);
+    const tsv = [headers,...rows].map(r => r.join("\t")).join("\n");
+    navigator.clipboard.writeText(tsv).then(() => alert("Copied! Paste into Google Sheets or Excel."));
+  };
+
+  return (
+    <div className="inner-page">
+      <header className="inner-header">
+        <button className="back-btn" onClick={onBack}><ArrowLeftIcon/>Back</button>
+        <div className="inner-header-divider"/>
+        <div className="inner-header-logo"><ReachCTLogo size={22}/>Reach<span>CT</span></div>
+        <div className="inner-header-divider"/>
+        <span className="inner-header-title">Database</span>
+      </header>
+
+      <div className="form-area">
+        <div className="form-card">
+          <div className="form-title">Pull From Database</div>
+          <div className="form-grid">
+            <div>
+              <label className="field-label">Company Type (optional)</label>
+              <select className="field-select" value={dbQuery} onChange={e => setDbQuery(e.target.value)}>
+                <option value="">All company types</option>
+                {safeCompanyTypes.map(ct => <option key={ct} value={ct}>{ct}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="field-label">Country (optional)</label>
+              <select className="field-select" value={dbCountry} onChange={e => { setDbCountry(e.target.value); setDbCity(""); }}>
+                <option value="">All countries</option>
+                {safeCountries.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="field-label">City (optional)</label>
+              <select className="field-select" value={dbCity} onChange={e => setDbCity(e.target.value)}>
+                <option value="">All cities</option>
+                {(dbCountry ? (safeCities[dbCountry]||[]) : Object.values(safeCities).flat()).map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+          </div>
+          <div className="btn-row">
+            <button className="btn-primary" onClick={handlePull} disabled={loading}>
+              <DatabaseIcon/>{loading ? "Loading…" : "Pull Data"}
+            </button>
+          </div>
+          {error && <div className="error-msg">{error}</div>}
+          {loading && <div className="loading-area"><div className="spinner"/><p className="loading-msg">Fetching from database…</p></div>}
+        </div>
       </div>
+
+      {searched && (
+        <div className="results-area">
+          <div className="results-header">
+            <div className="results-count"><span>{dbResults.length}</span> companies found</div>
+            <div className="btn-row">
+              <button className="btn-secondary" onClick={handleExport}><DownloadIcon/>Export Excel</button>
+              <button className="btn-secondary" onClick={handleCopy}><CopyIcon/>Copy Table</button>
+            </div>
+          </div>
+          <ResultsTable data={dbResults}/>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── RESULTS TABLE ────────────────────────────────────────────────────────────
+function ResultsTable({ data }) {
+  if (!data.length) return <div style={{textAlign:"center",padding:"48px",color:"#999",fontSize:14}}>No results found.</div>;
+  return (
+    <div className="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Company Name</th>
+            <th>Email</th>
+            <th>Phone</th>
+            <th>Website</th>
+            <th>Location</th>
+            <th>Type</th>
+          </tr>
+        </thead>
+        <tbody>
+          {data.map((r, i) => (
+            <tr key={i}>
+              <td style={{color:"#bbb",fontSize:12}}>{i+1}</td>
+              <td style={{fontWeight:500,color:"#111"}}>{r.name||<span className="no-data">—</span>}</td>
+              <td className={r.email?"email-cell":""}>{r.email||<span className="no-data">—</span>}</td>
+              <td>{r.phone||<span className="no-data">—</span>}</td>
+              <td>{r.website ? <a href={r.website} target="_blank" rel="noreferrer" style={{color:"#666",textDecoration:"none",fontSize:12}}>{r.website.replace(/https?:\/\/(www\.)?/,"").slice(0,30)}</a> : <span className="no-data">—</span>}</td>
+              <td style={{fontSize:12,color:"#666"}}>{[r.city,r.country].filter(Boolean).join(", ")||<span className="no-data">—</span>}</td>
+              <td style={{fontSize:12,color:"#888"}}>{r.company_type||<span className="no-data">—</span>}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }

@@ -24,8 +24,8 @@ from fastapi import FastAPI, BackgroundTasks, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 
-from database     import init_db, save_search, upsert_company, get_companies
-from reachct      import scrape_google_maps, export_to_excel
+from database import init_db, save_search, upsert_company, get_companies
+from reachct  import scrape_google_maps, export_to_excel
 
 app = FastAPI(title="ReachCT API", version="1.0.0")
 
@@ -110,34 +110,34 @@ async def start_scrape(
     if end <= start:
         raise HTTPException(status_code=400, detail="end must be greater than start")
 
-    if (end - start) > 50:
-        raise HTTPException(status_code=400, detail="Maximum 50 listings per search. Use start/end ranges to paginate for larger searches.")
+    if (end - start) > 100:
+        raise HTTPException(status_code=400, detail="Maximum 100 listings per search.")
 
     job_id = str(uuid.uuid4())[:8]
 
-    # Calculate queue position
-    queued_or_running = sum(
-        1 for j in jobs.values()
-        if j["status"] in ("running", "queued")
-    )
-    queue_position = queued_or_running  # 0 = runs immediately
+    # Use lock to prevent race condition when two users search simultaneously
+    with queue_lock:
+        queued_or_running = sum(
+            1 for j in jobs.values()
+            if j["status"] in ("running", "queued")
+        )
+        queue_position = queued_or_running  # 0 = runs immediately
 
-    jobs[job_id] = {
-        "status":         "queued" if queue_position > 0 else "running",
-        "queue_position": queue_position,
-        "progress":       0,
-        "total":          end - start,
-        "total_on_maps":  None,
-        "processing":     None,
-        "results":        [],
-        "error":          None,
-        "query":          query,
-        "city":           city,
-        "country":        country,
-    }
+        jobs[job_id] = {
+            "status":         "queued" if queue_position > 0 else "running",
+            "queue_position": queue_position,
+            "progress":       0,
+            "total":          end - start,
+            "total_on_maps":  None,
+            "processing":     None,
+            "results":        [],
+            "error":          None,
+            "query":          query,
+            "city":           city,
+            "country":        country,
+        }
 
-    # Add to queue
-    search_queue.put((job_id, query, city, country, start, end))
+        search_queue.put((job_id, query, city, country, start, end))
 
     message = "Scrape started" if queue_position == 0 else f"Queued at position {queue_position}"
     return {"job_id": job_id, "message": message, "queue_position": queue_position}
@@ -254,33 +254,10 @@ def get_all_companies(city: Optional[str] = None, country: Optional[str] = None,
 
 # ── Get unique filter values from DB ─────────────────────────────────────────
 @app.get("/api/filters")
-def get_filters():
+def get_filters_endpoint():
     """Returns all unique countries, cities and company types stored in the DB."""
-    from database import get_conn
-    conn = get_conn()
-    c    = conn.cursor()
-
-    c.execute("SELECT DISTINCT TRIM(country) as country FROM companies WHERE country != '' ORDER BY country ASC")
-    countries = [row[0] for row in c.fetchall()]
-
-    c.execute("SELECT DISTINCT TRIM(city) as city, TRIM(country) as country FROM companies WHERE city != '' ORDER BY city ASC")
-    cities_raw = c.fetchall()
-    cities = {}
-    for city, country in cities_raw:
-        if country not in cities:
-            cities[country] = []
-        if city not in cities[country]:
-            cities[country].append(city)
-
-    c.execute("SELECT DISTINCT TRIM(company_type) as ct FROM companies WHERE company_type != '' ORDER BY ct ASC")
-    company_types = [row[0] for row in c.fetchall()]
-
-    conn.close()
-    return {
-        "countries":     countries,
-        "cities":        cities,
-        "company_types": company_types,
-    }
+    from database import get_filters
+    return get_filters()
 
 
 # ── Get search history ────────────────────────────────────────────────────────

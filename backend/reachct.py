@@ -3,18 +3,14 @@ ReachCT — reachct.py
 Main scraper. Searches Google Maps and extracts company contact info.
 
 Requirements:
-    pip install playwright openpyxl beautifulsoup4 spacy nltk
+    pip install playwright openpyxl beautifulsoup4
     playwright install chromium
-    python -m spacy download es_core_news_sm
-    python -c "import nltk; nltk.download('stopwords')"
 
 Usage:
-    python reachct.py --query "agencia de marketing" --city "Madrid" --country "España" --start 0 --end 25
-    python reachct.py --export --city "Madrid" --country "España"
+    python reachct.py --query "Marketing Company" --city "Madrid" --country "Spain" --start 0 --end 25
 """
 
 import re
-import csv
 import uuid
 import random
 import argparse
@@ -25,8 +21,7 @@ import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from datetime import datetime
 
-from database     import init_db, save_search, upsert_company, get_companies
-from verification import verify
+from database import init_db, save_search, upsert_company, get_companies
 
 
 # ── CONFIG ────────────────────────────────────────────────────────────────────
@@ -51,18 +46,17 @@ EMAIL_BLACKLIST = [
     "png", "jpg", "gif", "svg", "css", "js@", "noreply",
 ]
 
-MAX_RETRIES = 1  # 1 attempt, no retries
+MAX_RETRIES = 1  # 1 attempt per site
 # ─────────────────────────────────────────────────────────────────────────────
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
-def random_delay(min_ms=2000, max_ms=5000):
+def random_delay(min_ms=1000, max_ms=2500):
     return random.randint(min_ms, max_ms)
 
 
 def extract_emails(text: str) -> list:
-    # Match standard emails and emails wrapped in angle brackets <email@domain.com>
     found = re.findall(r"<?([a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,})>?", text)
     return list(dict.fromkeys([
         e.lower() for e in found
@@ -85,7 +79,7 @@ async def try_contact_pages(page, base_url: str) -> dict:
     base   = f"{parsed.scheme}://{parsed.netloc}"
     for path in CONTACT_PATHS:
         try:
-            r = await page.goto(base + path, timeout=8000, wait_until="domcontentloaded")
+            r = await page.goto(base + path, timeout=10000, wait_until="domcontentloaded")
             if r and r.status == 200:
                 await page.wait_for_timeout(random_delay(800, 1500))
                 html   = await page.content()
@@ -103,28 +97,18 @@ async def scrape_website(browser, url: str, retries: int = MAX_RETRIES) -> dict:
     if not url:
         return {"email": "", "phone": "", "page_text": ""}
 
-    # Skip HTTP sites
-    if url.startswith("http://"):
-        print(f"    ⏭️  Skipped HTTP site: {url[:50]}")
-        return {"email": "", "phone": "", "page_text": ""}
-
-    site_timeout = 15000
-
     for attempt in range(retries):
         context = None
         try:
-            # Full browser context that looks like a real user
-            context = await browser.new_context(
-                user_agent=random.choice(USER_AGENTS)
-            )
+            context   = await browser.new_context(user_agent=random.choice(USER_AGENTS))
             page      = await context.new_page()
             email     = ""
             phone     = ""
             page_text = ""
 
-            await page.goto(url, timeout=site_timeout, wait_until="domcontentloaded")
-            await page.wait_for_timeout(random_delay(2000, 3000))
-            # Get content — wait extra if JS hasn't rendered yet
+            await page.goto(url, timeout=15000, wait_until="domcontentloaded")
+            await page.wait_for_timeout(random_delay(1500, 2500))
+
             try:
                 html      = await page.content()
                 page_text = await page.evaluate("() => document.body.innerText")
@@ -139,28 +123,22 @@ async def scrape_website(browser, url: str, retries: int = MAX_RETRIES) -> dict:
             emails = extract_emails(html + " " + page_text)
             phones = extract_phones(html + " " + page_text)
 
-            if emails:
-                email = emails[0]
-            if phones:
-                phone = phones[0]
+            if emails: email = emails[0]
+            if phones: phone = phones[0]
 
             if not email:
                 data = await try_contact_pages(page, url)
-                if data["emails"]:
-                    email = data["emails"][0]
-                if not phone and data["phones"]:
-                    phone = data["phones"][0]
+                if data["emails"]: email = data["emails"][0]
+                if not phone and data["phones"]: phone = data["phones"][0]
 
             return {"email": email, "phone": phone, "page_text": page_text}
 
         except Exception as e:
-            print(f"    ⚠️  Failed ({type(e).__name__}): {str(e)[:80]}")
+            print(f"    ⚠️  Failed: {str(e)[:60]}")
         finally:
             if context:
-                try:
-                    await context.close()
-                except:
-                    pass
+                try: await context.close()
+                except: pass
 
     return {"email": "", "phone": "", "page_text": ""}
 
@@ -177,7 +155,7 @@ async def get_business_name(page) -> str:
         except:
             continue
 
-    await page.wait_for_timeout(random_delay(800, 1200))
+    await page.wait_for_timeout(random_delay(600, 1000))
 
     for sel in ['h1.DUwDvf', 'div.DUwDvf', 'h1.fontHeadlineLarge',
                 'div.fontHeadlineLarge', 'div[role="main"] h1']:
@@ -236,23 +214,20 @@ async def scrape_google_maps(query: str, city: str, country: str,
                 if await btn.count() > 0:
                     await btn.first.click()
                     print("🍪 Accepted cookies")
-                    await page.wait_for_timeout(random_delay(1000, 1500))
+                    await page.wait_for_timeout(random_delay(800, 1200))
                     break
         except:
             pass
 
         print(f"📄 {await page.title()}")
-
-        # Scroll in chunks of 25 — only load what we need
-        # For start=100, end=125 we only need to scroll to 125, not load all 125 at once
         print(f"📜 Scrolling to load listings {start_idx}→{end_idx}...")
+
         seen_hrefs   = set()
         all_hrefs    = []
         scroll_count = 0
         max_scrolls  = (end_idx // 3) + 6
 
         while len(all_hrefs) < end_idx and scroll_count < max_scrolls:
-            # Collect current visible HREFs
             links = await page.locator('a[href*="/maps/place/"]').all()
             for l in links:
                 try:
@@ -263,12 +238,10 @@ async def scrape_google_maps(query: str, city: str, country: str,
                 except:
                     continue
 
-            # Stop scrolling if we have enough
             if len(all_hrefs) >= end_idx:
                 print(f"   ✅ Loaded {len(all_hrefs)} listings — stopping scroll")
                 break
 
-            # Scroll more
             try:
                 for sel in ['div[role="feed"]', 'div[aria-label*="Resultados"]', 'div[aria-label*="Results"]']:
                     feed = page.locator(sel)
@@ -280,40 +253,36 @@ async def scrape_google_maps(query: str, city: str, country: str,
                 break
             scroll_count += 1
 
-        batch        = all_hrefs[start_idx:end_idx]
-        total        = len(batch)
+        batch         = all_hrefs[start_idx:end_idx]
+        total         = len(batch)
         total_on_maps = len(all_hrefs)
 
-        # Update job with total listings found on Maps
         if jobs and job_id:
             jobs[job_id]["total_on_maps"] = total_on_maps
             jobs[job_id]["processing"]    = total
-        print(f"\n✅ {len(all_hrefs)} total listings — processing {start_idx}→{start_idx+total}\n")
+
+        print(f"\n✅ {total_on_maps} total listings — processing {start_idx}→{start_idx+total}\n")
 
         if total == 0:
-            print("❌ No listings in range. Try scrolling further or adjusting --start/--end.")
-            await page.wait_for_timeout(4000)
+            print("❌ No listings in range.")
             await browser.close()
             return []
 
-        # batch is already HREFs (strings)
-        batch_hrefs = batch
-
-        BROWSER_RESTART_EVERY = 10
-
-        for i, listing_href in enumerate(batch_hrefs):
-            # Check for cancellation between listings
+        for i, listing_href in enumerate(batch):
+            # Check for cancellation — hard stop, kill browser immediately
             if jobs and job_id and jobs.get(job_id, {}).get("status") == "cancelling":
-                print(f"  🛑 Search cancelled at listing {start_idx+i+1} — saving {len(results)} results")
-                break
-
-            # Restart browser every 10 listings to free RAM
-            if i > 0 and i % BROWSER_RESTART_EVERY == 0:
-                print(f"  🔄 Restarting browser (listing {start_idx+i+1})...")
+                print(f"  🛑 Search hard-stopped at listing {start_idx+i+1} — saving {len(results)} results")
                 try:
                     await browser.close()
                 except:
                     pass
+                return results
+
+            # Restart browser before every listing (8GB RAM — fresh slate each time)
+            if i > 0:
+                try: await browser.close()
+                except: pass
+                await asyncio.sleep(2)
                 browser = await p.chromium.launch(headless=HEADLESS)
                 context = await browser.new_context(
                     user_agent=random.choice(USER_AGENTS),
@@ -321,28 +290,25 @@ async def scrape_google_maps(query: str, city: str, country: str,
                     viewport={"width": 1280, "height": 800},
                 )
                 page = await context.new_page()
-                # Re-navigate to Maps search to restore session
                 await page.goto(maps_url, timeout=15000, wait_until="domcontentloaded")
-                await page.wait_for_timeout(random_delay(2000, 3000))
+                await page.wait_for_timeout(random_delay(1500, 2000))
                 try:
                     for btn_text in ["Aceptar todo", "Accept all", "Aceptar", "Accept"]:
                         btn = page.get_by_role("button", name=btn_text)
                         if await btn.count() > 0:
                             await btn.first.click()
-                            await page.wait_for_timeout(1000)
+                            await page.wait_for_timeout(800)
                             break
                 except:
                     pass
-                print(f"  ✅ Browser restarted with Maps session restored")
 
             try:
-                # Navigate to the listing href directly
                 await page.goto(listing_href, timeout=15000, wait_until="domcontentloaded")
-                await page.wait_for_timeout(random_delay(1500, 2500))
+                await page.wait_for_timeout(random_delay(1500, 2000))
 
                 name = await get_business_name(page)
 
-                # Phone from Maps
+                # Phone
                 phone_maps = ""
                 try:
                     btn = page.locator('button[data-item-id*="phone"]')
@@ -367,32 +333,17 @@ async def scrape_google_maps(query: str, city: str, country: str,
                     except:
                         continue
 
-                # Address
-                address = ""
-                try:
-                    addr = page.locator('button[data-item-id*="address"]')
-                    if await addr.count() > 0:
-                        address = await addr.first.inner_text(timeout=2000)
-                except:
-                    pass
-
                 print(f"[{start_idx+i+1}] {name or '(no name)'}")
                 print(f"  📞 {phone_maps or 'no phone'}")
                 print(f"  🌐 {website[:65] if website else 'no website'}")
 
-                # Scrape website for email if URL available
                 web_data = {"email": "", "phone": "", "page_text": ""}
                 if website:
                     web_data = await scrape_website(browser, website)
 
-                # Verify
-                v = verify(web_data["page_text"], website, query)
-
-                print(f"  🔎 {v['category']} — {v['reason']}")
-
                 final_phone = phone_maps or web_data["phone"]
                 email       = web_data["email"]
-                print(f"  ✉️  {email or 'no email'}")
+                print(f"  ✉️  {email or 'no email'}\n")
 
                 results.append({
                     "run_id":       run_id,
@@ -403,16 +354,13 @@ async def scrape_google_maps(query: str, city: str, country: str,
                     "city":         city,
                     "country":      country,
                     "company_type": query,
-                    "category":     v["category"],
                     "maps_url":     page.url,
                 })
-                print()
 
-                # Random delay between listings to avoid detection
                 await page.wait_for_timeout(random_delay(300, 600))
 
             except Exception as e:
-                print(f"  ⚠️  Error on listing {start_idx+i+1}: {e}\n")
+                print(f"  ⚠️  Error on listing {start_idx+i+1}: {str(e)[:80]}\n")
                 continue
 
         await browser.close()
@@ -424,39 +372,35 @@ async def scrape_google_maps(query: str, city: str, country: str,
 
 def export_to_excel(data: list, query: str, city: str, country: str) -> str:
     if not data:
-        print("⚠️  No data to export.")
         return ""
 
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "Contacts"
 
-    # Styles
-    hdr_fill  = PatternFill(start_color="1A1A2E", end_color="1A1A2E", fill_type="solid")
+    hdr_fill  = PatternFill(start_color="111111", end_color="111111", fill_type="solid")
     hdr_font  = Font(name="Arial", color="FFFFFF", bold=True, size=11)
-    alt_fill  = PatternFill(start_color="EEF2FF", end_color="EEF2FF", fill_type="solid")
+    alt_fill  = PatternFill(start_color="F8F8F8", end_color="F8F8F8", fill_type="solid")
     wht_fill  = PatternFill(start_color="FFFFFF", end_color="FFFFFF", fill_type="solid")
-    ttl_fill  = PatternFill(start_color="D6DCFF", end_color="D6DCFF", fill_type="solid")
+    ttl_fill  = PatternFill(start_color="E8005A", end_color="E8005A", fill_type="solid")
     center    = Alignment(horizontal="center", vertical="center")
     left      = Alignment(horizontal="left",   vertical="center")
     d_font    = Font(name="Arial", size=10)
-    thin      = Side(style="thin", color="C5C5C5")
+    thin      = Side(style="thin", color="EEEEEE")
     border    = Border(left=thin, right=thin, top=thin, bottom=thin)
 
-    headers    = ["Company Name", "Email", "Phone Number", "Website", "Location", "Company Type", "Status"]
-    col_widths = [32, 35, 20, 40, 22, 25, 18]
+    headers    = ["Company Name", "Email", "Phone Number", "Website", "Location", "Company Type"]
+    col_widths = [32, 35, 20, 40, 22, 25]
     num_cols   = len(headers)
 
-    # Title
     ws.merge_cells(f"A1:{chr(64+num_cols)}1")
     t           = ws["A1"]
     t.value     = f"ReachCT  |  {query}  |  {city}, {country}  |  {datetime.now().strftime('%Y-%m-%d')}"
-    t.font      = Font(name="Arial", bold=True, size=12, color="1A1A2E")
+    t.font      = Font(name="Arial", bold=True, size=12, color="FFFFFF")
     t.alignment = center
     t.fill      = ttl_fill
     ws.row_dimensions[1].height = 30
 
-    # Headers
     for col, (h, w) in enumerate(zip(headers, col_widths), 1):
         cell           = ws.cell(row=2, column=col, value=h)
         cell.fill      = hdr_fill
@@ -466,7 +410,6 @@ def export_to_excel(data: list, query: str, city: str, country: str) -> str:
         ws.column_dimensions[cell.column_letter].width = w
     ws.row_dimensions[2].height = 26
 
-    # Data
     for row_i, item in enumerate(data, 3):
         fill   = alt_fill if row_i % 2 == 0 else wht_fill
         values = [
@@ -476,7 +419,6 @@ def export_to_excel(data: list, query: str, city: str, country: str) -> str:
             item.get("website",      ""),
             f"{item.get('city','')}, {item.get('country','')}",
             item.get("company_type", ""),
-            item.get("category",     ""),
         ]
         for col, val in enumerate(values, 1):
             cell           = ws.cell(row=row_i, column=col, value=val)
@@ -486,7 +428,6 @@ def export_to_excel(data: list, query: str, city: str, country: str) -> str:
             cell.alignment = left
         ws.row_dimensions[row_i].height = 20
 
-    # Footer
     fr  = len(data) + 3
     ws.merge_cells(f"A{fr}:{chr(64+num_cols)}{fr}")
     f   = ws[f"A{fr}"]
@@ -513,41 +454,24 @@ def export_to_excel(data: list, query: str, city: str, country: str) -> str:
 
 async def main():
     parser = argparse.ArgumentParser(description="ReachCT — Google Maps Contact Scraper")
-    parser.add_argument("--query",   default="empresa de software", help="Type of business")
+    parser.add_argument("--query",   default="Marketing Company", help="Type of business")
     parser.add_argument("--city",    default="Madrid",  help="City to search in")
-    parser.add_argument("--country", default="España",  help="Country to search in")
-    parser.add_argument("--start",   default=0,  type=int, help="Start index in Maps listing")
-    parser.add_argument("--end",     default=25, type=int, help="End index in Maps listing")
-    parser.add_argument("--export",  action="store_true",  help="Export existing DB data to Excel without scraping")
+    parser.add_argument("--country", default="Spain",   help="Country to search in")
+    parser.add_argument("--start",   default=0,  type=int)
+    parser.add_argument("--end",     default=25, type=int)
+    parser.add_argument("--export",  action="store_true")
     args = parser.parse_args()
 
     init_db()
 
-    # ── Export mode ───────────────────────────────────────────────────────────
     if args.export:
-        print(f"\n📦 Exporting from database: {args.city}, {args.country}")
         data = get_companies(city=args.city, country=args.country)
         if data:
             export_to_excel(data, args.query, args.city, args.country)
-            print(f"✅ Exported {len(data)} companies.")
-        else:
-            print("⚠️  No companies found in DB for that location.")
         return
 
-    # ── Scrape mode ───────────────────────────────────────────────────────────
-    run_id  = str(uuid.uuid4())[:8]
-    print("=" * 55)
-    print("  🔍  ReachCT")
-    print("=" * 55)
-    print(f"  Query   : {args.query}")
-    print(f"  City    : {args.city}")
-    print(f"  Country : {args.country}")
-    print(f"  Range   : {args.start} → {args.end}")
-    print(f"  Run ID  : {run_id}")
-    print("=" * 55)
-
-    # Clean inputs — remove trailing spaces and normalise case
-    clean_query   = args.query.strip()
+    run_id        = str(uuid.uuid4())[:8]
+    clean_query   = args.query.strip().title()
     clean_city    = args.city.strip().title()
     clean_country = args.country.strip().title()
 
@@ -557,10 +481,9 @@ async def main():
     )
 
     if not results:
-        print("\n❌ No verified companies found.")
+        print("\n❌ No companies found.")
         return
 
-    # Save to DB
     inserted = updated = skipped = 0
     for company in results:
         status = upsert_company(run_id, company)
@@ -568,18 +491,10 @@ async def main():
         elif status == "updated": updated  += 1
         else:                     skipped  += 1
 
-    save_search(run_id, args.query, args.city, args.country,
-                args.start, args.end, len(results))
+    save_search(run_id, args.query, args.city, args.country, args.start, args.end, len(results))
+    export_to_excel(results, args.query, args.city, args.country)
 
-    # Export Excel
-    filename = export_to_excel(results, args.query, args.city, args.country)
-
-    print(f"\n📊 Summary")
-    print(f"   Scraped  : {len(results)}")
-    print(f"   Inserted : {inserted}")
-    print(f"   Updated  : {updated}")
-    print(f"   Skipped  : {skipped}")
-    print(f"\n✅ Done! Open '{filename}'")
+    print(f"\n📊 Summary — Scraped: {len(results)} | Inserted: {inserted} | Updated: {updated} | Skipped: {skipped}")
 
 
 if __name__ == "__main__":

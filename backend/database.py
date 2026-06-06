@@ -1,6 +1,6 @@
 """
 ReachCT — database.py
-PostgreSQL database layer for storing and managing scraped companies.
+PostgreSQL database layer.
 """
 
 import os
@@ -18,160 +18,92 @@ def get_conn():
 def init_db():
     conn = get_conn()
     c    = conn.cursor()
-
-    c.execute("""
-        CREATE TABLE IF NOT EXISTS searches (
-            id          SERIAL PRIMARY KEY,
-            run_id      TEXT NOT NULL,
-            query       TEXT NOT NULL,
-            city        TEXT NOT NULL,
-            country     TEXT NOT NULL,
-            start_idx   INTEGER,
-            end_idx     INTEGER,
-            total_found INTEGER DEFAULT 0,
-            created_at  TEXT NOT NULL
-        )
-    """)
-
     c.execute("""
         CREATE TABLE IF NOT EXISTS companies (
             id           SERIAL PRIMARY KEY,
-            run_id       TEXT NOT NULL,
-            name         TEXT NOT NULL,
-            email        TEXT DEFAULT '',
-            phone        TEXT DEFAULT '',
-            website      TEXT DEFAULT '',
-            city         TEXT DEFAULT '',
-            country      TEXT DEFAULT '',
-            company_type TEXT DEFAULT '',
-            category     TEXT DEFAULT '',
-            maps_url     TEXT DEFAULT '',
-            created_at   TEXT NOT NULL,
-            updated_at   TEXT NOT NULL,
+            run_id       TEXT,
+            name         TEXT,
+            email        TEXT,
+            phone        TEXT,
+            website      TEXT,
+            city         TEXT,
+            country      TEXT,
+            company_type TEXT,
+            maps_url     TEXT,
+            created_at   TIMESTAMP DEFAULT NOW(),
             UNIQUE(name, city, country)
         )
     """)
-
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS searches (
+            id          SERIAL PRIMARY KEY,
+            run_id      TEXT UNIQUE,
+            query       TEXT,
+            city        TEXT,
+            country     TEXT,
+            start_idx   INT,
+            end_idx     INT,
+            total_found INT,
+            created_at  TIMESTAMP DEFAULT NOW()
+        )
+    """)
     conn.commit()
     conn.close()
     print("✅ Database initialized")
 
 
+def upsert_company(run_id: str, data: dict) -> str:
+    conn = get_conn()
+    c    = conn.cursor()
+    try:
+        c.execute("""
+            INSERT INTO companies (run_id, name, email, phone, website, city, country, company_type, maps_url)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ON CONFLICT (name, city, country) DO UPDATE SET
+                email        = EXCLUDED.email,
+                phone        = EXCLUDED.phone,
+                website      = EXCLUDED.website,
+                company_type = EXCLUDED.company_type,
+                maps_url     = EXCLUDED.maps_url
+            RETURNING (xmax = 0) AS inserted
+        """, (
+            run_id,
+            data.get("name", ""),
+            data.get("email", ""),
+            data.get("phone", ""),
+            data.get("website", ""),
+            data.get("city", ""),
+            data.get("country", ""),
+            data.get("company_type", ""),
+            data.get("maps_url", ""),
+        ))
+        row      = c.fetchone()
+        inserted = row[0] if row else False
+        conn.commit()
+        return "inserted" if inserted else "updated"
+    except Exception as e:
+        conn.rollback()
+        print(f"⚠️  DB upsert error: {e}")
+        return "skipped"
+    finally:
+        conn.close()
+
+
 def save_search(run_id, query, city, country, start_idx, end_idx, total_found):
     conn = get_conn()
     c    = conn.cursor()
-    c.execute("""
-        INSERT INTO searches (run_id, query, city, country, start_idx, end_idx, total_found, created_at)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-    """, (run_id, query, city, country, start_idx, end_idx, total_found,
-          datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
-    conn.commit()
-    conn.close()
-
-
-def upsert_company(run_id: str, company: dict) -> str:
-    conn    = get_conn()
-    c       = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-    now     = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    name    = company.get("name",    "").strip()
-    city    = company.get("city",    "").strip()
-    country = company.get("country", "").strip()
-
-    c.execute(
-        "SELECT * FROM companies WHERE name=%s AND city=%s AND country=%s",
-        (name, city, country)
-    )
-    existing = c.fetchone()
-
-    if not existing:
-        c.execute("""
-            INSERT INTO companies
-                (run_id, name, email, phone, website, city, country, company_type, category, maps_url, created_at, updated_at)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-        """, (
-            run_id,
-            name,
-            company.get("email",        ""),
-            company.get("phone",        ""),
-            company.get("website",      ""),
-            city, country,
-            company.get("company_type", ""),
-            company.get("category",     ""),
-            company.get("maps_url",     ""),
-            now, now
-        ))
-        conn.commit()
-        conn.close()
-        return "inserted"
-
-    # Check for new information
-    updates = {}
-    for field in ["email", "phone", "website", "category", "company_type", "maps_url"]:
-        new_val = company.get(field, "").strip()
-        old_val = (existing[field] or "").strip()
-        if new_val and not old_val:
-            updates[field] = new_val
-
-    if updates:
-        updates["updated_at"] = now
-        set_clause = ", ".join(f"{k}=%s" for k in updates)
-        values     = list(updates.values()) + [name, city, country]
-        c.execute(
-            f"UPDATE companies SET {set_clause} WHERE name=%s AND city=%s AND country=%s",
-            values
-        )
-        conn.commit()
-        conn.close()
-        return "updated"
-
-    conn.close()
-    return "skipped"
-
-
-def _get_country_variants(country: str) -> list:
-    """
-    Returns all known variants of a country name using fuzzy matching.
-    Handles any language — españa, espagne, spanien all resolve to Spain.
-    Falls back to the original string if no match found.
-    """
     try:
-        import pycountry
-        from rapidfuzz import process, fuzz
-
-        key = country.strip().lower()
-
-        # Build a lookup of all country names + common aliases
-        all_names = {}
-        for c in pycountry.countries:
-            names = [c.name.lower()]
-            if hasattr(c, "common_name"):
-                names.append(c.common_name.lower())
-            if hasattr(c, "official_name"):
-                names.append(c.official_name.lower())
-            names.append(c.alpha_2.lower())
-            names.append(c.alpha_3.lower())
-            for n in names:
-                all_names[n] = [n2 for n2 in names]
-
-        # Direct match first
-        if key in all_names:
-            return all_names[key]
-
-        # Fuzzy match — find closest country name
-        match = process.extractOne(
-            key,
-            list(all_names.keys()),
-            scorer=fuzz.WRatio,
-            score_cutoff=80
-        )
-        if match:
-            return all_names[match[0]]
-
-    except ImportError:
-        pass
-
-    # Fallback — just return the original
-    return [country.strip().lower()]
+        c.execute("""
+            INSERT INTO searches (run_id, query, city, country, start_idx, end_idx, total_found)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            ON CONFLICT (run_id) DO NOTHING
+        """, (run_id, query, city, country, start_idx, end_idx, total_found))
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        print(f"⚠️  DB save_search error: {e}")
+    finally:
+        conn.close()
 
 
 def get_companies(query: str = None, city: str = None, country: str = None) -> list:
@@ -180,7 +112,6 @@ def get_companies(query: str = None, city: str = None, country: str = None) -> l
     sql    = "SELECT * FROM companies WHERE 1=1"
     params = []
 
-    # Exact match on city and country — values come from dropdowns so no fuzzy needed
     if city:
         sql += " AND TRIM(city) = %s"
         params.append(city.strip())
@@ -189,7 +120,6 @@ def get_companies(query: str = None, city: str = None, country: str = None) -> l
         sql += " AND TRIM(country) = %s"
         params.append(country.strip())
 
-    # Exact match on company_type — value comes from dropdown
     if query:
         sql += " AND TRIM(company_type) = %s"
         params.append(query.strip())
@@ -204,7 +134,29 @@ def get_companies(query: str = None, city: str = None, country: str = None) -> l
 def get_searches() -> list:
     conn = get_conn()
     c    = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-    c.execute("SELECT * FROM searches ORDER BY created_at DESC")
+    c.execute("SELECT * FROM searches ORDER BY created_at DESC LIMIT 100")
     rows = c.fetchall()
     conn.close()
     return [dict(r) for r in rows]
+
+
+def get_filters() -> dict:
+    conn = get_conn()
+    c    = conn.cursor()
+
+    c.execute("SELECT DISTINCT TRIM(country) FROM companies WHERE country != '' ORDER BY 1 ASC")
+    countries = [row[0] for row in c.fetchall()]
+
+    c.execute("SELECT DISTINCT TRIM(city), TRIM(country) FROM companies WHERE city != '' ORDER BY 1 ASC")
+    cities = {}
+    for city, country in c.fetchall():
+        if country not in cities:
+            cities[country] = []
+        if city not in cities[country]:
+            cities[country].append(city)
+
+    c.execute("SELECT DISTINCT TRIM(company_type) FROM companies WHERE company_type != '' ORDER BY 1 ASC")
+    company_types = [row[0] for row in c.fetchall()]
+
+    conn.close()
+    return {"countries": countries, "cities": cities, "company_types": company_types}
