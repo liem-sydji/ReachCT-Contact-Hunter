@@ -51,7 +51,8 @@ def queue_worker():
     while True:
         try:
             job_id, query, city, country, start, end = search_queue.get(timeout=300)
-            jobs[job_id]["status"]         = "running"
+            # Keep as queued until thread actually starts scraping
+            jobs[job_id]["status"]         = "starting"
             jobs[job_id]["queue_position"] = 0
 
             # Update queue positions for waiting jobs
@@ -166,6 +167,8 @@ async def run_scrape_job(job_id: str, query: str, city: str,
                           country: str, start: int, end: int):
     """Runs the scraper and updates the job store."""
     try:
+        # Now actually running — update status
+        jobs[job_id]["status"] = "running"
         run_id  = job_id
         results = await scrape_google_maps(query, city, country, start, end, run_id, jobs=jobs, job_id=job_id)
 

@@ -527,6 +527,7 @@ export default function App() {
       {page === "landing"  && <Landing  onNav={setPage} />}
       {page === "search"   && <SearchPage   onBack={() => setPage("landing")} />}
       {page === "database" && <DatabasePage onBack={() => setPage("landing")} />}
+      {page === "info"     && <InfoPage     onBack={() => setPage("landing")} />}
     </>
   );
 }
@@ -556,6 +557,18 @@ function Landing({ onNav }) {
           </div>
         </div>
       </div>
+      <button onClick={() => onNav("info")} style={{
+        marginTop: 40, background: "none", border: "none",
+        color: "rgba(255,255,255,0.35)", fontSize: 13,
+        cursor: "pointer", fontFamily: "'DM Sans', sans-serif",
+        letterSpacing: "0.03em", transition: "color 0.2s",
+        textDecoration: "underline", textUnderlineOffset: 3,
+      }}
+        onMouseEnter={e => e.target.style.color = "rgba(255,255,255,0.7)"}
+        onMouseLeave={e => e.target.style.color = "rgba(255,255,255,0.35)"}
+      >
+        How to use ReachCT?
+      </button>
     </div>
   );
 }
@@ -599,10 +612,12 @@ function SearchPage({ onBack }) {
             setError(jd.error || "Something went wrong");
             setLoading(false);
           } else {
-            const found = jd.results?.length || 0;
-            const onMaps = jd.total_on_maps;
+            const found      = jd.results?.length || 0;
+            const onMaps     = jd.total_on_maps;
             const processing = jd.processing;
-            if (onMaps && processing) setLoadMsg(`Found ${onMaps} listings on Maps — scraping ${processing} in range… (${found} done)`);
+            const queuePos   = jd.queue_position;
+            if (queuePos > 0 || jd.status === "starting") setLoadMsg(`Your search is in queue at position ${queuePos || 1} — this might take a while before other searches are done. Your results will be saved automatically.`);
+            else if (onMaps && processing) setLoadMsg(`Found ${onMaps} listings on Maps — scraping ${processing} in range… (${found} done)`);
             else if (onMaps) setLoadMsg(`Found ${onMaps} listings — starting scrape…`);
             else setLoadMsg("Scrolling Google Maps to find listings…");
           }
@@ -856,6 +871,100 @@ function ResultsTable({ data }) {
           ))}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+
+// ─── INFO PAGE ────────────────────────────────────────────────────────────────
+function InfoPage({ onBack }) {
+  const sections = [
+    {
+      title: "What is ReachCT?",
+      content: "ReachCT is an internal B2B contact intelligence tool built for Spain Internship. It automatically searches Google Maps for companies in any city and country, visits their websites to extract emails and phone numbers, and stores everything in a shared database. Instead of spending hours researching companies manually, ReachCT does it in minutes — giving your team a ready-to-use contact list for outreach."
+    },
+    {
+      title: "How to make a search",
+      steps: [
+        "Click Start New Search from the home screen.",
+        "Select a Business Type from the dropdown — e.g. Marketing Agency, IT Company.",
+        "Type the City and Country in English — e.g. Madrid, Spain (not España).",
+        "Set the Start and End index. Start at 0 and End at 25 for your first search — we recommend keeping searches to 25 listings at a time to avoid overloading the server and keeping queue wait times short for other users. That said, the tool supports up to 100 listings in a single search if needed (e.g. Start 0, End 100). For larger datasets, run multiple searches in batches (0–25, 25–50, 50–75, 75–100).",
+        "Click Search. ReachCT will scroll Google Maps, visit each company website, and extract contact details automatically.",
+        "Once done, your results appear in a table. Export to Excel or Copy Table to paste into Google Sheets."
+      ]
+    },
+    {
+      title: "How to pull from database",
+      steps: [
+        "Click Pull From Database from the home screen.",
+        "Filter by Company Type, Country, and/or City using the dropdowns. All filters are optional — leave them empty to see all companies.",
+        "Click Pull Data to retrieve matching companies from the database.",
+        "Export to Excel or Copy Table to use the data in your outreach."
+      ]
+    },
+    {
+      title: "What if my search takes too long?",
+      content: "If another team member is already running a search, yours will be queued. You will see a message saying your search is in queue — this is normal. Your search will start automatically once the previous one finishes. Do not close the tab or refresh the page while waiting. All results are saved to the shared database automatically, so even if you close the tab after the search completes, the data is not lost and can be retrieved from Pull From Database."
+    },
+  ];
+
+  return (
+    <div className="inner-page">
+      <header className="inner-header">
+        <button className="back-btn" onClick={onBack}><ArrowLeftIcon /> Back</button>
+        <div className="inner-header-divider"/>
+        <div className="inner-header-logo"><ReachCTLogo size={22}/>Reach<span>CT</span></div>
+        <div className="inner-header-divider"/>
+        <span className="inner-header-title">How to use ReachCT</span>
+      </header>
+
+      <div style={{ maxWidth: 720, margin: "48px auto 80px", padding: "0 48px" }}>
+        {sections.map((s, i) => (
+          <div key={i} style={{ marginBottom: 48 }}>
+            <div style={{
+              display: "flex", alignItems: "center", gap: 12, marginBottom: 16
+            }}>
+              <div style={{
+                width: 28, height: 28, borderRadius: "50%",
+                background: "#E8005A", color: "#fff",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 13, fontWeight: 700, fontFamily: "'Syne', sans-serif",
+                flexShrink: 0,
+              }}>{i + 1}</div>
+              <h2 style={{
+                fontFamily: "'Syne', sans-serif",
+                fontSize: 20, fontWeight: 800,
+                color: "#111", letterSpacing: "-0.4px", margin: 0
+              }}>{s.title}</h2>
+            </div>
+
+            {s.content && (
+              <p style={{
+                fontSize: 15, color: "#555", lineHeight: 1.7,
+                fontFamily: "'DM Sans', sans-serif",
+                paddingLeft: 40,
+              }}>{s.content}</p>
+            )}
+
+            {s.steps && (
+              <ol style={{ paddingLeft: 40, margin: 0 }}>
+                {s.steps.map((step, j) => (
+                  <li key={j} style={{
+                    fontSize: 15, color: "#555", lineHeight: 1.7,
+                    fontFamily: "'DM Sans', sans-serif",
+                    marginBottom: 8,
+                  }}>{step}</li>
+                ))}
+              </ol>
+            )}
+
+            {i < sections.length - 1 && (
+              <div style={{ height: 1, background: "#eee", marginTop: 48 }}/>
+            )}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
