@@ -124,7 +124,7 @@ async def start_scrape(
         queue_position = queued_or_running  # 0 = runs immediately
 
         jobs[job_id] = {
-            "status":         "queued" if queue_position > 0 else "running",
+            "status":         "queued",  # worker sets to running when it starts
             "queue_position": queue_position,
             "progress":       0,
             "total":          end - start,

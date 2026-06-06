@@ -691,7 +691,11 @@ function SearchPage({ onBack }) {
       {searched && (
         <div className="results-area">
           <div className="results-header">
-            <div className="results-count"><span>{results.length}</span> companies found</div>
+            <div className="results-count">
+              <span>{results.length}</span> companies found
+              &nbsp;·&nbsp;
+              <span style={{color:"#E8005A"}}>{results.filter(r => r.email).length}</span> emails found
+            </div>
             <div className="btn-row">
               <button className="btn-secondary" onClick={handleExport}><DownloadIcon/>Export Excel</button>
               <button className="btn-secondary" onClick={handleCopy}><CopyIcon/>Copy Table</button>
@@ -804,7 +808,11 @@ function DatabasePage({ onBack }) {
       {searched && (
         <div className="results-area">
           <div className="results-header">
-            <div className="results-count"><span>{dbResults.length}</span> companies found</div>
+            <div className="results-count">
+              <span>{dbResults.length}</span> companies found
+              &nbsp;·&nbsp;
+              <span style={{color:"#E8005A"}}>{dbResults.filter(r => r.email).length}</span> emails found
+            </div>
             <div className="btn-row">
               <button className="btn-secondary" onClick={handleExport}><DownloadIcon/>Export Excel</button>
               <button className="btn-secondary" onClick={handleCopy}><CopyIcon/>Copy Table</button>
