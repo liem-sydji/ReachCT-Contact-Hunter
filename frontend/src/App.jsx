@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 const API = "https://reachct-production.up.railway.app";
 
 const COMPANY_TYPES = [
+  "Accounting Firm"
   "Administration Company",
   "Advertising Agency",
   "Architecture Company",
@@ -531,7 +532,7 @@ export default function App() {
     <>
       <style>{css}</style>
       {page === "landing"  && <Landing  onNav={setPage} />}
-      {page === "search"   && <SearchPage   onBack={() => setPage("landing")} />}
+      {page === "search"   && <SearchPage   onBack={() => setPage("landing")} onNav={setPage} />}
       {page === "database" && <DatabasePage onBack={() => setPage("landing")} />}
       {page === "info"     && <InfoPage     onBack={() => setPage("landing")} />}
     </>
@@ -580,7 +581,7 @@ function Landing({ onNav }) {
 }
 
 // ─── SEARCH PAGE ──────────────────────────────────────────────────────────────
-function SearchPage({ onBack }) {
+function SearchPage({ onBack, onNav }) {
   const [query,    setQuery]    = useState("");
   const [city,     setCity]     = useState("");
   const [country,  setCountry]  = useState("");
@@ -692,9 +693,9 @@ function SearchPage({ onBack }) {
           </div>
           <p className="hint">Use English spelling — "Spain" not "España", "Munich" not "München"</p>
           <p style={{ fontSize:12, color:"#888", marginBottom:16, lineHeight:1.6 }}>
-            💡 <strong>Tip:</strong> Run searches in batches of 25 for quicker results — e.g. 0→25, then 25→50, then 50→75. 
+            💡 <strong>Tip:</strong> Run searches in batches of 25 for quicker results — e.g. 0→25, then 25→50, then 50→75.
             Each batch saves automatically to the database.
-            &nbsp;<button onClick={() => window.open("/info", "_self")} style={{ background:"none", border:"none", color:"#E8005A", cursor:"pointer", fontSize:12, fontWeight:600, padding:0, textDecoration:"underline", textUnderlineOffset:2 }}>How to use ReachCT →</button>
+            &nbsp;<button onClick={() => onNav("info")} style={{ background:"none", border:"none", color:"#E8005A", cursor:"pointer", fontSize:12, fontWeight:600, padding:0, textDecoration:"underline", textUnderlineOffset:2 }}>How to use ReachCT →</button>
           </p>
           <div className="btn-row">
             <button className="btn-primary" onClick={handleSearch} disabled={loading}>
