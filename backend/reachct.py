@@ -36,8 +36,8 @@ USER_AGENTS = [
 ]
 
 CONTACT_PATHS = [
-    "/contact", "/contact-us", "/contacto", "/contactanos",
-    "/about", "/about-us", "/sobre-nosotros", "/info", "/equipo"
+    "/contact", "/contact-us", "/contacto",
+    "/about", "/about-us",
 ]
 
 EMAIL_BLACKLIST = [
@@ -79,7 +79,7 @@ async def try_contact_pages(page, base_url: str) -> dict:
     base   = f"{parsed.scheme}://{parsed.netloc}"
     for path in CONTACT_PATHS:
         try:
-            r = await page.goto(base + path, timeout=10000, wait_until="domcontentloaded")
+            r = await page.goto(base + path, timeout=6000, wait_until="domcontentloaded")
             if r and r.status == 200:
                 await page.wait_for_timeout(random_delay(800, 1500))
                 html   = await page.content()
@@ -278,8 +278,9 @@ async def scrape_google_maps(query: str, city: str, country: str,
                     pass
                 return results
 
-            # Restart browser before every listing (8GB RAM — fresh slate each time)
-            if i > 0:
+            # Restart browser every 10 listings to free RAM
+            if i > 0 and i % 10 == 0:
+
                 try: await browser.close()
                 except: pass
                 await asyncio.sleep(2)
@@ -360,7 +361,23 @@ async def scrape_google_maps(query: str, city: str, country: str,
                 await page.wait_for_timeout(random_delay(300, 600))
 
             except Exception as e:
-                print(f"  ⚠️  Error on listing {start_idx+i+1}: {str(e)[:80]}\n")
+                error_msg = str(e)
+                print(f"  ⚠️  Error on listing {start_idx+i+1}: {error_msg[:80]}\n")
+                if "Page crashed" in error_msg or "Target closed" in error_msg:
+
+                    try: await browser.close()
+                    except: pass
+                    await asyncio.sleep(2)
+                    browser = await p.chromium.launch(headless=HEADLESS)
+                    context = await browser.new_context(
+                        user_agent=random.choice(USER_AGENTS),
+                        locale="es-ES",
+                        viewport={"width": 1280, "height": 800},
+                    )
+                    page = await context.new_page()
+                    await page.goto(maps_url, timeout=15000, wait_until="domcontentloaded")
+                    await page.wait_for_timeout(random_delay(1500, 2000))
+
                 continue
 
         await browser.close()

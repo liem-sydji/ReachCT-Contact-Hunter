@@ -114,8 +114,8 @@ async def start_scrape(
     if end <= start:
         raise HTTPException(status_code=400, detail="end must be greater than start")
 
-    if (end - start) > 100:
-        raise HTTPException(status_code=400, detail="Maximum 100 listings per search.")
+    if (end - start) > 50:
+        raise HTTPException(status_code=400, detail="Maximum 50 listings per search.")
 
     job_id = str(uuid.uuid4())[:8]
 
@@ -264,6 +264,29 @@ def get_filters_endpoint():
     """Returns all unique countries, cities and company types stored in the DB."""
     from database import get_filters
     return get_filters()
+
+
+# ── Admin endpoints ──────────────────────────────────────────────────────────
+@app.get("/api/admin/jobs")
+def admin_get_jobs():
+    """Returns all jobs with their full status — for admin panel."""
+    return {
+        "jobs": [
+            {"id": job_id, **job}
+            for job_id, job in jobs.items()
+        ]
+    }
+
+
+@app.post("/api/admin/cancel-all")
+def admin_cancel_all():
+    """Cancels all running or queued jobs."""
+    cancelled = []
+    for job_id, job in jobs.items():
+        if job["status"] in ("running", "queued", "starting"):
+            job["status"] = "cancelling"
+            cancelled.append(job_id)
+    return {"cancelled": cancelled, "count": len(cancelled)}
 
 
 # ── Get search history ────────────────────────────────────────────────────────
