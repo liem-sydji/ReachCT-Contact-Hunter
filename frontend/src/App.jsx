@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 const API = "https://reachct-production.up.railway.app";
 
 const COMPANY_TYPES = [
-  "Accounting Firm"
+  "Accounting Firm",
   "Administration Company",
   "Advertising Agency",
   "Architecture Company",
