@@ -25,6 +25,7 @@ const COMPANY_TYPES = [
   "Fashion Company",
   "Finance Company",
   "Furniture Design Company",
+  "Graphic Design Company",
   "Hotel Company",
   "HR Company",
   "Interior Design Company",
