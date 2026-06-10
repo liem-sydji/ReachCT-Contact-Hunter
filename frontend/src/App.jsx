@@ -3,49 +3,26 @@ import { useState, useEffect, useRef } from "react";
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
 const API = "https://reachct-production.up.railway.app";
 
-const COMPANY_TYPES = [
-  "Accounting Firm",
-  "Administration Company",
-  "Advertising Agency",
-  "Architecture Company",
-  "Art Company",
-  "Branding Agency",
-  "Business Analytics",
-  "Business Company",
-  "Childcare Company",
-  "Consulting Company",
-  "Data Analytics Company",
-  "Data Science Company",
-  "Design Company",
-  "Digital Marketing Agency",
-  "Economic Consulting Company",
-  "Education Company",
-  "Electrical Company",
-  "Engineering Company",
-  "Fashion Company",
-  "Finance Company",
-  "Furniture Design Company",
-  "Graphic Design Company",
-  "Hotel Company",
-  "HR Company",
-  "Interior Design Company",
-  "IT Company",
-  "Journalism Company",
-  "Language Academy",
-  "Library Company",
-  "Logistics Company",
-  "Management Company",
-  "Market Research Agency",
-  "Marketing Agency",
-  "Operations Company",
-  "PR Agency",
-  "Real Estate Company",
-  "Restaurant Company",
-  "Retail Company",
-  "Sales Company",
-  "Tourism Company",
-  "Travel Agency",
-];
+const COMPANY_TYPES_GROUPED = {
+  "A": ["Administration Company", "Advertising Agency", "Architecture Company", "Art Company"],
+  "B": ["Biomedical Research Center", "Biotech Company", "Branding Agency", "Business Analytics", "Business Company"],
+  "C": ["Childcare Company", "Clinical Laboratory", "Consulting Company", "Cosmetics Company"],
+  "D": ["Data Analytics Company", "Data Science Company", "Design Company", "Diagnostic Laboratory", "Diagnostics Company", "Digital Marketing Agency"],
+  "G": ["Graphic Design Company"],
+  "E": ["Economic Consulting Company", "Education Company", "Electrical Company", "Engineering Company", "Environmental Company"],
+  "F": ["Fashion Company", "Finance Company", "Food Manufacturing Company", "Furniture Design Company"],
+  "H": ["Hotel Company", "HR Company"],
+  "I": ["Interior Design Company", "IT Company", "IVD Company"],
+  "J": ["Journalism Company"],
+  "L": ["Language Academy", "Library Company", "Life Science Company", "Logistics Company"],
+  "M": ["Management Company", "Market Research Agency", "Marketing Agency", "Medical Device Company", "Medical Laboratory"],
+  "O": ["Operations Company"],
+  "P": ["Pharmaceutical Company", "PR Agency"],
+  "R": ["Real Estate Company", "Research Institute", "Restaurant Company", "Retail Company"],
+  "S": ["Sales Company"],
+  "T": ["Tourism Company", "Travel Agency"],
+  "V": ["Veterinary Company"],
+};
 
 // ─── ICONS (Lucide-style SVG) ─────────────────────────────────────────────────
 const SearchIcon = () => (
@@ -672,7 +649,11 @@ function SearchPage({ onBack, onNav }) {
               <label className="field-label">Business Type</label>
               <select className="field-select" value={query} onChange={e => setQuery(e.target.value)}>
                 <option value="">Select company type…</option>
-                {COMPANY_TYPES.map(ct => <option key={ct} value={ct}>{ct}</option>)}
+                {Object.entries(COMPANY_TYPES_GROUPED).map(([letter, types]) => (
+                  <optgroup key={letter} label={`── ${letter} ──`}>
+                    {types.map(ct => <option key={ct} value={ct}>{ct}</option>)}
+                  </optgroup>
+                ))}
               </select>
             </div>
             <div>
@@ -803,7 +784,11 @@ function DatabasePage({ onBack }) {
               <label className="field-label">Company Type (optional)</label>
               <select className="field-select" value={dbQuery} onChange={e => setDbQuery(e.target.value)}>
                 <option value="">All company types</option>
-                {safeCompanyTypes.map(ct => <option key={ct} value={ct}>{ct}</option>)}
+                {Object.entries(COMPANY_TYPES_GROUPED).map(([letter, types]) => (
+                  <optgroup key={letter} label={`── ${letter} ──`}>
+                    {types.map(ct => <option key={ct} value={ct}>{ct}</option>)}
+                  </optgroup>
+                ))}
               </select>
             </div>
             <div>
