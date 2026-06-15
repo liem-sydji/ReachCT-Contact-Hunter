@@ -11,7 +11,7 @@ const COMPANY_TYPES_GROUPED = {
   "G": ["Graphic Design Company"],
   "E": ["Economic Consulting Company", "Education Company", "Electrical Company", "Engineering Company", "Environmental Company"],
   "F": ["Fashion Company", "Finance Company", "Food Manufacturing Company", "Furniture Design Company"],
-  "H": ["Hotel Company", "HR Company"],
+  "H": ["Hotel Company", "HR Company","Hostal"],
   "I": ["Interior Design Company", "IT Company", "IVD Company"],
   "J": ["Journalism Company"],
   "L": ["Language Academy", "Library Company", "Life Science Company", "Logistics Company"],
@@ -19,7 +19,7 @@ const COMPANY_TYPES_GROUPED = {
   "O": ["Operations Company"],
   "P": ["Pharmaceutical Company", "PR Agency"],
   "R": ["Real Estate Company", "Research Institute", "Restaurant Company", "Retail Company"],
-  "S": ["Sales Company"],
+  "S": ["Sales Company","Student Residence","Student Apartment","Short Term Apartment"],
   "T": ["Tourism Company", "Travel Agency"],
   "V": ["Veterinary Company"],
 };
