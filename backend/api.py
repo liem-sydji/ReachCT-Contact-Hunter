@@ -14,16 +14,15 @@ import sys
 import uuid
 import asyncio
 from datetime import datetime
-from typing import Optional
 
 # ── Windows fix: Playwright needs this event loop policy ─────────────────────
 if sys.platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 
-from fastapi import FastAPI, BackgroundTasks, HTTPException
+from typing import Optional, List
+from fastapi import FastAPI, BackgroundTasks, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
-
 from database import init_db, save_search, upsert_company, get_companies
 from reachct  import scrape_google_maps, export_to_excel
 
@@ -249,12 +248,21 @@ def export(
 
 # ── Get all companies from DB ─────────────────────────────────────────────────
 @app.get("/api/companies")
-def get_all_companies(city: Optional[str] = None, country: Optional[str] = None, query: Optional[str] = None):
-    """Returns all companies stored in the database."""
-    if city:    city    = city.strip().title()
-    if country: country = country.strip().title()
-    if query:   query   = query.strip()
-    data = get_companies(query=query, city=city, country=country)
+def get_all_companies(
+        city: List[str] = Query(default=[]),
+        country: List[str] = Query(default=[]),
+        query: List[str] = Query(default=[]),
+):
+    """
+    Returns companies from the database.
+    Accepts multiple values for city, country, query (OR-matched).
+    e.g. /api/companies?query=Marketing+Agency&query=IT+Company&country=Germany
+    """
+    cities = [c.strip().title() for c in city if c.strip()]
+    countries = [c.strip().title() for c in country if c.strip()]
+    queries = [q.strip() for q in query if q.strip()]
+
+    data = get_companies(query=queries, city=cities, country=countries)
     return {"companies": data, "total": len(data)}
 
 

@@ -106,30 +106,45 @@ def save_search(run_id, query, city, country, start_idx, end_idx, total_found):
         conn.close()
 
 
-def get_companies(query: str = None, city: str = None, country: str = None) -> list:
-    conn   = get_conn()
-    c      = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-    sql    = "SELECT * FROM companies WHERE 1=1"
+# ── PATCH 1: database.py — replace get_companies ──────────────────────────────
+
+def get_companies(query=None, city=None, country=None) -> list:
+    """
+    Accepts single strings OR lists for query/city/country.
+    Multiple values are OR-matched using PostgreSQL ANY().
+    """
+    conn = get_conn()
+    c = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    sql = "SELECT * FROM companies WHERE 1=1"
     params = []
 
-    if city:
-        sql += " AND TRIM(city) = %s"
-        params.append(city.strip())
+    # Normalise to list
+    queries = [query] if isinstance(query, str) else (query or [])
+    cities = [city] if isinstance(city, str) else (city or [])
+    countries = [country] if isinstance(country, str) else (country or [])
 
-    if country:
-        sql += " AND TRIM(country) = %s"
-        params.append(country.strip())
+    # Strip and filter blanks
+    queries = [q.strip() for q in queries if q and q.strip()]
+    cities = [c.strip() for c in cities if c and c.strip()]
+    countries = [c.strip() for c in countries if c and c.strip()]
 
-    if query:
-        sql += " AND TRIM(company_type) = %s"
-        params.append(query.strip())
+    if cities:
+        sql += " AND TRIM(city) = ANY(%s)"
+        params.append(cities)
+
+    if countries:
+        sql += " AND TRIM(country) = ANY(%s)"
+        params.append(countries)
+
+    if queries:
+        sql += " AND TRIM(company_type) = ANY(%s)"
+        params.append(queries)
 
     sql += " ORDER BY name ASC"
     c.execute(sql, params)
     rows = c.fetchall()
     conn.close()
     return [dict(r) for r in rows]
-
 
 def get_searches() -> list:
     conn = get_conn()

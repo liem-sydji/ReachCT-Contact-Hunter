@@ -11,7 +11,7 @@ const COMPANY_TYPES_GROUPED = {
   "G": ["Graphic Design Company"],
   "E": ["Economic Consulting Company", "Education Company", "Electrical Company", "Engineering Company", "Environmental Company"],
   "F": ["Fashion Company", "Finance Company", "Food Manufacturing Company", "Furniture Design Company"],
-  "H": ["Hotel Company", "HR Company","Hostal"],
+  "H": ["Hotel Company", "HR Company","Hostal","Host Family Organisation"],
   "I": ["Interior Design Company", "IT Company", "IVD Company"],
   "J": ["Journalism Company"],
   "L": ["Language Academy", "Library Company", "Life Science Company", "Logistics Company"],
@@ -715,11 +715,83 @@ function SearchPage({ onBack, onNav }) {
   );
 }
 
+// ─── TAG INPUT (multi-select) ─────────────────────────────────────────────────
+function TagInput({ placeholder, options, value, onChange }) {
+  const [input, setInput] = useState("");
+  const [open,  setOpen]  = useState(false);
+  const ref               = useRef(null);
+
+  const filtered = options.filter(o =>
+    o.toLowerCase().includes(input.toLowerCase()) && !value.includes(o)
+  );
+
+  const add    = (opt) => { onChange([...value, opt]); setInput(""); setOpen(false); };
+  const remove = (opt) => onChange(value.filter(v => v !== opt));
+
+  useEffect(() => {
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  return (
+    <div ref={ref} style={{ position:"relative" }}>
+      <div onClick={() => setOpen(true)} style={{
+        minHeight:42, border:"1.5px solid #e8e8e8", borderRadius:10,
+        padding:"4px 10px", display:"flex", flexWrap:"wrap", gap:6,
+        alignItems:"center", cursor:"text", background:"#fff",
+      }}>
+        {value.map(v => (
+          <span key={v} style={{
+            background:"rgba(232,0,90,0.08)", border:"1px solid rgba(232,0,90,0.2)",
+            color:"#E8005A", borderRadius:6, padding:"2px 8px", fontSize:12,
+            display:"flex", alignItems:"center", gap:4, fontFamily:"'DM Sans',sans-serif",
+          }}>
+            {v}
+            <button onClick={e => { e.stopPropagation(); remove(v); }} style={{
+              background:"none", border:"none", cursor:"pointer", color:"#E8005A",
+              fontSize:14, padding:0, lineHeight:1,
+            }}>×</button>
+          </span>
+        ))}
+        <input
+          value={input}
+          onChange={e => { setInput(e.target.value); setOpen(true); }}
+          onFocus={() => setOpen(true)}
+          placeholder={value.length === 0 ? placeholder : ""}
+          style={{
+            border:"none", outline:"none", fontSize:14, fontFamily:"'DM Sans',sans-serif",
+            color:"#111", flex:1, minWidth:80, background:"transparent", padding:"2px 0",
+          }}
+        />
+      </div>
+      {open && filtered.length > 0 && (
+        <div style={{
+          position:"absolute", top:"100%", left:0, right:0, zIndex:200,
+          background:"#fff", border:"1px solid #eee", borderRadius:10,
+          boxShadow:"0 8px 24px rgba(0,0,0,0.1)", maxHeight:200, overflowY:"auto", marginTop:4,
+        }}>
+          {filtered.map(opt => (
+            <div key={opt} onMouseDown={() => add(opt)} style={{
+              padding:"9px 14px", cursor:"pointer", fontSize:13,
+              fontFamily:"'DM Sans',sans-serif", color:"#111",
+              borderBottom:"1px solid #f5f5f5",
+            }}
+              onMouseEnter={e => e.currentTarget.style.background = "#fafafa"}
+              onMouseLeave={e => e.currentTarget.style.background = "#fff"}
+            >{opt}</div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── DATABASE PAGE ────────────────────────────────────────────────────────────
 function DatabasePage({ onBack }) {
-  const [dbQuery,   setDbQuery]   = useState("");
-  const [dbCity,    setDbCity]    = useState("");
-  const [dbCountry, setDbCountry] = useState("");
+  const [queries,   setQueries]   = useState([]);
+  const [cities,    setCities]    = useState([]);
+  const [countries, setCountries] = useState([]);
   const [dbResults, setDbResults] = useState([]);
   const [searched,  setSearched]  = useState(false);
   const [loading,   setLoading]   = useState(false);
@@ -730,18 +802,24 @@ function DatabasePage({ onBack }) {
     fetch(`${API}/api/filters`).then(r => r.json()).then(setFilters).catch(() => {});
   }, []);
 
-  const safeCountries    = filters?.countries    || [];
-  const safeCities       = filters?.cities       || {};
-  const safeCompanyTypes = filters?.company_types || [];
+  const allTypes     = filters?.company_types || [];
+  const allCountries = filters?.countries || [];
+  const allCities    = filters?.cities
+    ? (countries.length > 0
+        ? countries.flatMap(c => filters.cities[c] || [])
+        : Object.values(filters.cities).flat())
+    : [];
 
   const handlePull = async () => {
-    if (!dbCity && !dbCountry && !dbQuery) { setError("Please select at least one filter."); return; }
+    if (!cities.length && !countries.length && !queries.length) {
+      setError("Please select at least one filter."); return;
+    }
     setError(""); setLoading(true);
     try {
       const params = new URLSearchParams();
-      if (dbCity)    params.append("city", dbCity);
-      if (dbCountry) params.append("country", dbCountry);
-      if (dbQuery)   params.append("query", dbQuery);
+      queries.forEach(q   => params.append("query",   q));
+      countries.forEach(c => params.append("country", c));
+      cities.forEach(c    => params.append("city",    c));
       const res  = await fetch(`${API}/api/companies?${params}`);
       const data = await res.json();
       setDbResults(data.companies || []);
@@ -750,19 +828,37 @@ function DatabasePage({ onBack }) {
     setLoading(false);
   };
 
-  const handleExport = () => {
-    const params = new URLSearchParams();
-    if (dbCity)    params.append("city", dbCity);
-    if (dbCountry) params.append("country", dbCountry);
-    if (dbQuery)   params.append("query", dbQuery);
-    window.open(`${API}/api/export?${params}`, "_blank");
+  // Export from results already in state as proper Excel file
+  const handleExport = async () => {
+    if (!dbResults.length) return;
+    try {
+      const XLSX = await import("https://cdn.jsdelivr.net/npm/xlsx@0.18.5/+esm");
+      const headers = ["Company Name","Email","Phone","Website","City","Country","Company Type"];
+      const rows    = dbResults.map(r => [
+        r.name||"", r.email||"", r.phone||"", r.website||"",
+        r.city||"", r.country||"", r.company_type||""
+      ]);
+      const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+      // Force phone column (index 2) as text to prevent scientific notation
+      const range = XLSX.utils.decode_range(ws["!ref"]);
+      for (let row = 1; row <= range.e.r; row++) {
+        const ref = XLSX.utils.encode_cell({ r: row, c: 2 });
+        if (ws[ref]) { ws[ref].t = "s"; ws[ref].z = "@"; }
+      }
+      ws["!cols"] = [{wch:30},{wch:30},{wch:18},{wch:35},{wch:18},{wch:18},{wch:22}];
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "ReachCT Export");
+      XLSX.writeFile(wb, `reachct_export_${new Date().toISOString().slice(0,10)}.xlsx`);
+    } catch {
+      alert("Export failed — please try again.");
+    }
   };
 
   const handleCopy = () => {
     if (!dbResults.length) return;
     const headers = ["Company Name","Email","Phone","Website","City","Country","Company Type"];
-    const rows = dbResults.map(r => [r.name||"",r.email||"",r.phone||"",r.website||"",r.city||"",r.country||"",r.company_type||""]);
-    const tsv = [headers,...rows].map(r => r.join("\t")).join("\n");
+    const rows    = dbResults.map(r => [r.name||"",r.email||"",r.phone||"",r.website||"",r.city||"",r.country||"",r.company_type||""]);
+    const tsv     = [headers,...rows].map(r => r.join("\t")).join("\n");
     navigator.clipboard.writeText(tsv).then(() => alert("Copied! Paste into Google Sheets or Excel."));
   };
 
@@ -782,30 +878,20 @@ function DatabasePage({ onBack }) {
           <div className="form-grid">
             <div>
               <label className="field-label">Company Type (optional)</label>
-              <select className="field-select" value={dbQuery} onChange={e => setDbQuery(e.target.value)}>
-                <option value="">All company types</option>
-                {Object.entries(COMPANY_TYPES_GROUPED).map(([letter, types]) => (
-                  <optgroup key={letter} label={`── ${letter} ──`}>
-                    {types.map(ct => <option key={ct} value={ct}>{ct}</option>)}
-                  </optgroup>
-                ))}
-              </select>
+              <TagInput placeholder="e.g. Marketing Agency" options={allTypes} value={queries} onChange={setQueries} />
             </div>
             <div>
               <label className="field-label">Country (optional)</label>
-              <select className="field-select" value={dbCountry} onChange={e => { setDbCountry(e.target.value); setDbCity(""); }}>
-                <option value="">All countries</option>
-                {safeCountries.map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
+              <TagInput placeholder="e.g. Germany" options={allCountries} value={countries} onChange={setCountries} />
             </div>
             <div>
               <label className="field-label">City (optional)</label>
-              <select className="field-select" value={dbCity} onChange={e => setDbCity(e.target.value)}>
-                <option value="">All cities</option>
-                {(dbCountry ? (safeCities[dbCountry]||[]) : Object.values(safeCities).flat()).map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
+              <TagInput placeholder="e.g. Berlin" options={allCities} value={cities} onChange={setCities} />
             </div>
           </div>
+          <p style={{ fontSize:12, color:"#999", marginBottom:16 }}>
+            Multiple values are OR-matched. Leave empty to pull all.
+          </p>
           <div className="btn-row">
             <button className="btn-primary" onClick={handlePull} disabled={loading}>
               <DatabaseIcon/>{loading ? "Loading…" : "Pull Data"}
