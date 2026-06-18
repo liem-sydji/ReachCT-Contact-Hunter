@@ -1097,6 +1097,17 @@ def cancel_linkedin_job(job_id: str, authorization: str = Header(default=None)):
         return {"message": "Cancellation requested"}
     return {"message": f"Job already {job['status']}"}
 
+@app.post("/api/linkedin/save-email")
+def save_linkedin_email(body: dict, authorization: str = Header(default=None)):
+    """Save a manually entered email back to a LinkedIn contact by URL."""
+    get_current_user(authorization)
+    linkedin_url = (body.get("linkedin_url") or "").strip()
+    email        = (body.get("email") or "").strip().lower()
+    if not linkedin_url or not email or "@" not in email:
+        raise HTTPException(status_code=400, detail="Valid linkedin_url and email required")
+    upsert_linkedin_contact({"linkedin_url": linkedin_url, "email": email})
+    return {"saved": True}
+
 @app.get("/api/linkedin/filters")
 def linkedin_filters(authorization: str = Header(default=None)):
     get_current_user(authorization)
@@ -1248,12 +1259,12 @@ def start_linkedin_smart(body: LinkedInSmartRequest, authorization: str = Header
         }
         linkedin_queue.put({
             "job_id": job_id, "type": "bulk",
-            "targets": targets[:10],  # hard cap — max 10 companies per smart search
+            "targets": targets,
             "role": body.role,
             "location": body.city,
             "max_per_company": 1,
         })
-    return {"job_id": job_id, "total_companies": min(len(targets), 10), "queue_position": qpos}
+    return {"job_id": job_id, "total_companies": len(targets), "queue_position": qpos}
 
 
 # ── URL List Scraper ──────────────────────────────────────────────────────────

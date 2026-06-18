@@ -788,7 +788,7 @@ export default function SpreadsheetPage() {
       const theDb = (Array.isArray(dbs)?dbs:[]).find(d=>String(d.id)===String(dbId));
       if (derived.length === 0) {
         if (theDb?.kind === "linkedin") {
-          setColumns(["full_name","job_title","company","email","linkedin_url","location"]);
+          setColumns(["full_name","job_title","profile_title","company","email","linkedin_url","location"]);
         } else {
           setColumns(["name","email","phone","website","city","country","company_type"]);
         }
@@ -875,8 +875,13 @@ export default function SpreadsheetPage() {
       });
       const data = await res.json();
       const rows = (data.results||[]).map(r => ({
-        full_name:r.full_name||"", job_title:r.job_title||"", company:r.company||"",
-        email:r.email||"", linkedin_url:r.linkedin_url||"", location:r.location||"",
+        full_name:     r.full_name||"",
+        job_title:     r.job_title||"",
+        profile_title: r.profile_title||"",
+        company:       r.company||"",
+        email:         r.email||"",
+        linkedin_url:  r.linkedin_url||"",
+        location:      r.location||"",
       }));
       if (rows.length) {
         await fetch(`${API}/api/databases/add-rows`, {

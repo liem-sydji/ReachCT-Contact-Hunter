@@ -1,5 +1,4 @@
-import { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext.jsx";
 import { API } from "../styles.js";
 import { DatabaseIcon, DownloadIcon, CopyIcon } from "../components/icons.jsx";
@@ -49,10 +48,10 @@ function TagInput({ placeholder, options, value, onChange }) {
   );
 }
 
-// ─── Push Tab (upload Excel) ──────────────────────────────────────────────────
+// ─── Push Tab ─────────────────────────────────────────────────────────────────
 function PushTab() {
-  const { token }           = useAuth();
-  const [file, setFile]     = useState(null);
+  const { token }             = useAuth();
+  const [file, setFile]       = useState(null);
   const [loading, setLoading] = useState(false);
   const [result, setResult]   = useState(null);
   const [error, setError]     = useState("");
@@ -63,12 +62,11 @@ function PushTab() {
     try {
       const formData = new FormData();
       formData.append("file", file);
-      const res  = await fetch(`${API}/api/upload-shared`, {
+      const res = await fetch(`${API}/api/upload-shared`, {
         method:"POST", headers:{ Authorization:`Bearer ${token}` }, body:formData,
       });
       if (!res.ok) { const err=await res.json(); throw new Error(err.detail||"Upload failed"); }
-      const data = await res.json();
-      setResult(data);
+      setResult(await res.json());
     } catch(e) { setError(e.message); }
     setLoading(false);
   };
@@ -108,7 +106,7 @@ function PushTab() {
       {result&&(
         <div style={{background:"#f0fdf4",border:"1px solid #86efac",borderRadius:10,
           padding:"14px 18px",fontSize:14,color:"#166534",marginBottom:12}}>
-          ✅ Successfully imported <strong>{result.inserted}</strong> companies to the shared database — cleaned by Claude AI
+          ✅ Successfully imported <strong>{result.inserted}</strong> companies — cleaned by Claude AI
         </div>
       )}
       {error&&<div className="error-msg">{error}</div>}
@@ -119,9 +117,9 @@ function PushTab() {
   );
 }
 
-// ─── Pull Tab ─────────────────────────────────────────────────────────────────
-function PullTab() {
-  const { user, token }     = useAuth();
+// ─── Maps Pull Tab ─────────────────────────────────────────────────────────────
+function MapsPullTab() {
+  const { user }              = useAuth();
   const [queries, setQueries]     = useState([]);
   const [cities, setCities]       = useState([]);
   const [countries, setCountries] = useState([]);
@@ -137,7 +135,7 @@ function PullTab() {
   }, []);
 
   const allTypes     = filters?.company_types || [];
-  const allCountries = filters?.countries||[];
+  const allCountries = filters?.countries || [];
   const allCities    = filters?.cities ? Object.values(filters.cities).flat() : [];
 
   const handlePull = async () => {
@@ -158,20 +156,17 @@ function PullTab() {
     if (!results.length) return;
     import("xlsx").then(({ default: XLSX }) => {
       const headers = ["Company Name","Email","Phone","Website","City","Country","Company Type"];
-      const rows    = results.map(r => [
-        r.name||"", r.email||"", r.phone||"",
-        r.website||"", r.city||"", r.country||"", r.company_type||""
-      ]);
+      const rows    = results.map(r=>[r.name||"",r.email||"",r.phone||"",r.website||"",r.city||"",r.country||"",r.company_type||""]);
       const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
       const range = XLSX.utils.decode_range(ws["!ref"]);
-      for (let row = 1; row <= range.e.r; row++) {
-        const cellRef = XLSX.utils.encode_cell({ r: row, c: 2 });
-        if (ws[cellRef]) { ws[cellRef].t = "s"; ws[cellRef].z = "@"; }
+      for (let row=1; row<=range.e.r; row++) {
+        const ref = XLSX.utils.encode_cell({r:row,c:2});
+        if (ws[ref]) { ws[ref].t="s"; ws[ref].z="@"; }
       }
       ws["!cols"] = [{wch:30},{wch:30},{wch:18},{wch:35},{wch:18},{wch:18},{wch:22}];
       const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "ReachCT Export");
-      XLSX.writeFile(wb, `reachct_export_${new Date().toISOString().slice(0,10)}.xlsx`);
+      XLSX.utils.book_append_sheet(wb, ws, "ReachCT Maps Export");
+      XLSX.writeFile(wb, `reachct_maps_${new Date().toISOString().slice(0,10)}.xlsx`);
     });
   };
 
@@ -179,14 +174,14 @@ function PullTab() {
     if (!results.length) return;
     const headers = ["Company Name","Email","Phone","Website","City","Country","Company Type"];
     const rows    = results.map(r=>[r.name||"",r.email||"",r.phone||"",r.website||"",r.city||"",r.country||"",r.company_type||""]);
-    const tsv     = [headers,...rows].map(r=>r.join("\t")).join("\n");
-    navigator.clipboard.writeText(tsv).then(()=>alert("Copied! Paste into Google Sheets or Excel."));
+    navigator.clipboard.writeText([headers,...rows].map(r=>r.join("\t")).join("\n"))
+      .then(()=>alert("Copied! Paste into Google Sheets or Excel."));
   };
 
   return (
     <>
       <div className="form-card">
-        <div className="form-title">Pull From Database</div>
+        <div className="form-title">Pull from Maps Database</div>
         <div className="form-grid">
           <div>
             <label className="field-label">Company Type</label>
@@ -220,11 +215,7 @@ function PullTab() {
               <span style={{color:"#E8005A"}}>{results.filter(r=>r.email).length}</span> emails found
             </div>
             <div className="btn-row">
-              {user&&(
-                <button className="btn-primary" onClick={()=>setShowAddDB(true)}>
-                  + Add to Database
-                </button>
-              )}
+              {user&&<button className="btn-primary" onClick={()=>setShowAddDB(true)}>+ Add to Database</button>}
               <button className="btn-secondary" onClick={handleExport}><DownloadIcon/>Export Excel</button>
               <button className="btn-secondary" onClick={handleCopy}><CopyIcon/>Copy Table</button>
             </div>
@@ -244,9 +235,165 @@ function PullTab() {
   );
 }
 
-// ─── Database Page ────────────────────────────────────────────────────────────
+// ─── LinkedIn Pull Tab ────────────────────────────────────────────────────────
+function LinkedInPullTab() {
+  const { user, token }           = useAuth();
+  const [jobTitles, setJobTitles] = useState([]);
+  const [companies, setCompanies] = useState([]);
+  const [locations, setLocations] = useState([]);
+  const [results, setResults]     = useState([]);
+  const [searched, setSearched]   = useState(false);
+  const [loading, setLoading]     = useState(false);
+  const [error, setError]         = useState("");
+  const [liFilters, setLiFilters] = useState({});
+  const [showAddDB, setShowAddDB] = useState(false);
+
+  useEffect(() => {
+    fetch(`${API}/api/linkedin/filters`, { headers:{ Authorization:`Bearer ${token}` } })
+      .then(r=>r.json()).then(setLiFilters).catch(()=>{});
+  }, [token]);
+
+  const handlePull = async () => {
+    if (!jobTitles.length&&!companies.length&&!locations.length) {
+      setError("Please select at least one filter."); return;
+    }
+    setError(""); setLoading(true);
+    try {
+      const res  = await fetch(`${API}/api/linkedin/pull`, {
+        method:"POST", headers:{"Content-Type":"application/json", Authorization:`Bearer ${token}`},
+        body:JSON.stringify({ job_titles:jobTitles, companies, locations }),
+      });
+      const data = await res.json();
+      setResults(data.results||[]); setSearched(true);
+    } catch { setError("Failed to load LinkedIn data."); }
+    setLoading(false);
+  };
+
+  const handleExport = () => {
+    if (!results.length) return;
+    import("xlsx").then(({ default: XLSX }) => {
+      const headers = ["Full Name","Role","Profile Title","Company","Email","LinkedIn URL","Location"];
+      const rows    = results.map(r=>[
+        r.full_name||"", r.job_title||"", r.profile_title||"",
+        r.company||"", r.email||"", r.linkedin_url||"", r.location||""
+      ]);
+      const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+      ws["!cols"] = [{wch:24},{wch:16},{wch:32},{wch:24},{wch:32},{wch:50},{wch:20}];
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "LinkedIn Export");
+      XLSX.writeFile(wb, `reachct_linkedin_${new Date().toISOString().slice(0,10)}.xlsx`);
+    });
+  };
+
+  const handleCopy = () => {
+    if (!results.length) return;
+    const headers = ["Full Name","Role","Profile Title","Company","Email","LinkedIn URL","Location"];
+    const rows    = results.map(r=>[r.full_name||"",r.job_title||"",r.profile_title||"",r.company||"",r.email||"",r.linkedin_url||"",r.location||""]);
+    navigator.clipboard.writeText([headers,...rows].map(r=>r.join("\t")).join("\n"))
+      .then(()=>alert("Copied! Paste into Google Sheets or Excel."));
+  };
+
+  const confColor = (c) => c==="verified"?"#16a34a":c==="catch-all"?"#ca8a04":c==="unverified"?"#dc2626":"#999";
+
+  return (
+    <>
+      <div className="form-card">
+        <div className="form-title">Pull from LinkedIn Contacts</div>
+        <p style={{fontSize:13,color:"#888",marginTop:-8,marginBottom:20}}>
+          Pull people from the shared LinkedIn contacts database — includes all manually saved emails.
+        </p>
+        <div className="form-grid">
+          <div>
+            <label className="field-label">Job Title</label>
+            <TagInput placeholder="e.g. HR Manager" options={liFilters?.job_titles||[]} value={jobTitles} onChange={setJobTitles}/>
+          </div>
+          <div>
+            <label className="field-label">Company</label>
+            <TagInput placeholder="e.g. Kreaset" options={liFilters?.companies||[]} value={companies} onChange={setCompanies}/>
+          </div>
+          <div>
+            <label className="field-label">Location</label>
+            <TagInput placeholder="e.g. Madrid" options={liFilters?.locations||[]} value={locations} onChange={setLocations}/>
+          </div>
+        </div>
+        <p style={{fontSize:12,color:"#999",marginBottom:16}}>Multiple values are OR-matched. Leave empty to pull all contacts.</p>
+        <div className="btn-row">
+          <button className="btn-primary" onClick={handlePull} disabled={loading}>
+            <DatabaseIcon/>{loading?"Loading…":"Pull Contacts"}
+          </button>
+        </div>
+        {error&&<div className="error-msg">{error}</div>}
+        {loading&&<div className="loading-area"><div className="spinner"/>
+          <p className="loading-msg">Fetching from LinkedIn database…</p></div>}
+      </div>
+
+      {searched&&(
+        <div className="results-area">
+          <div className="results-header">
+            <div className="results-count">
+              <span>{results.length}</span> contacts found &nbsp;·&nbsp;
+              <span style={{color:"#E8005A"}}>{results.filter(r=>r.email).length}</span> with email
+            </div>
+            <div className="btn-row">
+              {user&&<button className="btn-primary" onClick={()=>setShowAddDB(true)}>+ Add to Database</button>}
+              <button className="btn-secondary" onClick={handleExport}><DownloadIcon/>Export Excel</button>
+              <button className="btn-secondary" onClick={handleCopy}><CopyIcon/>Copy Table</button>
+            </div>
+          </div>
+
+          <div style={{overflowX:"auto"}}>
+            <table className="results-table">
+              <thead>
+                <tr>
+                  <th>Full Name</th>
+                  <th>Role</th>
+                  <th>Profile Title</th>
+                  <th>Company</th>
+                  <th>Email</th>
+                  <th>LinkedIn</th>
+                  <th>Location</th>
+                </tr>
+              </thead>
+              <tbody>
+                {results.map((r,i)=>(
+                  <tr key={i}>
+                    <td style={{fontWeight:500}}>{r.full_name||"—"}</td>
+                    <td><span style={{ background:"rgba(232,0,90,0.08)", border:"1px solid rgba(232,0,90,0.15)",
+                      borderRadius:6, padding:"2px 8px", fontSize:11, color:"#E8005A", fontWeight:600,
+                      whiteSpace:"nowrap" }}>{r.job_title||"—"}</span></td>
+                    <td style={{color:"#666",fontSize:12}}>{r.profile_title||"—"}</td>
+                    <td>{r.company||"—"}</td>
+                    <td style={{color: r.email?"#E8005A":"#ccc"}}>{r.email||"—"}</td>
+                    <td>
+                      {r.linkedin_url
+                        ? <a href={r.linkedin_url} target="_blank" rel="noreferrer"
+                            style={{color:"#0a66c2",fontSize:12}}>Profile →</a>
+                        : "—"}
+                    </td>
+                    <td style={{fontSize:12,color:"#888"}}>{r.location||"—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {showAddDB&&(
+        <AddToDBModal
+          dbKind="linkedin"
+          rows={results.map(r=>({full_name:r.full_name||"",job_title:r.job_title||"",
+            profile_title:r.profile_title||"",company:r.company||"",
+            email:r.email||"",linkedin_url:r.linkedin_url||"",location:r.location||""}))}          onClose={()=>setShowAddDB(false)}
+        />
+      )}
+    </>
+  );
+}
+
+// ─── Database Page ─────────────────────────────────────────────────────────────
 export default function DatabasePage() {
-  const [activeTab, setActiveTab] = useState("pull");
+  const [activeTab, setActiveTab] = useState("maps");
 
   const tabStyle = (active) => ({
     padding:"10px 24px", border:"none", cursor:"pointer",
@@ -260,19 +407,23 @@ export default function DatabasePage() {
     <div className="inner-page">
       <InnerHeader title="Push / Pull Database" />
 
-      {/* Tabs */}
       <div style={{ background:"#fff", borderBottom:"1px solid #eee", padding:"0 48px",
         display:"flex", gap:4 }}>
-        <button style={tabStyle(activeTab==="pull")} onClick={()=>setActiveTab("pull")}>
-          Pull from Database
+        <button style={tabStyle(activeTab==="maps")} onClick={()=>setActiveTab("maps")}>
+          🗺️ Pull Maps Data
+        </button>
+        <button style={tabStyle(activeTab==="linkedin")} onClick={()=>setActiveTab("linkedin")}>
+          🔗 Pull LinkedIn Contacts
         </button>
         <button style={tabStyle(activeTab==="push")} onClick={()=>setActiveTab("push")}>
-          Push Spreadsheet
+          ⬆️ Push Spreadsheet
         </button>
       </div>
 
       <div className="form-area" style={{ marginTop:32 }}>
-        {activeTab==="pull" ? <PullTab/> : <PushTab/>}
+        {activeTab==="maps"     && <MapsPullTab/>}
+        {activeTab==="linkedin" && <LinkedInPullTab/>}
+        {activeTab==="push"     && <PushTab/>}
       </div>
     </div>
   );

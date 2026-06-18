@@ -229,7 +229,7 @@ function LinkedInSearch({ user, token }) {
   const [city,          setCity]          = useState("");
   const [role,          setRole]          = useState("HR");
   const [start,         setStart]         = useState(0);
-  const [end,           setEnd]           = useState(10);
+  const [end,           setEnd]           = useState(25);
   const [filters,       setFilters]       = useState({ company_types:[], cities:{} });
   const [loading,       setLoading]       = useState(false);
   const [loadMsg,       setLoadMsg]       = useState("");
@@ -310,10 +310,10 @@ function LinkedInSearch({ user, token }) {
   const handleExport = () => {
     if (!results.length) return;
     import("xlsx").then(({ default: XLSX }) => {
-      const headers = ["Full Name","Job Title","Company","Email","Confidence","LinkedIn URL","Location"];
-      const rows    = results.map(r => [r.full_name||"",r.job_title||"",r.company||"",r.email||"",r.confidence||"",r.linkedin_url||"",r.location||""]);
+      const headers = ["Full Name","Role","Profile Title","Company","LinkedIn URL","Email"];
+      const rows    = results.map(r => [r.full_name||"",r.job_title||"",r.profile_title||"",r.company||"",r.linkedin_url||"",r.email||""]);
       const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
-      ws["!cols"] = [{wch:24},{wch:24},{wch:22},{wch:30},{wch:14},{wch:40},{wch:18}];
+      ws["!cols"] = [{wch:24},{wch:16},{wch:32},{wch:24},{wch:50},{wch:30}];
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "LinkedIn Export");
       XLSX.writeFile(wb, `reachct_linkedin_${new Date().toISOString().slice(0,10)}.xlsx`);
@@ -322,15 +322,36 @@ function LinkedInSearch({ user, token }) {
 
   const handleCopy = () => {
     if (!results.length) return;
-    const headers = ["Full Name","Job Title","Company","Email","Confidence","LinkedIn URL","Location"];
-    const rows    = results.map(r => [r.full_name||"",r.job_title||"",r.company||"",r.email||"",r.confidence||"",r.linkedin_url||"",r.location||""]);
+    const headers = ["Full Name","Role","Profile Title","Company","LinkedIn URL","Email"];
+    const rows    = results.map(r => [r.full_name||"",r.job_title||"",r.profile_title||"",r.company||"",r.linkedin_url||"",r.email||""]);
     const tsv     = [headers,...rows].map(r=>r.join("\t")).join("\n");
     navigator.clipboard.writeText(tsv).then(()=>alert("Copied!"));
   };
 
+  const handleSaveEmail = async (idx) => {
+    const person = results[idx];
+    if (!person?.email) return;
+    try {
+      // Save to DB if user has added to database
+      await fetch(`${API}/api/linkedin/save-email`, {
+        method:"POST",
+        headers:{"Content-Type":"application/json", Authorization:`Bearer ${token}`},
+        body:JSON.stringify({ linkedin_url: person.linkedin_url, email: person.email }),
+      });
+      const updated = [...results];
+      updated[idx] = { ...updated[idx], _saved: true };
+      setResults(updated);
+    } catch {
+      // Mark saved locally even if API call fails — user can still export
+      const updated = [...results];
+      updated[idx] = { ...updated[idx], _saved: true };
+      setResults(updated);
+    }
+  };
+
   useEffect(() => () => { if (pollRef.current) clearInterval(pollRef.current); }, []);
 
-  const confColor = (c) => c==="verified" ? "#16a34a" : c==="catch-all" ? "#ca8a04" : c==="guess"||c==="unverified" ? "#dc2626" : "#999";
+  // confColor removed — confidence column dropped, emails added manually via Mailmeteor
 
   return (
     <>
@@ -368,15 +389,15 @@ function LinkedInSearch({ user, token }) {
                 onBlur={e=>{ if(e.target.value==="") setStart(0); }}/>
             </div>
             <div>
-              <label className="field-label">End company (max +10)</label>
+              <label className="field-label">End company</label>
               <input className="field-input" type="number" min="1" value={end}
-                onChange={e=>{ const v=e.target.value; setEnd(v===""?"":Math.min(Number(v),(start||0)+10)); }}
-                onBlur={e=>{ if(e.target.value==="") setEnd(10); }}/>
+                onChange={e=>{ const v=e.target.value; setEnd(v===""?"":Number(v)); }}
+                onBlur={e=>{ if(e.target.value==="") setEnd(25); }}/>
             </div>
 
             <div style={{ gridColumn:"span 5", background:"rgba(232,0,90,0.04)", border:"1px solid rgba(232,0,90,0.15)",
               borderRadius:10, padding:"12px 16px", fontSize:12, color:"#666" }}>
-              💡 ReachCT will pull <strong>{companyType||"companies"}</strong> in <strong>{city||"selected city"}</strong> (companies {start}→{end}, max 10 at a time)
+              💡 ReachCT will pull <strong>{companyType||"companies"}</strong> in <strong>{city||"selected city"}</strong> (companies {start}→{end})
               from the database and find the most relevant <strong>{role}</strong> at each — 1 person per company.
             </div>
           </div>
@@ -406,10 +427,14 @@ function LinkedInSearch({ user, token }) {
           <div className="results-header">
             <div className="results-count">
               <span>{results.length}</span> people found &nbsp;·&nbsp;
-              <span style={{ color:"#E8005A" }}>{results.filter(r=>r.email).length}</span> emails found
+              <span style={{ color:"#E8005A" }}>{results.filter(r=>r._saved).length}</span> emails saved
             </div>
             <div className="btn-row">
-              {user && <button className="btn-primary" onClick={()=>setShowAddDB(true)}>+ Add to Database</button>}
+              {user && results.some(r=>r._saved) && (
+                <button className="btn-primary" onClick={()=>setShowAddDB(true)}>
+                  + Add to Database ({results.filter(r=>r._saved).length})
+                </button>
+              )}
               <button className="btn-secondary" onClick={handleExport}><DownloadIcon/>Export Excel</button>
               <button className="btn-secondary" onClick={handleCopy}><CopyIcon/>Copy Table</button>
             </div>
@@ -419,30 +444,93 @@ function LinkedInSearch({ user, token }) {
             <table className="results-table">
               <thead>
                 <tr>
-                  <th>Full Name</th><th>Job Title</th><th>Company</th>
-                  <th>Email</th><th>Confidence</th><th>LinkedIn</th>
+                  <th>Full Name</th><th>Role</th><th>Profile Title</th><th>Company</th>
+                  <th>LinkedIn URL <span style={{fontWeight:400,color:"#aaa",fontSize:11}}>(click to copy)</span></th>
+                  <th>Email</th><th>Save</th>
                 </tr>
               </thead>
               <tbody>
                 {results.map((r, i) => (
                   <tr key={i}>
-                    <td>{r.full_name}</td>
-                    <td>{r.job_title}</td>
-                    <td>{r.company}</td>
-                    <td style={{ color: r.email ? "#E8005A" : "#ccc" }}>{r.email||"—"}</td>
-                    <td>
-                      <span style={{ color:confColor(r.confidence), fontSize:12, fontWeight:600 }}>
-                        {r.confidence||"—"}
-                      </span>
+                    <td style={{ fontWeight:500 }}>{r.full_name}</td>
+                    <td><span style={{ background:"rgba(232,0,90,0.08)", border:"1px solid rgba(232,0,90,0.15)",
+                      borderRadius:6, padding:"2px 8px", fontSize:11, color:"#E8005A", fontWeight:600,
+                      whiteSpace:"nowrap" }}>{r.job_title||"—"}</span></td>
+                    <td style={{ color:"#666", fontSize:12 }}>{r.profile_title||"—"}</td>
+                    <td>{r.company||"—"}</td>
+                    <td style={{ maxWidth:280 }}>
+                      {r.linkedin_url ? (
+                        <span
+                          onClick={() => {
+                            navigator.clipboard.writeText(r.linkedin_url);
+                            const el = document.getElementById(`url-copied-${i}`);
+                            if (el) { el.style.opacity=1; setTimeout(()=>{ el.style.opacity=0; },1400); }
+                          }}
+                          title="Click to copy"
+                          style={{ fontFamily:"monospace", fontSize:11, color:"#0a66c2",
+                            wordBreak:"break-all", cursor:"pointer", display:"block",
+                            padding:"4px 0", borderBottom:"1px dashed #bfdbfe",
+                            userSelect:"none" }}>
+                          {r.linkedin_url}
+                          <span id={`url-copied-${i}`} style={{ marginLeft:6, fontSize:10,
+                            color:"#16a34a", opacity:0, transition:"opacity 0.2s",
+                            fontFamily:"'DM Sans',sans-serif", fontStyle:"normal" }}>
+                            ✓ copied
+                          </span>
+                        </span>
+                      ) : "—"}
                     </td>
-                    <td>{r.linkedin_url
-                      ? <a href={r.linkedin_url} target="_blank" rel="noreferrer" style={{ color:"#0a66c2" }}>Profile →</a>
-                      : "—"}
+                    <td>
+                      <input
+                        value={r.email || ""}
+                        onChange={e => {
+                          const updated = [...results];
+                          updated[i] = { ...updated[i], email: e.target.value, _saved: false };
+                          setResults(updated);
+                        }}
+                        placeholder="Paste email…"
+                        style={{ border:"1.5px solid #e8e8e8", borderRadius:7, padding:"5px 10px",
+                          fontSize:12, fontFamily:"'DM Sans',sans-serif", width:180,
+                          outline:"none", color:"#E8005A" }}
+                        onFocus={e => e.target.style.borderColor="#E8005A"}
+                        onBlur={e => e.target.style.borderColor="#e8e8e8"}
+                      />
+                    </td>
+                    <td>
+                      <button
+                        onClick={() => handleSaveEmail(i)}
+                        disabled={!r.email || r._saved}
+                        style={{ background: r._saved ? "#16a34a" : "#E8005A",
+                          border:"none", borderRadius:7, padding:"5px 12px",
+                          color:"#fff", fontSize:12, fontWeight:600,
+                          cursor: r._saved ? "default" : "pointer",
+                          fontFamily:"'DM Sans',sans-serif",
+                          opacity: (r.email && !r._saved) || r._saved ? 1 : 0.35,
+                          transition:"background 0.2s" }}>
+                        {r._saved ? "✓ Saved" : "Save"}
+                      </button>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
+          </div>
+
+          {/* Mailmeteor workflow banner */}
+          <div style={{ marginTop:20, padding:"18px 22px", background:"#f0f7ff",
+            border:"1px solid #bfdbfe", borderRadius:12, fontSize:13, color:"#1e3a8a",
+            lineHeight:2 }}>
+            <div style={{ fontWeight:700, marginBottom:8, fontSize:14 }}>📧 How to get verified emails</div>
+            <ol style={{ margin:0, paddingLeft:22 }}>
+              <li>Click a LinkedIn URL in the table above — it copies to your clipboard</li>
+              <li>Open <a href="https://mailmeteor.com/tools/linkedin-email-finder" target="_blank"
+                rel="noreferrer" style={{ color:"#1d4ed8", fontWeight:600 }}>
+                mailmeteor.com/tools/linkedin-email-finder ↗
+              </a> and paste the URL</li>
+              <li>Copy the verified email it returns</li>
+              <li>Paste into the Email cell for that row and click <strong>Save</strong></li>
+              <li>Once rows are saved, <strong>+ Add to Database</strong> appears to store them for the team</li>
+            </ol>
           </div>
         </div>
       )}
@@ -450,8 +538,9 @@ function LinkedInSearch({ user, token }) {
       {showAddDB && (
         <AddToDBModal
           dbKind="linkedin"
-          rows={results.map(r=>({ full_name:r.full_name||"", job_title:r.job_title||"", company:r.company||"",
-            email:r.email||"", linkedin_url:r.linkedin_url||"", location:r.location||"" }))}
+          rows={results.filter(r=>r._saved).map(r=>({ full_name:r.full_name||"", job_title:r.job_title||"",
+            profile_title:r.profile_title||"", company:r.company||"", email:r.email||"",
+            linkedin_url:r.linkedin_url||"", location:r.location||"" }))}
           onClose={()=>setShowAddDB(false)}
         />
       )}
