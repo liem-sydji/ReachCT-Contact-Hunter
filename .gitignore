@@ -1,33 +1,27 @@
-# Python
+# Dependencies
+node_modules/
 __pycache__/
 *.pyc
-*.pyo
-*.pyd
-.env
 venv/
 .venv/
 
-# Database
-*.db
-*.sqlite
+# Build output
+dist/
+build/
 
-# Excel exports
+# Environment
+.env
+.env.local
+
+# Generated Excel files
 *.xlsx
-*.csv
 
-# Node
-node_modules/
-frontend/dist/
-frontend/.vite/
-
-# OS
-.DS_Store
-Thumbs.db
-
-# IDE
-.idea/
+# Editor
 .vscode/
-*.iml
+.idea/
+.DS_Store
 
-# Local Netlify folder
-.netlify
+# Logs
+*.log
+
+linkedin_cookies.json

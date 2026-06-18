@@ -1,0 +1,152 @@
+[
+  {
+    "name": "JSESSIONID",
+    "value": "ajax:1459866313256894144",
+    "domain": ".www.linkedin.com",
+    "path": "/",
+    "expires": -1,
+    "httpOnly": false,
+    "secure": true,
+    "sameSite": "None"
+  },
+  {
+    "name": "bcookie",
+    "value": "\"v=2&d6061fb0-0063-4c60-89a2-e597e64d91f2\"",
+    "domain": ".linkedin.com",
+    "path": "/",
+    "expires": 1813310746.935035,
+    "httpOnly": false,
+    "secure": true,
+    "sameSite": "None"
+  },
+  {
+    "name": "bscookie",
+    "value": "\"v=1&2026061809244482587b0b-1581-4399-849a-0954345d238eAQFuxkL4iG3tvTOpBkY9uCfMD9bLwUlx\"",
+    "domain": ".www.linkedin.com",
+    "path": "/",
+    "expires": 1813310746.935145,
+    "httpOnly": true,
+    "secure": true,
+    "sameSite": "None"
+  },
+  {
+    "name": "li_gc",
+    "value": "MTswOzE3ODE3NzQ2ODQ7MjswMjFN42BoG2rEN6sM1hAEr4p9WBtQmlBEo/ZCc5lf/ean6g==",
+    "domain": ".linkedin.com",
+    "path": "/",
+    "expires": 1797326683.227969,
+    "httpOnly": false,
+    "secure": true,
+    "sameSite": "None"
+  },
+  {
+    "name": "__cf_bm",
+    "value": "02KsooZcN76qNsgOJ3TeWu6y3Q8g_V2UJycDHyofeCc-1781774684.7630608-1.0.1.1-7nKiEBu_ftutrsWS7Mo7WyEicerFgaUg7vxnxUlQgH4HQqA5mIRnpta1juNdUnLt6oOP1cQlI9CfOctX4aL7SZYkRwnKjCJjuL_aFvS0zYJx.7PoVREzcYliXhC4Hlqa",
+    "domain": ".linkedin.com",
+    "path": "/",
+    "expires": 1781776484.228044,
+    "httpOnly": true,
+    "secure": true,
+    "sameSite": "None"
+  },
+  {
+    "name": "timezone",
+    "value": "Europe/Madrid",
+    "domain": ".www.linkedin.com",
+    "path": "/",
+    "expires": 1782984347,
+    "httpOnly": false,
+    "secure": true,
+    "sameSite": "Lax"
+  },
+  {
+    "name": "li_at",
+    "value": "AQEDAToHavsBUrbqAAABntoM6fYAAAGe_hlt9k4AZeNdrfX_S-fma_OcAAephQ3mDMbPjp7PdiVxy7rA4LqF_NaBl_3CGctm00ax-4LasmusD3WyQXLGJqS-eZsWyx8bw9RslZCsSVjlIlWcUCrgPaxQ",
+    "domain": ".www.linkedin.com",
+    "path": "/",
+    "expires": 1813310739.187723,
+    "httpOnly": true,
+    "secure": true,
+    "sameSite": "None"
+  },
+  {
+    "name": "li_mc",
+    "value": "MTs0MjsxNzgxNzc0NzQyOzI7MDIxmyYgDiuYop3clu5Sc+0jp6CKUooNwsqIifmrsrFJDB8=",
+    "domain": ".linkedin.com",
+    "path": "/",
+    "expires": 1797326741.464488,
+    "httpOnly": false,
+    "secure": true,
+    "sameSite": "None"
+  },
+  {
+    "name": "sdui_ver",
+    "value": "sdui-flagship:0.1.43445+SduiFlagship0",
+    "domain": ".linkedin.com",
+    "path": "/",
+    "expires": 1813310746.93476,
+    "httpOnly": false,
+    "secure": false,
+    "sameSite": "Lax"
+  },
+  {
+    "name": "lang",
+    "value": "v=2&lang=en-us",
+    "domain": ".linkedin.com",
+    "path": "/",
+    "expires": -1,
+    "httpOnly": false,
+    "secure": true,
+    "sameSite": "None"
+  },
+  {
+    "name": "li_theme",
+    "value": "light",
+    "domain": ".www.linkedin.com",
+    "path": "/",
+    "expires": 1797330347,
+    "httpOnly": false,
+    "secure": true,
+    "sameSite": "Lax"
+  },
+  {
+    "name": "li_theme_set",
+    "value": "app",
+    "domain": ".www.linkedin.com",
+    "path": "/",
+    "expires": 1797330347,
+    "httpOnly": false,
+    "secure": true,
+    "sameSite": "Lax"
+  },
+  {
+    "name": "lidc",
+    "value": "\"b=TB67:s=T:r=T:a=T:p=T:g=5128:u=381:x=1:i=1781774750:t=1781776602:v=2:sig=AQGuUqm5AoN0A2tGKfzAe2jB4fHQrp87\"",
+    "domain": ".linkedin.com",
+    "path": "/",
+    "expires": 1781776601.753485,
+    "httpOnly": false,
+    "secure": true,
+    "sameSite": "None"
+  },
+  {
+    "name": "fptctx2",
+    "value": "AQGlkXyPMmjFMlMfOhhGkrs%252fCzfoIIY1tDM0qtOL%252fpd8yqg%252fABl%252fhkeKkjZnqzLz7zr%252fmYCZVjPUgEOWBmrorFojDJaEHQI7V6cIC1LC6tdsIvvB2N9fnEeamBs5M9jMwJGA5PqWWcOzxjmT3ld%252byaBgY%252fhRDKP1sJn5VS5hx3IPHa8L%252bwDVH%252bjThwFllDumfTDOzmbx1D7MiZA%252fiyzF6vDXaiSgTYZe1ZiMYWKh8BsCEZnc%252frAJVkcGDJAiApEo6M1iFcUMZgdsq0wpCgsAwRidmXHNs2wvW7jGMYWVluukwsFOb4fxFEnlzt3V2waJxidFLa5jtWq94H6malhrT8tm",
+    "domain": ".linkedin.com",
+    "path": "/",
+    "expires": -1,
+    "httpOnly": true,
+    "secure": true,
+    "sameSite": "Lax"
+  },
+  {
+    "name": "dfpfpt",
+    "value": "5f501c92655a437ba66fca0d232bebde",
+    "domain": ".linkedin.com",
+    "path": "/",
+    "expires": 1813310750.681099,
+    "httpOnly": true,
+    "secure": true,
+    "sameSite": "Lax"
+  }
+]
