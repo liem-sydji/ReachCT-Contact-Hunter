@@ -10,7 +10,7 @@ import AddToDBModal from "../components/AddToDBModal.jsx";
 function TagInput({ placeholder, options, value, onChange }) {
   const [inputVal, setInputVal] = useState("");
   const [open, setOpen]         = useState(false);
-  const filtered = options.filter(o=>o.toLowerCase().includes(inputVal.toLowerCase())&&!value.includes(o)).slice(0,8);
+  const filtered = options.filter(o=>o.toLowerCase().includes(inputVal.toLowerCase())&&!value.includes(o)).slice(0,200);
   const add    = (item)=>{ onChange([...value,item]); setInputVal(""); setOpen(false); };
   const remove = (item)=>onChange(value.filter(v=>v!==item));
   return (
@@ -36,7 +36,7 @@ function TagInput({ placeholder, options, value, onChange }) {
       {open&&filtered.length>0&&(
         <div style={{position:"absolute",top:"100%",left:0,right:0,zIndex:100,background:"#fff",
           border:"1px solid #eee",borderRadius:10,boxShadow:"0 4px 20px rgba(0,0,0,0.1)",
-          maxHeight:200,overflowY:"auto",marginTop:4}}>
+          maxHeight:260,overflowY:"auto",marginTop:4}}>
           {filtered.map(o=>(
             <div key={o} onMouseDown={()=>add(o)} style={{padding:"9px 14px",fontSize:13,
               cursor:"pointer",fontFamily:"'DM Sans',sans-serif",color:"#111",background:"#fff"}}
@@ -63,7 +63,6 @@ function PushTab() {
     try {
       const formData = new FormData();
       formData.append("file", file);
-      // Upload to shared DB directly (no user db) — use a temporary endpoint
       const res  = await fetch(`${API}/api/upload-shared`, {
         method:"POST", headers:{ Authorization:`Bearer ${token}` }, body:formData,
       });
@@ -164,7 +163,6 @@ function PullTab() {
         r.website||"", r.city||"", r.country||"", r.company_type||""
       ]);
       const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
-      // Force phone column (index 2) as text to prevent scientific notation
       const range = XLSX.utils.decode_range(ws["!ref"]);
       for (let row = 1; row <= range.e.r; row++) {
         const cellRef = XLSX.utils.encode_cell({ r: row, c: 2 });

@@ -21,6 +21,7 @@ export const COMPANY_TYPES_GROUPED = {
   "J": ["Journalism Company"],
   "L": ["Language Academy", "Library Company", "Life Science Company", "Logistics Company"],
   "M": ["Management Company", "Market Research Agency", "Marketing Agency", "Medical Device Company", "Medical Laboratory"],
+  "N": ["Non Governmental Organization"],
   "O": ["Operations Company"],
   "P": ["Pharmaceutical Company", "PR Agency"],
   "R": ["Real Estate Company", "Research Institute", "Restaurant Company", "Retail Company"],

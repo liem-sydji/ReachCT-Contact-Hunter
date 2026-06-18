@@ -51,7 +51,7 @@ function LeftPanel({ user, onNav }) {
 function TagInput({ placeholder, options, value, onChange }) {
   const [inputVal, setInputVal] = useState("");
   const [open, setOpen]         = useState(false);
-  const filtered = options.filter(o => o.toLowerCase().includes(inputVal.toLowerCase()) && !value.includes(o)).slice(0,8);
+  const filtered = options.filter(o => o.toLowerCase().includes(inputVal.toLowerCase()) && !value.includes(o)).slice(0,200);
   const add    = (item) => { onChange([...value, item]); setInputVal(""); setOpen(false); };
   const remove = (item) => onChange(value.filter(v => v !== item));
   return (
@@ -77,7 +77,7 @@ function TagInput({ placeholder, options, value, onChange }) {
       {open && filtered.length > 0 && (
         <div style={{ position:"absolute", top:"100%", left:0, right:0, zIndex:100, background:"#fff",
           border:"1px solid #eee", borderRadius:10, boxShadow:"0 4px 20px rgba(0,0,0,0.1)",
-          maxHeight:200, overflowY:"auto", marginTop:4 }}>
+          maxHeight:260, overflowY:"auto", marginTop:4 }}>
           {filtered.map(o => (
             <div key={o} onMouseDown={() => add(o)} style={{ padding:"9px 14px", fontSize:13,
               cursor:"pointer", fontFamily:"'DM Sans',sans-serif", color:"#111", background:"#fff" }}
@@ -132,7 +132,6 @@ function PullModal({ onClose, onPull, filters, kind, liFilters }) {
   const [queries, setQueries]     = useState([]);
   const [cities, setCities]       = useState([]);
   const [countries, setCountries] = useState([]);
-  // LinkedIn filters
   const [jobTitles, setJobTitles] = useState([]);
   const [companies, setCompanies] = useState([]);
   const [locations, setLocations] = useState([]);
@@ -154,7 +153,7 @@ function PullModal({ onClose, onPull, filters, kind, liFilters }) {
 
   if (kind === "linkedin") {
     return (
-      <ModalWrap onClose={onClose} title="Pull from LinkedIn Database" subtitle="Import people from your shared LinkedIn contacts.">
+      <ModalWrap onClose={onClose} title="Pull from LinkedIn Contacts" subtitle="Import people from the shared LinkedIn contacts database.">
         <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
           <div><label style={labelStyle}>Job Title</label>
             <TagInput placeholder="e.g. HR Manager" options={liFilters?.job_titles||[]} value={jobTitles} onChange={setJobTitles} /></div>
@@ -162,9 +161,9 @@ function PullModal({ onClose, onPull, filters, kind, liFilters }) {
             <TagInput placeholder="e.g. Kreaset" options={liFilters?.companies||[]} value={companies} onChange={setCompanies} /></div>
           <div><label style={labelStyle}>Location</label>
             <TagInput placeholder="e.g. Madrid" options={liFilters?.locations||[]} value={locations} onChange={setLocations} /></div>
-          <p style={{ fontSize:12, color:"#999" }}>Multiple values are OR-matched. Leave empty to pull all.</p>
+          <p style={{ fontSize:12, color:"#999" }}>Multiple values are OR-matched. Leave empty to pull all contacts.</p>
         </div>
-        <ModalFooter onClose={onClose} onConfirm={handlePull} loading={loading} label="Pull Data" />
+        <ModalFooter onClose={onClose} onConfirm={handlePull} loading={loading} label="Pull Contacts" />
       </ModalWrap>
     );
   }
@@ -261,7 +260,11 @@ function SearchModal({ onClose, onSearch, token }) {
       const res  = await fetch(`${API}/api/scrape?query=${encodeURIComponent(query)}&city=${encodeURIComponent(city)}&country=${encodeURIComponent(country)}&start=${start}&end=${end}`,
         { headers:{ Authorization:`Bearer ${token}` } });
       const data = await res.json();
-      setLoadMsg("Your search is in progress…");
+      if (data.queue_position > 0) {
+        setLoadMsg(`Queued at position ${data.queue_position}…`);
+      } else {
+        setLoadMsg("Your search is in progress…");
+      }
       pollRef.current = setInterval(async () => {
         const jr = await fetch(`${API}/api/job/${data.job_id}`);
         const jd = await jr.json();
@@ -270,7 +273,11 @@ function SearchModal({ onClose, onSearch, token }) {
           await onSearch(jd.results||[]); onClose();
         } else if (jd.status==="error") {
           clearInterval(pollRef.current); setLoading(false); setLoadMsg("Search failed.");
-        } else if (jd.queue_position>0) { setLoadMsg(`Queued at position ${jd.queue_position}…`); }
+        } else if (jd.queue_position > 0) {
+          setLoadMsg(`Queued at position ${jd.queue_position}…`);
+        } else {
+          setLoadMsg("Your search is in progress…");
+        }
       }, 4000);
     } catch { setLoading(false); setLoadMsg("Failed to start search."); }
   };
@@ -407,7 +414,7 @@ function CollaboratorModal({ onClose, dbId, token }) {
 }
 
 // ─── Three Dots Menu ──────────────────────────────────────────────────────────
-function ThreeDotsMenu({ onPull, onUpload, onSearch, onShare, onExport, onCopy }) {
+function ThreeDotsMenu({ onPull, onUpload, onSearch, onShare, onExport, onCopy, kind }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
   useEffect(() => {
@@ -416,8 +423,8 @@ function ThreeDotsMenu({ onPull, onUpload, onSearch, onShare, onExport, onCopy }
     return () => document.removeEventListener("mousedown", handler);
   }, []);
   const options = [
-    { label:"Pull from Database", icon:"🗄️", onClick:onPull },
-    { label:"Start Search",       icon:"🔍", onClick:onSearch },
+    { label:"Pull from Database", icon: kind === "linkedin" ? "🔗" : "🗄️", onClick:onPull },
+    ...(kind !== "linkedin" ? [{ label:"Start Search", icon:"🔍", onClick:onSearch }] : []),
     { label:"Share Database",     icon:"👥", onClick:onShare },
     { label:"Export to Excel",    icon:"⬇️", onClick:onExport },
     { label:"Copy Table",         icon:"📋", onClick:onCopy },
@@ -456,16 +463,15 @@ const EMPTY_ROWS = 50;
 const COL_WIDTH  = 180;
 
 function SpreadsheetGrid({ entries, columns, setColumns, onCellChange, onDeleteRow, onDeleteCol, onAddCol, onRenameCol, isViewer, isCellSelected, onCellMouseDown, onCellMouseEnter }) {
-  const [editCell, setEditCell]   = useState(null); // {entryId, col} — uses entry ID not row index
+  const [editCell, setEditCell]   = useState(null);
   const [editVal,  setEditVal]    = useState("");
-  const [editColHeader, setEditColHeader] = useState(null); // col name being renamed
+  const [editColHeader, setEditColHeader] = useState(null);
   const [newColName, setNewColName]       = useState("");
   const [showAddCol, setShowAddCol]       = useState(false);
   const [addColName, setAddColName]       = useState("");
   const [dragCol, setDragCol]             = useState(null);
   const [dragOverCol, setDragOverCol]     = useState(null);
 
-  // Always show exactly EMPTY_ROWS empty rows below the data
   const emptyCount = EMPTY_ROWS;
 
   const handleCellClick = (entryId, col, currentVal) => {
@@ -481,7 +487,6 @@ function SpreadsheetGrid({ entries, columns, setColumns, onCellChange, onDeleteR
     }
   };
 
-  // ── Column drag ──
   const handleDragStart = (col) => setDragCol(col);
   const handleDragOver  = (e, col) => { e.preventDefault(); setDragOverCol(col); };
   const handleDrop      = (col) => {
@@ -495,7 +500,6 @@ function SpreadsheetGrid({ entries, columns, setColumns, onCellChange, onDeleteR
     setDragCol(null); setDragOverCol(null);
   };
 
-  // ── Column rename ──
   const startRenameCol = (col) => { setEditColHeader(col); setNewColName(col); };
   const confirmRenameCol = () => {
     if (newColName.trim() && newColName.trim() !== editColHeader) {
@@ -515,10 +519,8 @@ function SpreadsheetGrid({ entries, columns, setColumns, onCellChange, onDeleteR
         </colgroup>
         <thead>
           <tr>
-            {/* Row number header */}
             <th style={{ background:"#f8f8f8", borderRight:"1px solid #e8e8e8",
               borderBottom:"2px solid #e0e0e0", position:"sticky", top:0, left:0, zIndex:10 }} />
-
             {columns.map(col => (
               <th key={col}
                 draggable={!isViewer}
@@ -552,8 +554,6 @@ function SpreadsheetGrid({ entries, columns, setColumns, onCellChange, onDeleteR
                 )}
               </th>
             ))}
-
-            {/* Add column */}
             {!isViewer && (
               <th style={{ background:"#f8f8f8", borderBottom:"2px solid #e0e0e0",
                 position:"sticky", top:0, zIndex:9, padding:"8px 12px" }}>
@@ -579,18 +579,14 @@ function SpreadsheetGrid({ entries, columns, setColumns, onCellChange, onDeleteR
             )}
           </tr>
         </thead>
-
         <tbody>
-          {/* Actual data rows */}
           {entries.map((entry, rowIdx) => (
             <tr key={entry.id} style={{ borderBottom:"1px solid #f0f0f0" }}
               onMouseEnter={e=>e.currentTarget.style.background="#fafafa"}
               onMouseLeave={e=>e.currentTarget.style.background="none"}>
-              <td style={{ background: "#f8f8f8",
-                borderRight:"1px solid #e8e8e8", color:"#bbb",
+              <td style={{ background:"#f8f8f8", borderRight:"1px solid #e8e8e8", color:"#bbb",
                 fontSize:11, textAlign:"center", padding:"0 4px", position:"sticky", left:0,
-                height:36, verticalAlign:"middle", cursor:"pointer" }}
-                onClick={()=>{}}>
+                height:36, verticalAlign:"middle", cursor:"pointer" }}>
                 <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"0 4px" }}>
                   <span>{rowIdx+1}</span>
                   {!isViewer && (
@@ -633,8 +629,6 @@ function SpreadsheetGrid({ entries, columns, setColumns, onCellChange, onDeleteR
               {!isViewer && <td />}
             </tr>
           ))}
-
-          {/* Empty rows */}
           {Array.from({ length: emptyCount }).map((_, i) => (
             <tr key={`empty-${i}`} style={{ borderBottom:"1px solid #f0f0f0", height:36 }}
               onMouseEnter={e=>e.currentTarget.style.background="#fafafa"}
@@ -651,7 +645,6 @@ function SpreadsheetGrid({ entries, columns, setColumns, onCellChange, onDeleteR
           ))}
         </tbody>
       </table>
-
       <style>{`
         tbody tr:hover .row-del-btn { opacity: 1 !important; }
         thead th:hover .col-del-btn { opacity: 1 !important; }
@@ -673,13 +666,11 @@ export default function SpreadsheetPage() {
   const [liFilters, setLiFilters] = useState({});
   const [modal, setModal]     = useState(null);
 
-  // isViewer must be declared before useEffects that reference it
   const isViewer = db?.role === "viewer";
 
-  // ── Excel-style cell selection + copy/paste ──
-  const [selection, setSelection]         = useState(null); // {startRow, startCol, endRow, endCol}
-  const [isSelecting, setIsSelecting]     = useState(false);
-  const [copiedCells, setCopiedCells]     = useState(null); // {data[][], cols[], startCol}
+  const [selection, setSelection]     = useState(null);
+  const [isSelecting, setIsSelecting] = useState(false);
+  const [copiedCells, setCopiedCells] = useState(null);
   const selectionRef = useRef(null);
 
   const getCellCoords = (entryId, col) => {
@@ -718,7 +709,6 @@ export default function SpreadsheetPage() {
     return () => window.removeEventListener("mouseup", handleMouseUp);
   }, []);
 
-  // Ctrl+C — copy selected cells
   useEffect(() => {
     const handleKeyDown = async (e) => {
       if ((e.ctrlKey || e.metaKey) && e.key === "c" && selection) {
@@ -734,7 +724,6 @@ export default function SpreadsheetPage() {
         const tsv = data.map(r => r.join("\t")).join("\n");
         await navigator.clipboard.writeText(tsv).catch(()=>{});
       }
-      // Ctrl+V — paste
       if ((e.ctrlKey || e.metaKey) && e.key === "v" && selection && !isViewer) {
         try {
           const text = await navigator.clipboard.readText();
@@ -743,7 +732,6 @@ export default function SpreadsheetPage() {
           const pasteRows = lines.map(l => l.split("\t"));
           const startRow  = Math.min(selection.startRow, selection.endRow);
           const startCol  = Math.min(selection.startCol, selection.endCol);
-          // Apply paste to existing entries
           const updates = [];
           for (let ri = 0; ri < pasteRows.length; ri++) {
             const entryIdx = startRow + ri;
@@ -758,7 +746,6 @@ export default function SpreadsheetPage() {
             }
             updates.push({ id: entry.id, data: newData });
           }
-          // Save all updates
           await Promise.all(updates.map(u =>
             fetch(`${API}/api/databases/${dbId}/entries/${u.id}`, {
               method:"PATCH",
@@ -792,7 +779,6 @@ export default function SpreadsheetPage() {
       const rows = await entriesRes.json();
       setDb((Array.isArray(dbs)?dbs:[]).find(d=>String(d.id)===String(dbId))||null);
       const safeRows = Array.isArray(rows)?rows:[];
-      // Filter out ghost rows (entries where all data values are empty)
       const realRows = safeRows.filter(r => {
         const data = r.data || {};
         return Object.values(data).some(v => v && String(v).trim() !== "");
@@ -801,7 +787,6 @@ export default function SpreadsheetPage() {
       const derived = deriveColumns(realRows);
       const theDb = (Array.isArray(dbs)?dbs:[]).find(d=>String(d.id)===String(dbId));
       if (derived.length === 0) {
-        // Empty DB — show default columns based on kind
         if (theDb?.kind === "linkedin") {
           setColumns(["full_name","job_title","company","email","linkedin_url","location"]);
         } else {
@@ -821,7 +806,6 @@ export default function SpreadsheetPage() {
     return cols;
   };
 
-  // ── Cell edit — uses entry ID not row index ──
   const handleCellChange = useCallback(async (entryId, col, val) => {
     const entry   = entries.find(e => e.id === entryId);
     if (!entry) return;
@@ -837,7 +821,6 @@ export default function SpreadsheetPage() {
     } catch {}
   }, [entries, dbId, token]);
 
-  // ── Delete row ──
   const handleDeleteRow = useCallback(async (entryId) => {
     await fetch(`${API}/api/databases/${dbId}/entries/${entryId}`, {
       method:"DELETE", headers:{Authorization:`Bearer ${token}`},
@@ -847,7 +830,6 @@ export default function SpreadsheetPage() {
     setColumns(deriveColumns(newEntries));
   }, [entries, dbId, token]);
 
-  // ── Delete column ──
   const handleDeleteCol = useCallback(async (col) => {
     if (!confirm(`Delete column "${col}"?`)) return;
     const updated = await Promise.all(entries.map(async entry => {
@@ -864,13 +846,11 @@ export default function SpreadsheetPage() {
     setColumns(prev => prev.filter(c => c !== col));
   }, [entries, dbId, token]);
 
-  // ── Add column ──
   const handleAddCol = useCallback((colName) => {
     if (!colName || columns.includes(colName)) return;
     setColumns(prev => [...prev, colName]);
   }, [columns]);
 
-  // ── Rename column — renames key in all entries ──
   const handleRenameCol = useCallback(async (oldName, newName) => {
     try {
       await fetch(`${API}/api/databases/${dbId}/rename-column`, {
@@ -878,7 +858,6 @@ export default function SpreadsheetPage() {
         headers:{"Content-Type":"application/json", Authorization:`Bearer ${token}`},
         body:JSON.stringify({old_name:oldName, new_name:newName}),
       });
-      // Update local entries
       setEntries(prev => prev.map(entry => {
         const data = { ...(entry.data||{}) };
         if (oldName in data) { data[newName] = data[oldName]; delete data[oldName]; }
@@ -888,10 +867,8 @@ export default function SpreadsheetPage() {
     } catch {}
   }, [dbId, token]);
 
-  // ── Pull from DB ──
   const handlePull = async (params) => {
     if (db?.kind === "linkedin") {
-      // Pull from shared LinkedIn DB then add rows to this database
       const res  = await fetch(`${API}/api/linkedin/pull`, {
         method:"POST", headers:{"Content-Type":"application/json", Authorization:`Bearer ${token}`},
         body:JSON.stringify(params),
@@ -919,7 +896,6 @@ export default function SpreadsheetPage() {
     fetchAll();
   };
 
-  // ── Upload ──
   const handleUpload = async (file) => {
     const formData = new FormData();
     formData.append("file", file);
@@ -933,7 +909,6 @@ export default function SpreadsheetPage() {
     return data;
   };
 
-  // ── Search results ──
   const handleSearch = async (results) => {
     if (!results.length) return;
     const rows = results.map(r => ({ name:r.name||"", email:r.email||"", phone:r.phone||"",
@@ -946,7 +921,6 @@ export default function SpreadsheetPage() {
     fetchAll();
   };
 
-  // ── Export Excel — fetch with auth then trigger download ──
   const handleExport = async () => {
     try {
       const res = await fetch(`${API}/api/databases/${dbId}/export`, {
@@ -965,7 +939,6 @@ export default function SpreadsheetPage() {
     } catch { alert("Export failed"); }
   };
 
-  // ── Copy table ──
   const handleCopy = () => {
     if (!entries.length) return;
     const headers = columns;
@@ -987,7 +960,6 @@ export default function SpreadsheetPage() {
       <LeftPanel user={user} onNav={navigate} />
 
       <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden" }}>
-        {/* Top bar */}
         <div style={{ background:"#fff", borderBottom:"1px solid #eee", padding:"0 20px",
           height:52, display:"flex", alignItems:"center", gap:12, flexShrink:0 }}>
           <button onClick={()=>navigate("/dashboard")} style={{ background:"none", border:"none",
@@ -1009,13 +981,15 @@ export default function SpreadsheetPage() {
           {!isViewer && (
             <ThreeDotsMenu
               onPull={()=>setModal("pull")}
-              onSearch={()=>setModal("search")} onShare={()=>setModal("share")}
-              onExport={handleExport} onCopy={handleCopy}
+              onSearch={()=>setModal("search")}
+              onShare={()=>setModal("share")}
+              onExport={handleExport}
+              onCopy={handleCopy}
+              kind={db?.kind}
             />
           )}
         </div>
 
-        {/* Grid */}
         <SpreadsheetGrid
           entries={entries} columns={columns} setColumns={setColumns}
           onCellChange={handleCellChange} onDeleteRow={handleDeleteRow}
