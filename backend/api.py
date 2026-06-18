@@ -988,7 +988,66 @@ Add your contribution clearly separated if appending.""", max_tokens=1500)
 from database import (init_linkedin_table, upsert_linkedin_contact,
                       get_linkedin_contacts, get_linkedin_filters)
 
-linkedin_jobs: dict = {}
+linkedin_jobs: dict  = {}
+linkedin_queue       = queue_module.Queue()
+linkedin_queue_lock  = threading.Lock()
+
+def linkedin_queue_worker():
+    while True:
+        try:
+            item   = linkedin_queue.get(timeout=300)
+            job_id = item["job_id"]
+            linkedin_jobs[job_id]["status"]         = "starting"
+            linkedin_jobs[job_id]["queue_position"] = 0
+            for j in linkedin_jobs.values():
+                if j["status"] == "queued":
+                    j["queue_position"] = max(0, j.get("queue_position", 1) - 1)
+            t = threading.Thread(target=_run_linkedin_job, args=(item,))
+            t.start(); t.join()
+            linkedin_queue.task_done()
+        except queue_module.Empty:
+            continue
+        except Exception as e:
+            print(f"❌ LinkedIn queue worker error: {e}")
+            continue
+
+threading.Thread(target=linkedin_queue_worker, daemon=True).start()
+
+
+def _run_linkedin_job(item: dict):
+    """Universal LinkedIn job runner -- handles search, bulk, and smart."""
+    job_id   = item["job_id"]
+    job_type = item["type"]
+    loop     = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        linkedin_jobs[job_id]["status"] = "running"
+        if job_type == "search":
+            from linkedin import scrape_linkedin_people
+            results = loop.run_until_complete(scrape_linkedin_people(
+                item["role"], item["company"], item["location"],
+                item["keyword"], item["domain"],
+                min(item["max_results"], 30), linkedin_jobs, job_id
+            ))
+        else:  # bulk or smart
+            from linkedin import scrape_linkedin_bulk
+            results = loop.run_until_complete(scrape_linkedin_bulk(
+                item["targets"], item["role"], item["location"],
+                item["max_per_company"], linkedin_jobs, job_id
+            ))
+        for person in results:
+            if person.get("linkedin_url"):
+                upsert_linkedin_contact(person)
+        linkedin_jobs[job_id]["results"] = results
+        linkedin_jobs[job_id]["status"]  = (
+            "cancelled" if linkedin_jobs[job_id].get("status") == "cancelling" else "done"
+        )
+    except Exception as e:
+        linkedin_jobs[job_id]["status"] = "error"
+        linkedin_jobs[job_id]["error"]  = str(e)
+        print(f"❌ LinkedIn job error ({job_type}): {e}")
+    finally:
+        loop.close()
 
 class LinkedInSearchRequest(BaseModel):
     role:        str = ""
@@ -1005,32 +1064,19 @@ def start_linkedin_search(body: LinkedInSearchRequest, authorization: str = Head
         raise HTTPException(status_code=400, detail="Provide at least a role, company, or keyword")
 
     job_id = str(uuid.uuid4())[:8]
-    linkedin_jobs[job_id] = {"status":"running","found":0,"results":[],"error":None}
-
-    def run():
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        try:
-            from linkedin import scrape_linkedin_people
-            results = loop.run_until_complete(scrape_linkedin_people(
-                body.role, body.company, body.location, body.keyword,
-                body.domain, min(body.max_results, 30), linkedin_jobs, job_id
-            ))
-            # Save to shared LinkedIn DB
-            for person in results:
-                if person.get("linkedin_url"):
-                    upsert_linkedin_contact(person)
-            linkedin_jobs[job_id]["results"] = results
-            linkedin_jobs[job_id]["status"]  = "done"
-        except Exception as e:
-            linkedin_jobs[job_id]["status"] = "error"
-            linkedin_jobs[job_id]["error"]  = str(e)
-            print(f"❌ LinkedIn search error: {e}")
-        finally:
-            loop.close()
-
-    threading.Thread(target=run, daemon=True).start()
-    return {"job_id": job_id}
+    with linkedin_queue_lock:
+        qpos = sum(1 for j in linkedin_jobs.values() if j["status"] in ("running", "queued", "starting"))
+        linkedin_jobs[job_id] = {
+            "status": "queued", "queue_position": qpos,
+            "found": 0, "results": [], "error": None,
+        }
+        linkedin_queue.put({
+            "job_id": job_id, "type": "search",
+            "role": body.role, "company": body.company,
+            "location": body.location, "keyword": body.keyword,
+            "domain": body.domain, "max_results": body.max_results,
+        })
+    return {"job_id": job_id, "queue_position": qpos}
 
 @app.get("/api/linkedin/status/{job_id}")
 def linkedin_status(job_id: str, authorization: str = Header(default=None)):
@@ -1039,6 +1085,17 @@ def linkedin_status(job_id: str, authorization: str = Header(default=None)):
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
     return job
+
+@app.post("/api/linkedin/cancel/{job_id}")
+def cancel_linkedin_job(job_id: str, authorization: str = Header(default=None)):
+    get_current_user(authorization)
+    job = linkedin_jobs.get(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    if job["status"] in ("running", "queued", "starting"):
+        job["status"] = "cancelling"
+        return {"message": "Cancellation requested"}
+    return {"message": f"Job already {job['status']}"}
 
 @app.get("/api/linkedin/filters")
 def linkedin_filters(authorization: str = Header(default=None)):
@@ -1116,32 +1173,20 @@ def start_linkedin_bulk(body: LinkedInBulkRequest, authorization: str = Header(d
         raise HTTPException(status_code=400, detail="Could not parse any valid targets")
 
     job_id = str(uuid.uuid4())[:8]
-    linkedin_jobs[job_id] = {"status":"running","found":0,"results":[],"error":None,
-                             "processing":None,"company_index":0,"total_companies":len(targets)}
-
-    def run():
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        try:
-            from linkedin import scrape_linkedin_bulk
-            results = loop.run_until_complete(scrape_linkedin_bulk(
-                targets, body.role, body.location,
-                min(body.max_per_company, 10), linkedin_jobs, job_id
-            ))
-            for person in results:
-                if person.get("linkedin_url"):
-                    upsert_linkedin_contact(person)
-            linkedin_jobs[job_id]["results"] = results
-            linkedin_jobs[job_id]["status"]  = "done"
-        except Exception as e:
-            linkedin_jobs[job_id]["status"] = "error"
-            linkedin_jobs[job_id]["error"]  = str(e)
-            print(f"❌ LinkedIn bulk error: {e}")
-        finally:
-            loop.close()
-
-    threading.Thread(target=run, daemon=True).start()
-    return {"job_id": job_id, "targets": len(targets)}
+    with linkedin_queue_lock:
+        qpos = sum(1 for j in linkedin_jobs.values() if j["status"] in ("running", "queued", "starting"))
+        linkedin_jobs[job_id] = {
+            "status": "queued", "queue_position": qpos,
+            "found": 0, "results": [], "error": None,
+            "processing": None, "company_index": 0, "total_companies": len(targets),
+        }
+        linkedin_queue.put({
+            "job_id": job_id, "type": "bulk",
+            "targets": targets, "role": body.role,
+            "location": body.location,
+            "max_per_company": min(body.max_per_company, 10),
+        })
+    return {"job_id": job_id, "targets": len(targets), "queue_position": qpos}
 
 
 # ── LinkedIn Smart Search (uses companies DB) ─────────────────────────────────
@@ -1194,39 +1239,21 @@ def start_linkedin_smart(body: LinkedInSmartRequest, authorization: str = Header
         raise HTTPException(status_code=404, detail="No valid company targets found")
 
     job_id = str(uuid.uuid4())[:8]
-    linkedin_jobs[job_id] = {
-        "status":           "running",
-        "found":            0,
-        "results":          [],
-        "error":            None,
-        "processing":       None,
-        "company_index":    0,
-        "total_companies":  len(targets),
-    }
-
-    def run():
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        try:
-            from linkedin import scrape_linkedin_bulk
-            results = loop.run_until_complete(scrape_linkedin_bulk(
-                targets, body.role, body.city,
-                1, linkedin_jobs, job_id  # 1 person per company max
-            ))
-            for person in results:
-                if person.get("linkedin_url"):
-                    upsert_linkedin_contact(person)
-            linkedin_jobs[job_id]["results"] = results
-            linkedin_jobs[job_id]["status"]  = "done"
-        except Exception as e:
-            linkedin_jobs[job_id]["status"] = "error"
-            linkedin_jobs[job_id]["error"]  = str(e)
-            print(f"❌ LinkedIn smart search error: {e}")
-        finally:
-            loop.close()
-
-    threading.Thread(target=run, daemon=True).start()
-    return {"job_id": job_id, "total_companies": len(targets)}
+    with linkedin_queue_lock:
+        qpos = sum(1 for j in linkedin_jobs.values() if j["status"] in ("running", "queued", "starting"))
+        linkedin_jobs[job_id] = {
+            "status": "queued", "queue_position": qpos,
+            "found": 0, "results": [], "error": None,
+            "processing": None, "company_index": 0, "total_companies": len(targets),
+        }
+        linkedin_queue.put({
+            "job_id": job_id, "type": "bulk",
+            "targets": targets[:10],  # hard cap — max 10 companies per smart search
+            "role": body.role,
+            "location": body.city,
+            "max_per_company": 1,
+        })
+    return {"job_id": job_id, "total_companies": min(len(targets), 10), "queue_position": qpos}
 
 
 # ── URL List Scraper ──────────────────────────────────────────────────────────
@@ -1235,6 +1262,55 @@ class URLScrapeRequest(BaseModel):
     company_type: str
 
 url_scrape_jobs: dict = {}
+url_scrape_queue      = queue_module.Queue()
+url_scrape_lock       = threading.Lock()
+
+def url_scrape_queue_worker():
+    while True:
+        try:
+            item   = url_scrape_queue.get(timeout=300)
+            job_id = item["job_id"]
+            url_scrape_jobs[job_id]["status"]         = "starting"
+            url_scrape_jobs[job_id]["queue_position"] = 0
+            for j in url_scrape_jobs.values():
+                if j["status"] == "queued":
+                    j["queue_position"] = max(0, j.get("queue_position", 1) - 1)
+            t = threading.Thread(target=_run_url_scrape_job, args=(item,))
+            t.start(); t.join()
+            url_scrape_queue.task_done()
+        except queue_module.Empty:
+            continue
+        except Exception as e:
+            print(f"❌ URL scrape queue worker error: {e}")
+            continue
+
+threading.Thread(target=url_scrape_queue_worker, daemon=True).start()
+
+
+def _run_url_scrape_job(item: dict):
+    job_id = item["job_id"]
+    loop   = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        url_scrape_jobs[job_id]["status"] = "running"
+        from webscraper import scrape_url_list
+        data = loop.run_until_complete(
+            scrape_url_list(item["urls"], item["company_type"], url_scrape_jobs, job_id)
+        )
+        run_id = f"url_{job_id}"
+        for company in data["found"]:
+            upsert_company(run_id, company)
+        url_scrape_jobs[job_id]["results"]      = data["found"]
+        url_scrape_jobs[job_id]["skipped_urls"] = data["skipped"]
+        url_scrape_jobs[job_id]["status"]       = (
+            "cancelled" if url_scrape_jobs[job_id].get("status") == "cancelling" else "done"
+        )
+    except Exception as e:
+        url_scrape_jobs[job_id]["status"] = "error"
+        url_scrape_jobs[job_id]["error"]  = str(e)
+        print(f"❌ URL scrape job error: {e}")
+    finally:
+        loop.close()
 
 @app.post("/api/scrape/urls")
 def start_url_scrape(body: URLScrapeRequest, authorization: str = Header(default=None)):
@@ -1247,43 +1323,20 @@ def start_url_scrape(body: URLScrapeRequest, authorization: str = Header(default
         raise HTTPException(status_code=400, detail="Company type is required")
 
     job_id = str(uuid.uuid4())[:8]
-    url_scrape_jobs[job_id] = {
-        "status":    "running",
-        "found":     0,
-        "skipped":   0,
-        "total":     len(urls),
-        "index":     0,
-        "processing": None,
-        "results":   [],
-        "skipped_urls": [],
-        "error":     None,
-    }
-
-    def run():
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        try:
-            from webscraper import scrape_url_list
-            data = loop.run_until_complete(
-                scrape_url_list(urls, body.company_type.strip(), url_scrape_jobs, job_id)
-            )
-            # Save found companies to shared DB
-            run_id = f"url_{job_id}"
-            for company in data["found"]:
-                upsert_company(run_id, company)
-
-            url_scrape_jobs[job_id]["results"]      = data["found"]
-            url_scrape_jobs[job_id]["skipped_urls"] = data["skipped"]
-            url_scrape_jobs[job_id]["status"]       = "done"
-        except Exception as e:
-            url_scrape_jobs[job_id]["status"] = "error"
-            url_scrape_jobs[job_id]["error"]  = str(e)
-            print(f"❌ URL scrape error: {e}")
-        finally:
-            loop.close()
-
-    threading.Thread(target=run, daemon=True).start()
-    return {"job_id": job_id, "total": len(urls)}
+    with url_scrape_lock:
+        qpos = sum(1 for j in url_scrape_jobs.values() if j["status"] in ("running", "queued", "starting"))
+        url_scrape_jobs[job_id] = {
+            "status": "queued", "queue_position": qpos,
+            "found": 0, "skipped": 0, "total": len(urls),
+            "index": 0, "processing": None,
+            "results": [], "skipped_urls": [], "error": None,
+        }
+        url_scrape_queue.put({
+            "job_id": job_id,
+            "urls": urls,
+            "company_type": body.company_type.strip(),
+        })
+    return {"job_id": job_id, "total": len(urls), "queue_position": qpos}
 
 
 @app.get("/api/scrape/urls/status/{job_id}")
@@ -1293,3 +1346,14 @@ def url_scrape_status(job_id: str, authorization: str = Header(default=None)):
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
     return job
+
+@app.post("/api/scrape/urls/cancel/{job_id}")
+def cancel_url_scrape(job_id: str, authorization: str = Header(default=None)):
+    get_current_user(authorization)
+    job = url_scrape_jobs.get(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    if job["status"] in ("running", "queued", "starting"):
+        job["status"] = "cancelling"
+        return {"message": "Cancellation requested"}
+    return {"message": f"Job already {job['status']}"}

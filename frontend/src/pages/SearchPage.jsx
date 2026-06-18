@@ -229,7 +229,7 @@ function LinkedInSearch({ user, token }) {
   const [city,          setCity]          = useState("");
   const [role,          setRole]          = useState("HR");
   const [start,         setStart]         = useState(0);
-  const [end,           setEnd]           = useState(25);
+  const [end,           setEnd]           = useState(10);
   const [filters,       setFilters]       = useState({ company_types:[], cities:{} });
   const [loading,       setLoading]       = useState(false);
   const [loadMsg,       setLoadMsg]       = useState("");
@@ -368,15 +368,15 @@ function LinkedInSearch({ user, token }) {
                 onBlur={e=>{ if(e.target.value==="") setStart(0); }}/>
             </div>
             <div>
-              <label className="field-label">End company</label>
+              <label className="field-label">End company (max +10)</label>
               <input className="field-input" type="number" min="1" value={end}
-                onChange={e=>{ const v=e.target.value; setEnd(v===""?"":Number(v)); }}
+                onChange={e=>{ const v=e.target.value; setEnd(v===""?"":Math.min(Number(v),(start||0)+10)); }}
                 onBlur={e=>{ if(e.target.value==="") setEnd(10); }}/>
             </div>
 
             <div style={{ gridColumn:"span 5", background:"rgba(232,0,90,0.04)", border:"1px solid rgba(232,0,90,0.15)",
               borderRadius:10, padding:"12px 16px", fontSize:12, color:"#666" }}>
-              💡 ReachCT will pull <strong>{companyType||"companies"}</strong> in <strong>{city||"selected city"}</strong> (companies {start}→{end})
+              💡 ReachCT will pull <strong>{companyType||"companies"}</strong> in <strong>{city||"selected city"}</strong> (companies {start}→{end}, max 10 at a time)
               from the database and find the most relevant <strong>{role}</strong> at each — 1 person per company.
             </div>
           </div>

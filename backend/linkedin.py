@@ -106,36 +106,53 @@ def find_email(first: str, last: str, domain: str) -> dict:
 def is_likely_name(text: str) -> bool:
     """
     Check if a string looks like a person's name rather than a job title.
-    Names: 2-4 words, mostly letters, no special chars like | @ # /
+    Names: 2-5 words, mostly letters, no special chars like | @ # /
     """
-    if not text or len(text) > 50:
+    if not text or len(text) > 60:
         return False
-    # Job title signals
-    job_signals = ["|", "@", "/", "manager", "director", "head of", "officer",
-                   "specialist", "engineer", "developer", "consultant", "coach",
-                   "analyst", "coordinator", "executive", "partner", "lead",
-                   "senior", "junior", "intern", "founder", "ceo", "cto", "coo",
-                   "vp ", "president", "recruiter", "talent", "people", "hr "]
+    # Job title signals — any of these means it's a title, not a name
+    job_signals = [
+        "|", "@", "/", "–", "•",
+        # seniority
+        "senior", "junior", "lead", "principal", "staff", "chief", "head",
+        "vp ", "vice president", "president",
+        # roles
+        "manager", "director", "officer", "owner", "founder",
+        "engineer", "developer", "architect", "designer", "programmer",
+        "consultant", "advisor", "coach", "mentor", "trainer",
+        "analyst", "scientist", "researcher", "strategist",
+        "specialist", "coordinator", "administrator", "supervisor",
+        "executive", "associate", "assistant", "representative",
+        "recruiter", "talent", "hr ", "people",
+        "intern", "apprentice", "graduate",
+        "ceo", "cto", "coo", "cfo", "cmo", "cpo", "ciso",
+        "partner", "attorney", "lawyer", "counsel",
+        "account", "sales", "business", "product", "project",
+        "marketing", "growth", "brand", "content", "social",
+        "operations", "supply", "logistics", "finance", "legal",
+        "managing", "general", "regional", "global", "national",
+        " at ", " at",
+    ]
     text_lower = text.lower()
     if any(sig in text_lower for sig in job_signals):
         return False
-    # Names are typically 2-4 words of letters/hyphens
+    # Names are typically 2-4 words of letters/hyphens/apostrophes
     words = text.split()
-    if not (1 <= len(words) <= 5):
+    if not (2 <= len(words) <= 5):
         return False
-    if not all(re.match(r"^[A-Za-zÀ-ÿ\-\']+$", w) for w in words):
+    if not all(re.match(r"^[A-Za-zÀ-ÿ\-']+$", w) for w in words):
         return False
     return True
 
 
 def parse_profile_text(raw_text: str) -> tuple:
     """
-    Extract name and job title from a LinkedIn profile link's text.
-    Raw text looks like:
-    "Federico Benevenuta \n • 2nd\nHR Manager @El Palace Barcelona\nBarcelona..."
+    Extract name and job title from a LinkedIn profile card text.
+    LinkedIn always renders the person's name as the first prominent line —
+    so clean[0] is always the name, clean[1] is the job title.
     """
     lines = [l.strip() for l in raw_text.split("\n") if l.strip()]
-    # Remove noise lines
+    # Remove noise tokens
     noise = {"connect", "follow", "message", "1st", "2nd", "3rd+", "•", "connections",
              "followers", "mutual", "premium", "current:", "★", "view"}
     clean = []
@@ -148,29 +165,15 @@ def parse_profile_text(raw_text: str) -> tuple:
             continue
         clean.append(line)
 
-    # Find the name — first line that looks like a real name
-    name  = ""
-    title = ""
-    for i, line in enumerate(clean):
-        candidate = re.sub(r"\s*[•·]\s*\d?(st|nd|rd)\+?\s*$", "", line).strip()
-        candidate = re.sub(r"\s{2,}", " ", candidate).strip()
-        if is_likely_name(candidate):
-            name = candidate
-            # Title is the next non-location line
-            for j in range(i+1, len(clean)):
-                next_line = clean[j]
-                # Skip location-like lines (contain comma + country/city)
-                if re.search(r",[A-Za-z\s]+$", next_line) and len(next_line.split()) <= 5:
-                    continue
-                title = next_line
-                break
-            break
+    if not clean:
+        return "", ""
 
-    # Fallback — just take first line as name if nothing matched
-    if not name and clean:
-        name = re.sub(r"\s*[•·]\s*\d?(st|nd|rd)\+?\s*$", "", clean[0]).strip()
-        name = re.sub(r"\s{2,}", " ", name).strip()
-        title = clean[1] if len(clean) > 1 else ""
+    # Name = first line (always the person's name on a LinkedIn card)
+    name = re.sub(r"\s*[•·]\s*\d?(st|nd|rd)\+?\s*$", "", clean[0]).strip()
+    name = re.sub(r"\s{2,}", " ", name).strip()
+
+    # Title = second line if it exists
+    title = clean[1] if len(clean) > 1 else ""
 
     return name, title
 
