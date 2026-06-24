@@ -166,7 +166,13 @@ function MapsPullTab() {
       ws["!cols"] = [{wch:30},{wch:30},{wch:18},{wch:35},{wch:18},{wch:18},{wch:22}];
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "ReachCT Maps Export");
-      XLSX.writeFile(wb, `reachct_maps_${new Date().toISOString().slice(0,10)}.xlsx`);
+      const _fn4 = `reachct_maps_${new Date().toISOString().slice(0,10)}.xlsx`;
+      const _buf4 = XLSX.write(wb, { bookType:"xlsx", type:"array" });
+      const _blob4 = new Blob([_buf4], { type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+      const _url4 = URL.createObjectURL(_blob4);
+      const _a4 = document.createElement("a"); _a4.href = _url4; _a4.download = _fn4;
+      document.body.appendChild(_a4); _a4.click(); document.body.removeChild(_a4);
+      URL.revokeObjectURL(_url4);
     });
   };
 
@@ -281,7 +287,13 @@ function LinkedInPullTab() {
       ws["!cols"] = [{wch:24},{wch:16},{wch:32},{wch:24},{wch:32},{wch:50},{wch:20}];
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "LinkedIn Export");
-      XLSX.writeFile(wb, `reachct_linkedin_${new Date().toISOString().slice(0,10)}.xlsx`);
+      const _fn5 = `reachct_linkedin_${new Date().toISOString().slice(0,10)}.xlsx`;
+      const _buf5 = XLSX.write(wb, { bookType:"xlsx", type:"array" });
+      const _blob5 = new Blob([_buf5], { type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+      const _url5 = URL.createObjectURL(_blob5);
+      const _a5 = document.createElement("a"); _a5.href = _url5; _a5.download = _fn5;
+      document.body.appendChild(_a5); _a5.click(); document.body.removeChild(_a5);
+      URL.revokeObjectURL(_url5);
     });
   };
 

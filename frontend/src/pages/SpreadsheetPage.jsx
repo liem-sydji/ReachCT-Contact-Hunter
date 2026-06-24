@@ -2,7 +2,16 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../context/AuthContext.jsx";
 import { API, COMPANY_TYPES_GROUPED } from "../styles.js";
-import { ReachCTLogo, SearchIcon, DownloadIcon, CopyIcon } from "../components/icons.jsx";
+import { ReachCTLogo } from "../components/icons.jsx";
+
+// Canonical column priority — unknown cols appended after
+const MAPS_PRIORITY     = ["name","email","phone","website","city","country","company_type"];
+const LINKEDIN_PRIORITY = ["full_name","job_title","profile_title","company","email","linkedin_url","location"];
+
+const DEFAULT_COL_WIDTH = 180;
+const ROW_NUM_W         = 52;
+const ROW_H             = 32;
+const EMPTY_ROWS        = 50;
 
 // ─── Left Panel ───────────────────────────────────────────────────────────────
 function LeftPanel({ user, onNav }) {
@@ -143,30 +152,25 @@ function PullModal({ onClose, onPull, filters, kind, liFilters }) {
 
   const handlePull = async () => {
     setLoading(true);
-    if (kind === "linkedin") {
-      await onPull({ job_titles:jobTitles, companies, locations });
-    } else {
-      await onPull({ queries, cities, countries });
-    }
+    if (kind === "linkedin") await onPull({ job_titles:jobTitles, companies, locations });
+    else await onPull({ queries, cities, countries });
     setLoading(false); onClose();
   };
 
-  if (kind === "linkedin") {
-    return (
-      <ModalWrap onClose={onClose} title="Pull from LinkedIn Contacts" subtitle="Import people from the shared LinkedIn contacts database.">
-        <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
-          <div><label style={labelStyle}>Job Title</label>
-            <TagInput placeholder="e.g. HR Manager" options={liFilters?.job_titles||[]} value={jobTitles} onChange={setJobTitles} /></div>
-          <div><label style={labelStyle}>Company</label>
-            <TagInput placeholder="e.g. Kreaset" options={liFilters?.companies||[]} value={companies} onChange={setCompanies} /></div>
-          <div><label style={labelStyle}>Location</label>
-            <TagInput placeholder="e.g. Madrid" options={liFilters?.locations||[]} value={locations} onChange={setLocations} /></div>
-          <p style={{ fontSize:12, color:"#999" }}>Multiple values are OR-matched. Leave empty to pull all contacts.</p>
-        </div>
-        <ModalFooter onClose={onClose} onConfirm={handlePull} loading={loading} label="Pull Contacts" />
-      </ModalWrap>
-    );
-  }
+  if (kind === "linkedin") return (
+    <ModalWrap onClose={onClose} title="Pull from LinkedIn Contacts" subtitle="Import people from the shared LinkedIn contacts database.">
+      <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
+        <div><label style={labelStyle}>Job Title</label>
+          <TagInput placeholder="e.g. HR Manager" options={liFilters?.job_titles||[]} value={jobTitles} onChange={setJobTitles} /></div>
+        <div><label style={labelStyle}>Company</label>
+          <TagInput placeholder="e.g. Kreaset" options={liFilters?.companies||[]} value={companies} onChange={setCompanies} /></div>
+        <div><label style={labelStyle}>Location</label>
+          <TagInput placeholder="e.g. Madrid" options={liFilters?.locations||[]} value={locations} onChange={setLocations} /></div>
+        <p style={{ fontSize:12, color:"#999" }}>Multiple values are OR-matched. Leave empty to pull all contacts.</p>
+      </div>
+      <ModalFooter onClose={onClose} onConfirm={handlePull} loading={loading} label="Pull Contacts" />
+    </ModalWrap>
+  );
 
   return (
     <ModalWrap onClose={onClose} title="Pull from Database" subtitle="Import contacts from the shared ReachCT database.">
@@ -186,7 +190,7 @@ function PullModal({ onClose, onPull, filters, kind, liFilters }) {
 
 // ─── Upload Modal ─────────────────────────────────────────────────────────────
 function UploadModal({ onClose, onUpload }) {
-  const [file, setFile]     = useState(null);
+  const [file, setFile]       = useState(null);
   const [loading, setLoading] = useState(false);
   const [result, setResult]   = useState(null);
   const [error, setError]     = useState("");
@@ -260,11 +264,7 @@ function SearchModal({ onClose, onSearch, token }) {
       const res  = await fetch(`${API}/api/scrape?query=${encodeURIComponent(query)}&city=${encodeURIComponent(city)}&country=${encodeURIComponent(country)}&start=${start}&end=${end}`,
         { headers:{ Authorization:`Bearer ${token}` } });
       const data = await res.json();
-      if (data.queue_position > 0) {
-        setLoadMsg(`Queued at position ${data.queue_position}…`);
-      } else {
-        setLoadMsg("Your search is in progress…");
-      }
+      setLoadMsg(data.queue_position > 0 ? `Queued at position ${data.queue_position}…` : "Your search is in progress…");
       pollRef.current = setInterval(async () => {
         const jr = await fetch(`${API}/api/job/${data.job_id}`);
         const jd = await jr.json();
@@ -273,10 +273,8 @@ function SearchModal({ onClose, onSearch, token }) {
           await onSearch(jd.results||[]); onClose();
         } else if (jd.status==="error") {
           clearInterval(pollRef.current); setLoading(false); setLoadMsg("Search failed.");
-        } else if (jd.queue_position > 0) {
-          setLoadMsg(`Queued at position ${jd.queue_position}…`);
         } else {
-          setLoadMsg("Your search is in progress…");
+          setLoadMsg(jd.queue_position > 0 ? `Queued at position ${jd.queue_position}…` : "Your search is in progress…");
         }
       }, 4000);
     } catch { setLoading(false); setLoadMsg("Failed to start search."); }
@@ -373,8 +371,7 @@ function CollaboratorModal({ onClose, dbId, token }) {
           </select>
           <button onClick={handleAdd} disabled={loading||!email.trim()} style={{ background:"#E8005A",
             border:"none", borderRadius:10, padding:"10px 16px", color:"#fff", fontSize:13,
-            fontWeight:600, cursor:"pointer", fontFamily:"'DM Sans',sans-serif",
-            opacity:email.trim()?1:0.5 }}>Add</button>
+            fontWeight:600, cursor:"pointer", fontFamily:"'DM Sans',sans-serif", opacity:email.trim()?1:0.5 }}>Add</button>
         </div>
         {msg && <div style={{ fontSize:12, color:"#E8005A" }}>{msg}</div>}
         {collabs.length > 0 && (
@@ -414,20 +411,20 @@ function CollaboratorModal({ onClose, dbId, token }) {
 }
 
 // ─── Three Dots Menu ──────────────────────────────────────────────────────────
-function ThreeDotsMenu({ onPull, onUpload, onSearch, onShare, onExport, onCopy, kind }) {
+function ThreeDotsMenu({ onPull, onSearch, onShare, onExport, onCopy, kind }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
   useEffect(() => {
-    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
+    const h = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
   }, []);
   const options = [
     { label:"Pull from Database", icon: kind === "linkedin" ? "🔗" : "🗄️", onClick:onPull },
     ...(kind !== "linkedin" ? [{ label:"Start Search", icon:"🔍", onClick:onSearch }] : []),
-    { label:"Share Database",     icon:"👥", onClick:onShare },
-    { label:"Export to Excel",    icon:"⬇️", onClick:onExport },
-    { label:"Copy Table",         icon:"📋", onClick:onCopy },
+    { label:"Share Database", icon:"👥", onClick:onShare },
+    { label:"Export to Excel", icon:"⬇️", onClick:onExport },
+    { label:"Copy Table",      icon:"📋", onClick:onCopy },
   ];
   return (
     <div ref={ref} style={{ position:"relative" }}>
@@ -458,187 +455,263 @@ function ThreeDotsMenu({ onPull, onUpload, onSearch, onShare, onExport, onCopy, 
   );
 }
 
+// ─── Add Column Inline ────────────────────────────────────────────────────────
+function AddColInline({ onAddCol }) {
+  const [show, setShow] = useState(false);
+  const [name, setName] = useState("");
+  if (!show) return (
+    <button onClick={()=>setShow(true)} style={{ background:"none", border:"1.5px dashed #d0d0d0",
+      borderRadius:5, padding:"2px 10px", color:"#aaa", fontSize:11, cursor:"pointer",
+      fontFamily:"'DM Sans',sans-serif", whiteSpace:"nowrap" }}>+ Col</button>
+  );
+  return (
+    <div style={{ display:"flex", gap:4, alignItems:"center" }}>
+      <input autoFocus value={name} onChange={e=>setName(e.target.value)}
+        onKeyDown={e=>{ if(e.key==="Enter"){ onAddCol(name.trim()); setName(""); setShow(false); } if(e.key==="Escape") setShow(false); }}
+        placeholder="Column name"
+        style={{ width:90, padding:"3px 7px", border:"1.5px solid #E8005A", borderRadius:5, fontSize:11, outline:"none" }} />
+      <button onClick={()=>{ onAddCol(name.trim()); setName(""); setShow(false); }}
+        style={{ background:"#E8005A", border:"none", borderRadius:5, padding:"3px 7px", color:"#fff", fontSize:11, cursor:"pointer" }}>+</button>
+    </div>
+  );
+}
+
 // ─── Spreadsheet Grid ─────────────────────────────────────────────────────────
-const EMPTY_ROWS = 50;
-const COL_WIDTH  = 180;
-
-function SpreadsheetGrid({ entries, columns, setColumns, onCellChange, onDeleteRow, onDeleteCol, onAddCol, onRenameCol, isViewer, isCellSelected, onCellMouseDown, onCellMouseEnter }) {
-  const [editCell, setEditCell]   = useState(null);
-  const [editVal,  setEditVal]    = useState("");
+function SpreadsheetGrid({
+  entries, columns, setColumns,
+  onDeleteRow, onDeleteCol, onAddCol, onRenameCol, isViewer,
+  // Cell editing (lifted to parent)
+  selectedCell, onCellClick,
+  editCell, editVal, onEditValChange, onCellDoubleClick, onCellCommit,
+  // Feedback
+  savedCells, errorCells,
+  // Range selection for Ctrl+C
+  isCellSelected, onCellMouseDown, onCellMouseEnter,
+  // Column resize
+  colWidths, onColResize,
+  // Row selection
+  selectedRows, onRowSelect,
+  // Grid ref for keyboard focus
+  gridRef,
+  onKeyDown,
+}) {
   const [editColHeader, setEditColHeader] = useState(null);
-  const [newColName, setNewColName]       = useState("");
-  const [showAddCol, setShowAddCol]       = useState(false);
-  const [addColName, setAddColName]       = useState("");
-  const [dragCol, setDragCol]             = useState(null);
-  const [dragOverCol, setDragOverCol]     = useState(null);
+  const [newColName,    setNewColName]    = useState("");
+  const [dragCol,       setDragCol]       = useState(null);
+  const [dragOverCol,   setDragOverCol]   = useState(null);
 
-  const emptyCount = EMPTY_ROWS;
+  const getW = (col) => colWidths[col] || DEFAULT_COL_WIDTH;
 
-  const handleCellClick = (entryId, col, currentVal) => {
-    if (isViewer) return;
-    setEditCell({ entryId, col });
-    setEditVal(currentVal || "");
-  };
-
-  const handleCellBlur = () => {
-    if (editCell) {
-      onCellChange(editCell.entryId, editCell.col, editVal);
-      setEditCell(null);
-    }
+  const handleResizeMouseDown = (e, col) => {
+    e.preventDefault(); e.stopPropagation();
+    const startX = e.clientX, startW = getW(col);
+    const onMove = (me) => onColResize(col, Math.max(48, startW + me.clientX - startX));
+    const onUp   = () => { window.removeEventListener("mousemove", onMove); window.removeEventListener("mouseup", onUp); };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
   };
 
   const handleDragStart = (col) => setDragCol(col);
   const handleDragOver  = (e, col) => { e.preventDefault(); setDragOverCol(col); };
   const handleDrop      = (col) => {
     if (!dragCol || dragCol === col) { setDragCol(null); setDragOverCol(null); return; }
-    const newCols = [...columns];
-    const fromIdx = newCols.indexOf(dragCol);
-    const toIdx   = newCols.indexOf(col);
-    newCols.splice(fromIdx, 1);
-    newCols.splice(toIdx, 0, dragCol);
-    setColumns(newCols);
-    setDragCol(null); setDragOverCol(null);
+    const nc = [...columns], fi = nc.indexOf(dragCol), ti = nc.indexOf(col);
+    nc.splice(fi, 1); nc.splice(ti, 0, dragCol);
+    setColumns(nc); setDragCol(null); setDragOverCol(null);
   };
 
-  const startRenameCol = (col) => { setEditColHeader(col); setNewColName(col); };
+  const startRenameCol   = (col) => { setEditColHeader(col); setNewColName(col); };
   const confirmRenameCol = () => {
-    if (newColName.trim() && newColName.trim() !== editColHeader) {
-      onRenameCol(editColHeader, newColName.trim());
-    }
+    if (newColName.trim() && newColName.trim() !== editColHeader) onRenameCol(editColHeader, newColName.trim());
     setEditColHeader(null);
   };
 
   return (
-    <div style={{ flex:1, overflow:"auto" }}>
+    <div ref={gridRef} tabIndex={0} onKeyDown={onKeyDown} style={{ flex:1, overflow:"auto", outline:"none" }}>
       <table style={{ borderCollapse:"collapse", fontSize:13, fontFamily:"'DM Sans',sans-serif",
         minWidth:"100%", tableLayout:"fixed" }}>
         <colgroup>
-          <col style={{ width:44 }} />
-          {columns.map(col => <col key={col} style={{ width:COL_WIDTH }} />)}
-          {!isViewer && <col style={{ width:120 }} />}
+          <col style={{ width:ROW_NUM_W }} />
+          {columns.map(col => <col key={col} style={{ width:getW(col) }} />)}
+          {!isViewer && <col style={{ width:90 }} />}
         </colgroup>
         <thead>
           <tr>
-            <th style={{ background:"#f8f8f8", borderRight:"1px solid #e8e8e8",
-              borderBottom:"2px solid #e0e0e0", position:"sticky", top:0, left:0, zIndex:10 }} />
-            {columns.map(col => (
+            {/* Corner */}
+            <th style={{ background:"#efefef", borderRight:"2px solid #d0d0d0",
+              borderBottom:"2px solid #c8c8c8", position:"sticky", top:0, left:0,
+              zIndex:20, width:ROW_NUM_W, boxSizing:"border-box" }} />
+            {columns.map((col, ci) => (
               <th key={col}
-                draggable={!isViewer}
+                draggable={!isViewer && !editColHeader}
                 onDragStart={() => handleDragStart(col)}
                 onDragOver={(e) => handleDragOver(e, col)}
                 onDrop={() => handleDrop(col)}
-                style={{ padding:"10px 12px", background: dragOverCol===col ? "rgba(232,0,90,0.08)" : "#f8f8f8",
-                  borderRight:"1px solid #e8e8e8", borderBottom:"2px solid #e0e0e0",
-                  textAlign:"left", fontWeight:600, color:"#333", fontSize:12,
-                  letterSpacing:"0.02em", position:"sticky", top:0, zIndex:9,
+                style={{
+                  padding:`0 ${ROW_NUM_W === 52 ? 10 : 12}px 0 10px`, height:ROW_H,
+                  background: dragOverCol===col ? "rgba(232,0,90,0.1)" : "#efefef",
+                  borderRight: ci === 0 ? "2px solid #d0d0d0" : "1px solid #d8d8d8",
+                  borderBottom:"2px solid #c8c8c8",
+                  textAlign:"left", fontWeight:700, color:"#555", fontSize:11,
+                  letterSpacing:"0.05em", textTransform:"uppercase",
+                  position:"sticky", top:0,
+                  left: ci === 0 ? ROW_NUM_W : undefined,
+                  zIndex: ci === 0 ? 19 : 9,
                   cursor: isViewer ? "default" : "grab", userSelect:"none",
-                  transition:"background 0.15s" }}>
+                  boxSizing:"border-box", overflow:"hidden", whiteSpace:"nowrap",
+                  transition:"background 0.12s",
+                }}>
                 {editColHeader === col ? (
                   <input autoFocus value={newColName} onChange={e=>setNewColName(e.target.value)}
                     onBlur={confirmRenameCol}
                     onKeyDown={e=>{ if(e.key==="Enter") confirmRenameCol(); if(e.key==="Escape") setEditColHeader(null); }}
-                    style={{ border:"none", outline:"none", fontSize:12, fontWeight:600,
-                      background:"transparent", width:"100%", fontFamily:"'DM Sans',sans-serif" }} />
+                    style={{ border:"none", outline:"none", fontSize:11, fontWeight:700, textTransform:"uppercase",
+                      letterSpacing:"0.05em", background:"transparent", width:"100%", fontFamily:"'DM Sans',sans-serif" }} />
                 ) : (
-                  <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:4 }}>
+                  <div style={{ display:"flex", alignItems:"center", height:"100%", position:"relative", gap:4 }}>
                     <span style={{ overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", flex:1 }}
-                      onDoubleClick={() => !isViewer && startRenameCol(col)}>
-                      {col}
-                    </span>
+                      onDoubleClick={() => !isViewer && startRenameCol(col)}>{col}</span>
                     {!isViewer && (
                       <button onClick={()=>onDeleteCol(col)} style={{ background:"none", border:"none",
-                        color:"#ccc", cursor:"pointer", fontSize:14, padding:0, lineHeight:1,
+                        color:"#ccc", cursor:"pointer", fontSize:13, padding:"0 2px", lineHeight:1,
                         flexShrink:0, opacity:0 }} className="col-del-btn">×</button>
+                    )}
+                    {!isViewer && (
+                      <div onMouseDown={(e) => handleResizeMouseDown(e, col)}
+                        style={{ position:"absolute", right:0, top:0, bottom:0, width:5, cursor:"col-resize", zIndex:3 }}
+                        onMouseEnter={e => e.currentTarget.style.background="rgba(232,0,90,0.4)"}
+                        onMouseLeave={e => e.currentTarget.style.background="transparent"} />
                     )}
                   </div>
                 )}
               </th>
             ))}
             {!isViewer && (
-              <th style={{ background:"#f8f8f8", borderBottom:"2px solid #e0e0e0",
-                position:"sticky", top:0, zIndex:9, padding:"8px 12px" }}>
-                {showAddCol ? (
-                  <div style={{ display:"flex", gap:4, alignItems:"center" }}>
-                    <input autoFocus value={addColName} onChange={e=>setAddColName(e.target.value)}
-                      onKeyDown={e=>{ if(e.key==="Enter"){ onAddCol(addColName.trim()); setAddColName(""); setShowAddCol(false); }
-                        if(e.key==="Escape") setShowAddCol(false); }}
-                      placeholder="Column name"
-                      style={{ width:100, padding:"4px 8px", border:"1.5px solid #E8005A",
-                        borderRadius:6, fontSize:12, outline:"none" }} />
-                    <button onClick={()=>{ onAddCol(addColName.trim()); setAddColName(""); setShowAddCol(false); }}
-                      style={{ background:"#E8005A", border:"none", borderRadius:6, padding:"4px 8px",
-                        color:"#fff", fontSize:11, cursor:"pointer" }}>Add</button>
-                  </div>
-                ) : (
-                  <button onClick={()=>setShowAddCol(true)} style={{ background:"none",
-                    border:"1.5px dashed #e8e8e8", borderRadius:6, padding:"4px 10px",
-                    color:"#999", fontSize:12, cursor:"pointer", fontFamily:"'DM Sans',sans-serif",
-                    whiteSpace:"nowrap" }}>+ Column</button>
-                )}
+              <th style={{ background:"#efefef", borderBottom:"2px solid #c8c8c8",
+                position:"sticky", top:0, zIndex:9, padding:"0 8px", height:ROW_H }}>
+                <AddColInline onAddCol={onAddCol} />
               </th>
             )}
           </tr>
         </thead>
         <tbody>
-          {entries.map((entry, rowIdx) => (
-            <tr key={entry.id} style={{ borderBottom:"1px solid #f0f0f0" }}
-              onMouseEnter={e=>e.currentTarget.style.background="#fafafa"}
-              onMouseLeave={e=>e.currentTarget.style.background="none"}>
-              <td style={{ background:"#f8f8f8", borderRight:"1px solid #e8e8e8", color:"#bbb",
-                fontSize:11, textAlign:"center", padding:"0 4px", position:"sticky", left:0,
-                height:36, verticalAlign:"middle", cursor:"pointer" }}>
-                <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"0 4px" }}>
-                  <span>{rowIdx+1}</span>
-                  {!isViewer && (
-                    <button onClick={e=>{e.stopPropagation();onDeleteRow(entry.id);}} style={{ background:"none", border:"none",
-                      color:"#ddd", cursor:"pointer", fontSize:14, padding:0, lineHeight:1, opacity:0 }}
-                      className="row-del-btn"
-                      onMouseEnter={e=>e.target.style.color="#E8005A"} onMouseLeave={e=>e.target.style.color="#ddd"}>
-                      ×</button>
-                  )}
-                </div>
-              </td>
-              {columns.map(col => {
-                const isEditing = editCell?.entryId === entry.id && editCell?.col === col;
-                const val       = entry.data?.[col] || "";
-                return (
-                  <td key={col} style={{ padding:0, borderRight:"1px solid #f0f0f0",
-                    background: isEditing ? "#fff9fb" : isCellSelected && isCellSelected(rowIdx, columns.indexOf(col)) ? "rgba(232,0,90,0.08)" : "transparent",
-                    outline: isEditing ? "2px solid #E8005A" : isCellSelected && isCellSelected(rowIdx, columns.indexOf(col)) ? "1px solid rgba(232,0,90,0.3)" : "none",
-                    cursor: isViewer ? "default" : "text", height:36, verticalAlign:"middle",
-                    userSelect:"none" }}
-                    onMouseDown={(e)=>{ onCellMouseDown && onCellMouseDown(entry.id, col, e); }}
-                    onMouseEnter={()=>{ onCellMouseEnter && onCellMouseEnter(entry.id, col); }}
-                    onClick={()=>handleCellClick(entry.id, col, val)}>
-                    {isEditing ? (
-                      <input autoFocus value={editVal} onChange={e=>setEditVal(e.target.value)}
-                        onBlur={handleCellBlur}
-                        onKeyDown={e=>{ if(e.key==="Enter") handleCellBlur(); if(e.key==="Escape") setEditCell(null); }}
-                        style={{ width:"100%", height:36, padding:"0 12px", border:"none", outline:"none",
-                          fontSize:13, fontFamily:"'DM Sans',sans-serif", background:"transparent" }} />
-                    ) : (
-                      <div style={{ padding:"0 12px", height:36, display:"flex", alignItems:"center",
-                        overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap",
-                        color: col==="email" ? "#E8005A" : "#333", fontWeight: col==="email" ? 500 : 400 }}>
-                        {val}
-                      </div>
-                    )}
-                  </td>
-                );
-              })}
-              {!isViewer && <td />}
-            </tr>
-          ))}
-          {Array.from({ length: emptyCount }).map((_, i) => (
-            <tr key={`empty-${i}`} style={{ borderBottom:"1px solid #f0f0f0", height:36 }}
-              onMouseEnter={e=>e.currentTarget.style.background="#fafafa"}
-              onMouseLeave={e=>e.currentTarget.style.background="none"}>
-              <td style={{ background:"#f8f8f8", borderRight:"1px solid #e8e8e8", color:"#ddd",
-                fontSize:11, textAlign:"center", padding:"0 8px", position:"sticky", left:0 }}>
+          {entries.map((entry, rowIdx) => {
+            const rowSel = selectedRows.has(entry.id);
+            return (
+              <tr key={entry.id} style={{ borderBottom:"1px solid #e8e8e8" }}>
+                {/* Row number gutter */}
+                <td onClick={() => !isViewer && onRowSelect(entry.id)}
+                  className="row-num-cell"
+                  style={{
+                    background: rowSel ? "rgba(232,0,90,0.12)" : "#f5f5f5",
+                    borderRight:"2px solid #d0d0d0",
+                    color: rowSel ? "#E8005A" : "#bbb",
+                    fontSize:11, textAlign:"right", padding:"0 6px 0 4px",
+                    position:"sticky", left:0, height:ROW_H, verticalAlign:"middle",
+                    cursor: isViewer ? "default" : "pointer",
+                    userSelect:"none", zIndex:5, width:ROW_NUM_W, boxSizing:"border-box",
+                  }}>
+                  <div style={{ display:"flex", alignItems:"center", justifyContent:"flex-end", gap:3 }}>
+                    {rowSel
+                      ? <span style={{ fontSize:13, color:"#E8005A", fontWeight:700 }}>✓</span>
+                      : <>
+                          <span className="row-num-label">{rowIdx+1}</span>
+                          {!isViewer && (
+                            <button onClick={e=>{e.stopPropagation();onDeleteRow(entry.id);}}
+                              className="row-del-btn"
+                              style={{ background:"none", border:"none", color:"transparent",
+                                cursor:"pointer", fontSize:14, padding:0, lineHeight:1, flexShrink:0 }}>×</button>
+                          )}
+                        </>
+                    }
+                  </div>
+                </td>
+                {columns.map((col, ci) => {
+                  const isEditing  = editCell?.entryId === entry.id && editCell?.col === col;
+                  const isFocused  = selectedCell?.rowIdx === rowIdx && selectedCell?.colIdx === ci;
+                  const isRange    = !isEditing && isCellSelected && isCellSelected(rowIdx, ci);
+                  const cellKey    = `${entry.id}-${col}`;
+                  const isSaved    = savedCells.has(cellKey);
+                  const isErr      = errorCells.has(cellKey);
+                  const val        = entry.data?.[col] ?? "";
+
+                  const bg =
+                    isEditing  ? "#fffcfe" :
+                    isSaved    ? "rgba(34,197,94,0.16)" :
+                    isErr      ? "rgba(239,68,68,0.13)" :
+                    isFocused  ? "rgba(232,0,90,0.07)" :
+                    isRange    ? "rgba(232,0,90,0.05)" :
+                    rowSel     ? "rgba(232,0,90,0.04)" :
+                    ci === 0   ? "#fff" : "transparent";
+
+                  const outlineVal =
+                    isEditing  ? "2px solid #E8005A" :
+                    isFocused  ? "2px solid rgba(232,0,90,0.55)" :
+                    isRange    ? "1px solid rgba(232,0,90,0.2)" : "none";
+
+                  return (
+                    <td key={col}
+                      style={{
+                        padding:0,
+                        borderRight: ci === 0 ? "2px solid #d0d0d0" : "1px solid #e8e8e8",
+                        background: bg,
+                        outline: outlineVal, outlineOffset:"-1px",
+                        cursor: isViewer ? "default" : "text",
+                        height:ROW_H, verticalAlign:"middle", userSelect:"none",
+                        position: ci === 0 ? "sticky" : "static",
+                        left: ci === 0 ? ROW_NUM_W : undefined,
+                        zIndex: ci === 0 ? 4 : undefined,
+                        boxSizing:"border-box",
+                        transition: (isSaved||isErr) ? "background 0.25s" : "none",
+                      }}
+                      onMouseDown={(e) => { if(onCellMouseDown) onCellMouseDown(entry.id, col, e); }}
+                      onMouseEnter={() => { if(onCellMouseEnter) onCellMouseEnter(entry.id, col); }}
+                      onClick={() => { if(!isViewer) { onCellClick(rowIdx, ci, entry.id, col); gridRef.current?.focus(); } }}
+                      onDoubleClick={() => { if(!isViewer) onCellDoubleClick(entry.id, col, val); }}>
+                      {isEditing ? (
+                        <input autoFocus value={editVal}
+                          onChange={e => onEditValChange(e.target.value)}
+                          onBlur={() => onCellCommit("blur")}
+                          onKeyDown={e => {
+                            if      (e.key==="Escape")    { e.preventDefault(); onCellCommit("escape"); }
+                            else if (e.key==="Tab")       { e.preventDefault(); onCellCommit(e.shiftKey?"shift-tab":"tab"); }
+                            else if (e.key==="Enter")     { e.preventDefault(); onCellCommit("enter"); }
+                            else if (e.key==="ArrowDown") { e.preventDefault(); onCellCommit("enter"); }
+                            else if (e.key==="ArrowUp")   { e.preventDefault(); onCellCommit("up"); }
+                          }}
+                          style={{ width:"100%", height:ROW_H, padding:"0 10px", border:"none", outline:"none",
+                            fontSize:13, fontFamily:"'DM Sans',sans-serif", background:"transparent",
+                            boxSizing:"border-box", color: col==="email" ? "#E8005A" : "#111" }} />
+                      ) : (
+                        <div style={{ padding:"0 10px", height:ROW_H, display:"flex", alignItems:"center",
+                          overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap",
+                          color: col==="email" ? "#E8005A" : "#333", fontWeight: col==="email" ? 500 : 400 }}>
+                          {val}
+                        </div>
+                      )}
+                    </td>
+                  );
+                })}
+                {!isViewer && <td style={{ height:ROW_H }} />}
+              </tr>
+            );
+          })}
+          {/* Empty rows — same height and grid lines as data rows */}
+          {Array.from({ length: EMPTY_ROWS }).map((_, i) => (
+            <tr key={`e-${i}`} style={{ borderBottom:"1px solid #e8e8e8", height:ROW_H }}>
+              <td style={{ background:"#f5f5f5", borderRight:"2px solid #d0d0d0", color:"#ddd",
+                fontSize:11, textAlign:"right", padding:"0 6px",
+                position:"sticky", left:0, height:ROW_H, zIndex:5 }}>
                 {entries.length + i + 1}
               </td>
-              {columns.map(col => (
-                <td key={col} style={{ borderRight:"1px solid #f0f0f0", height:36 }} />
+              {columns.map((col, ci) => (
+                <td key={col} style={{
+                  borderRight: ci === 0 ? "2px solid #d0d0d0" : "1px solid #e8e8e8",
+                  height:ROW_H, background:"#fff",
+                  position: ci === 0 ? "sticky" : "static",
+                  left: ci === 0 ? ROW_NUM_W : undefined,
+                  zIndex: ci === 0 ? 4 : undefined,
+                }} />
               ))}
               {!isViewer && <td />}
             </tr>
@@ -646,7 +719,9 @@ function SpreadsheetGrid({ entries, columns, setColumns, onCellChange, onDeleteR
         </tbody>
       </table>
       <style>{`
-        tbody tr:hover .row-del-btn { opacity: 1 !important; }
+        tbody .row-num-cell:hover { background: rgba(232,0,90,0.07) !important; }
+        tbody .row-num-cell:hover .row-del-btn { color: #ccc !important; }
+        tbody .row-num-cell:hover .row-del-btn:hover { color: #E8005A !important; }
         thead th:hover .col-del-btn { opacity: 1 !important; }
       `}</style>
     </div>
@@ -655,29 +730,248 @@ function SpreadsheetGrid({ entries, columns, setColumns, onCellChange, onDeleteR
 
 // ─── Spreadsheet Page ─────────────────────────────────────────────────────────
 export default function SpreadsheetPage() {
-  const { dbId }            = useParams();
-  const { user, token }     = useAuth();
-  const navigate            = useNavigate();
-  const [db, setDb]         = useState(null);
-  const [entries, setEntries] = useState([]);
-  const [columns, setColumns] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [filters, setFilters] = useState({});
-  const [liFilters, setLiFilters] = useState({});
-  const [modal, setModal]     = useState(null);
+  const { dbId }        = useParams();
+  const { user, token } = useAuth();
+  const navigate        = useNavigate();
 
+  const [db,       setDb]       = useState(null);
+  const [entries,  setEntries]  = useState([]);
+  const [columns,  setColumns]  = useState([]);
+  const [loading,  setLoading]  = useState(true);
+  const [filters,  setFilters]  = useState({});
+  const [liFilters,setLiFilters]= useState({});
+  const [modal,    setModal]    = useState(null);
+  const [colWidths,setColWidths]= useState({});
+
+  // Cell selection / editing
+  const [selectedCell,  setSelectedCell]  = useState(null); // { rowIdx, colIdx, entryId, col }
+  const [editCell,      setEditCell]      = useState(null); // { entryId, col }
+  const [editVal,       setEditVal]       = useState("");
+  const [editOrigVal,   setEditOrigVal]   = useState("");
+
+  // Save feedback
+  const [savedCells,  setSavedCells]  = useState(new Set());
+  const [errorCells,  setErrorCells]  = useState(new Set());
+
+  // Undo
+  const [lastEdit, setLastEdit] = useState(null); // { entryId, col, oldVal }
+
+  // Bulk row selection
+  const [selectedRows, setSelectedRows] = useState(new Set());
+
+  // Range selection (Ctrl+C)
+  const [selection,   setSelection]   = useState(null);
+  const [isSelecting, setIsSelecting] = useState(false);
+
+  const gridRef = useRef(null);
   const isViewer = db?.role === "viewer";
 
-  const [selection, setSelection]     = useState(null);
-  const [isSelecting, setIsSelecting] = useState(false);
-  const [copiedCells, setCopiedCells] = useState(null);
-  const selectionRef = useRef(null);
+  // ── Column derivation with canonical order ─────────────────────────────────
+  const deriveColumns = useCallback((rows, kind) => {
+    const priority = kind === "linkedin" ? LINKEDIN_PRIORITY : MAPS_PRIORITY;
+    const allKeys  = new Set();
+    rows.forEach(r => Object.keys(r.data||{}).forEach(k => allKeys.add(k)));
+    const ordered = priority.filter(k => allKeys.has(k));
+    const extras  = [...allKeys].filter(k => !priority.includes(k));
+    return [...ordered, ...extras];
+  }, []);
 
-  const getCellCoords = (entryId, col) => {
-    const rowIdx = entries.findIndex(e => e.id === entryId);
-    const colIdx = columns.indexOf(col);
-    return { rowIdx, colIdx };
-  };
+  // ── Data fetching ──────────────────────────────────────────────────────────
+  const fetchAll = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [dbRes, entRes] = await Promise.all([
+        fetch(`${API}/api/databases`,             { headers:{Authorization:`Bearer ${token}`} }),
+        fetch(`${API}/api/databases/${dbId}/entries`, { headers:{Authorization:`Bearer ${token}`} }),
+      ]);
+      const dbs  = await dbRes.json();
+      const rows = await entRes.json();
+      const theDb = (Array.isArray(dbs)?dbs:[]).find(d=>String(d.id)===String(dbId)) || null;
+      setDb(theDb);
+      const safe    = Array.isArray(rows)?rows:[];
+      const realRows = safe.filter(r => Object.values(r.data||{}).some(v => v && String(v).trim() !== ""));
+      setEntries(realRows);
+      const derived = deriveColumns(realRows, theDb?.kind);
+      if (derived.length === 0) {
+        setColumns(theDb?.kind === "linkedin" ? LINKEDIN_PRIORITY : MAPS_PRIORITY);
+      } else {
+        setColumns(derived);
+      }
+    } catch {}
+    setLoading(false);
+  }, [dbId, token, deriveColumns]);
+
+  useEffect(() => {
+    if (!token) { navigate("/login"); return; }
+    fetchAll();
+    fetch(`${API}/api/filters`).then(r=>r.json()).then(setFilters).catch(()=>{});
+    fetch(`${API}/api/linkedin/filters`, { headers:{Authorization:`Bearer ${token}`} }).then(r=>r.json()).then(setLiFilters).catch(()=>{});
+  }, [dbId, token]);
+
+  // ── Save a cell value ──────────────────────────────────────────────────────
+  const saveCell = useCallback(async (entryId, col, val) => {
+    const entry = entries.find(e => e.id === entryId);
+    if (!entry) return;
+    const oldVal = entry.data?.[col] ?? "";
+    if (val === oldVal) return;
+    const newData = { ...(entry.data||{}), [col]: val };
+    const cellKey = `${entryId}-${col}`;
+    try {
+      const res     = await fetch(`${API}/api/databases/${dbId}/entries/${entryId}`, {
+        method:"PATCH",
+        headers:{"Content-Type":"application/json", Authorization:`Bearer ${token}`},
+        body:JSON.stringify({data:newData}),
+      });
+      const updated = await res.json();
+      setEntries(prev => prev.map(e => e.id===entryId ? updated : e));
+      setLastEdit({ entryId, col, oldVal });
+      setSavedCells(prev => { const s = new Set(prev); s.add(cellKey); return s; });
+      setTimeout(() => setSavedCells(prev => { const s = new Set(prev); s.delete(cellKey); return s; }), 1100);
+    } catch {
+      setErrorCells(prev => { const s = new Set(prev); s.add(cellKey); return s; });
+      setTimeout(() => setErrorCells(prev => { const s = new Set(prev); s.delete(cellKey); return s; }), 1800);
+    }
+  }, [entries, dbId, token]);
+
+  // ── Navigate to a cell ────────────────────────────────────────────────────
+  const navTo = useCallback((rowIdx, colIdx) => {
+    const r = Math.max(0, Math.min(rowIdx, entries.length - 1));
+    const c = Math.max(0, Math.min(colIdx, columns.length - 1));
+    const entry = entries[r];
+    if (entry) setSelectedCell({ rowIdx:r, colIdx:c, entryId:entry.id, col:columns[c] });
+  }, [entries, columns]);
+
+  // ── Commit an edit and optionally navigate ─────────────────────────────────
+  const handleCellCommit = useCallback(async (direction) => {
+    if (!editCell) return;
+    const { rowIdx, colIdx } = selectedCell || { rowIdx:0, colIdx:0 };
+
+    if (direction !== "escape") {
+      await saveCell(editCell.entryId, editCell.col, editVal);
+    }
+
+    setEditCell(null);
+    setEditVal("");
+    setEditOrigVal("");
+    gridRef.current?.focus();
+
+    if      (direction === "tab")       navTo(rowIdx, colIdx + 1);
+    else if (direction === "shift-tab") navTo(rowIdx, colIdx - 1);
+    else if (direction === "enter")     navTo(rowIdx + 1, colIdx);
+    else if (direction === "up")        navTo(rowIdx - 1, colIdx);
+    // blur: keep selection where it is
+  }, [editCell, editVal, selectedCell, saveCell, navTo]);
+
+  // ── Enter edit mode ────────────────────────────────────────────────────────
+  const startEdit = useCallback((entryId, col, val, replaceWith = null) => {
+    setEditCell({ entryId, col });
+    setEditVal(replaceWith !== null ? replaceWith : (val ?? ""));
+    setEditOrigVal(val ?? "");
+  }, []);
+
+  // ── Keyboard handler on grid container ────────────────────────────────────
+  const handleGridKeyDown = useCallback((e) => {
+    if (editCell) return; // input handles its own keys
+    if (modal)    return; // modal is open
+
+    if ((e.ctrlKey || e.metaKey) && e.key === "z") {
+      e.preventDefault();
+      if (lastEdit && !isViewer) {
+        const { entryId, col, oldVal } = lastEdit;
+        saveCell(entryId, col, oldVal);
+        setLastEdit(null);
+      }
+      return;
+    }
+
+    if (!selectedCell) return;
+    const { rowIdx, colIdx, entryId, col } = selectedCell;
+
+    if (e.key === "ArrowRight" || (e.key === "Tab" && !e.shiftKey)) {
+      e.preventDefault(); navTo(rowIdx, colIdx + 1);
+    } else if (e.key === "ArrowLeft" || (e.key === "Tab" && e.shiftKey)) {
+      e.preventDefault(); navTo(rowIdx, colIdx - 1);
+    } else if (e.key === "ArrowDown") {
+      e.preventDefault(); navTo(rowIdx + 1, colIdx);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault(); navTo(rowIdx - 1, colIdx);
+    } else if ((e.key === "Enter" || e.key === "F2") && !isViewer) {
+      e.preventDefault();
+      const entry = entries.find(en => en.id === entryId);
+      if (entry) startEdit(entryId, col, entry.data?.[col] ?? "");
+    } else if ((e.key === "Delete" || e.key === "Backspace") && !isViewer) {
+      e.preventDefault();
+      saveCell(entryId, col, "");
+    } else if (e.key === "Escape") {
+      setSelectedCell(null);
+      setSelection(null);
+    } else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey && !isViewer) {
+      // Printable key: start editing and pre-load the character
+      const entry = entries.find(en => en.id === entryId);
+      if (entry) startEdit(entryId, col, entry.data?.[col] ?? "", e.key);
+    }
+  }, [editCell, modal, selectedCell, lastEdit, isViewer, entries, navTo, saveCell, startEdit]);
+
+  // ── Ctrl+C / Ctrl+V range copy-paste ──────────────────────────────────────
+  useEffect(() => {
+    const handler = async (e) => {
+      if (modal) return;
+      if ((e.ctrlKey || e.metaKey) && e.key === "c" && selection) {
+        const minR = Math.min(selection.startRow, selection.endRow);
+        const maxR = Math.max(selection.startRow, selection.endRow);
+        const minC = Math.min(selection.startCol, selection.endCol);
+        const maxC = Math.max(selection.startCol, selection.endCol);
+        const selCols = columns.slice(minC, maxC+1);
+        const data    = entries.slice(minR, maxR+1).map(entry => selCols.map(c => entry.data?.[c] || ""));
+        await navigator.clipboard.writeText(data.map(r => r.join("\t")).join("\n")).catch(()=>{});
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === "v" && selection && !isViewer) {
+        try {
+          const text  = await navigator.clipboard.readText();
+          const lines = text.trim().split("\n").filter(l => l.trim());
+          if (!lines.length) return;
+          const pasteRows = lines.map(l => l.split("\t"));
+          const startRow  = Math.min(selection.startRow, selection.endRow);
+          const startCol  = Math.min(selection.startCol, selection.endCol);
+          const updates   = [];
+          for (let ri = 0; ri < pasteRows.length; ri++) {
+            const ei = startRow + ri;
+            if (ei >= entries.length) break;
+            const entry   = entries[ei];
+            const newData = { ...(entry.data||{}) };
+            for (let ci = 0; ci < pasteRows[ri].length; ci++) {
+              const cIdx = startCol + ci;
+              if (cIdx < columns.length) newData[columns[cIdx]] = pasteRows[ri][ci];
+            }
+            updates.push({ id:entry.id, data:newData });
+          }
+          await Promise.all(updates.map(u =>
+            fetch(`${API}/api/databases/${dbId}/entries/${u.id}`, {
+              method:"PATCH",
+              headers:{"Content-Type":"application/json", Authorization:`Bearer ${token}`},
+              body:JSON.stringify({data:u.data}),
+            })
+          ));
+          fetchAll();
+        } catch {}
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [selection, entries, columns, dbId, token, isViewer, modal]);
+
+  // ── Mouse up (end range drag) ──────────────────────────────────────────────
+  useEffect(() => {
+    const h = () => setIsSelecting(false);
+    window.addEventListener("mouseup", h);
+    return () => window.removeEventListener("mouseup", h);
+  }, []);
+
+  // ── Range selection helpers ────────────────────────────────────────────────
+  const getCellCoords = (entryId, col) => ({
+    rowIdx: entries.findIndex(e => e.id === entryId),
+    colIdx: columns.indexOf(col),
+  });
 
   const isCellSelected = (rowIdx, colIdx) => {
     if (!selection) return false;
@@ -693,7 +987,6 @@ export default function SpreadsheetPage() {
     const { rowIdx, colIdx } = getCellCoords(entryId, col);
     setSelection({ startRow:rowIdx, startCol:colIdx, endRow:rowIdx, endCol:colIdx });
     setIsSelecting(true);
-    selectionRef.current = { startRow:rowIdx, startCol:colIdx };
   };
 
   const handleCellMouseEnter = (entryId, col) => {
@@ -702,134 +995,55 @@ export default function SpreadsheetPage() {
     setSelection(prev => prev ? { ...prev, endRow:rowIdx, endCol:colIdx } : null);
   };
 
-  const handleMouseUp = () => setIsSelecting(false);
-
-  useEffect(() => {
-    window.addEventListener("mouseup", handleMouseUp);
-    return () => window.removeEventListener("mouseup", handleMouseUp);
-  }, []);
-
-  useEffect(() => {
-    const handleKeyDown = async (e) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === "c" && selection) {
-        const minR = Math.min(selection.startRow, selection.endRow);
-        const maxR = Math.max(selection.startRow, selection.endRow);
-        const minC = Math.min(selection.startCol, selection.endCol);
-        const maxC = Math.max(selection.startCol, selection.endCol);
-        const selectedCols = columns.slice(minC, maxC+1);
-        const data = entries.slice(minR, maxR+1).map(entry =>
-          selectedCols.map(col => entry.data?.[col] || "")
-        );
-        setCopiedCells({ data, cols: selectedCols, startCol: minC });
-        const tsv = data.map(r => r.join("\t")).join("\n");
-        await navigator.clipboard.writeText(tsv).catch(()=>{});
-      }
-      if ((e.ctrlKey || e.metaKey) && e.key === "v" && selection && !isViewer) {
-        try {
-          const text = await navigator.clipboard.readText();
-          const lines = text.trim().split("\n").filter(l => l.trim());
-          if (!lines.length) return;
-          const pasteRows = lines.map(l => l.split("\t"));
-          const startRow  = Math.min(selection.startRow, selection.endRow);
-          const startCol  = Math.min(selection.startCol, selection.endCol);
-          const updates = [];
-          for (let ri = 0; ri < pasteRows.length; ri++) {
-            const entryIdx = startRow + ri;
-            if (entryIdx >= entries.length) break;
-            const entry   = entries[entryIdx];
-            const newData = { ...(entry.data || {}) };
-            for (let ci = 0; ci < pasteRows[ri].length; ci++) {
-              const colIdx = startCol + ci;
-              if (colIdx < columns.length) {
-                newData[columns[colIdx]] = pasteRows[ri][ci];
-              }
-            }
-            updates.push({ id: entry.id, data: newData });
-          }
-          await Promise.all(updates.map(u =>
-            fetch(`${API}/api/databases/${dbId}/entries/${u.id}`, {
-              method:"PATCH",
-              headers:{"Content-Type":"application/json", Authorization:`Bearer ${token}`},
-              body:JSON.stringify({data: u.data}),
-            })
-          ));
-          fetchAll();
-        } catch {}
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [selection, entries, columns, dbId, token, isViewer]);
-
-  useEffect(() => {
-    if (!token) { navigate("/login"); return; }
-    fetchAll();
-    fetch(`${API}/api/filters`).then(r=>r.json()).then(setFilters).catch(()=>{});
-    fetch(`${API}/api/linkedin/filters`, { headers:{Authorization:`Bearer ${token}`} }).then(r=>r.json()).then(setLiFilters).catch(()=>{});
-  }, [dbId, token]);
-
-  const fetchAll = async () => {
-    setLoading(true);
-    try {
-      const [dbRes, entriesRes] = await Promise.all([
-        fetch(`${API}/api/databases`, { headers:{Authorization:`Bearer ${token}`} }),
-        fetch(`${API}/api/databases/${dbId}/entries`, { headers:{Authorization:`Bearer ${token}`} }),
-      ]);
-      const dbs  = await dbRes.json();
-      const rows = await entriesRes.json();
-      setDb((Array.isArray(dbs)?dbs:[]).find(d=>String(d.id)===String(dbId))||null);
-      const safeRows = Array.isArray(rows)?rows:[];
-      const realRows = safeRows.filter(r => {
-        const data = r.data || {};
-        return Object.values(data).some(v => v && String(v).trim() !== "");
-      });
-      setEntries(realRows);
-      const derived = deriveColumns(realRows);
-      const theDb = (Array.isArray(dbs)?dbs:[]).find(d=>String(d.id)===String(dbId));
-      if (derived.length === 0) {
-        if (theDb?.kind === "linkedin") {
-          setColumns(["full_name","job_title","profile_title","company","email","linkedin_url","location"]);
-        } else {
-          setColumns(["name","email","phone","website","city","country","company_type"]);
-        }
-      } else {
-        setColumns(derived);
-      }
-    } catch {}
-    setLoading(false);
+  // ── Cell click / double-click ──────────────────────────────────────────────
+  const handleCellClick = (rowIdx, colIdx, entryId, col) => {
+    // If already in edit mode on a different cell, blur will commit it first
+    setSelectedCell({ rowIdx, colIdx, entryId, col });
+    setSelectedRows(new Set()); // deselect rows when clicking a cell
   };
 
-  const deriveColumns = (rows) => {
-    const seen = new Set();
-    const cols = [];
-    rows.forEach(r => Object.keys(r.data||{}).forEach(k => { if(!seen.has(k)){ seen.add(k); cols.push(k); } }));
-    return cols;
-  };
-
-  const handleCellChange = useCallback(async (entryId, col, val) => {
-    const entry   = entries.find(e => e.id === entryId);
+  const handleCellDoubleClick = (entryId, col, val) => {
+    const entry = entries.find(e => e.id === entryId);
     if (!entry) return;
-    const newData = { ...(entry.data||{}), [col]: val };
-    try {
-      const res = await fetch(`${API}/api/databases/${dbId}/entries/${entryId}`, {
-        method:"PATCH",
-        headers:{"Content-Type":"application/json", Authorization:`Bearer ${token}`},
-        body:JSON.stringify({data:newData}),
-      });
-      const updated = await res.json();
-      setEntries(prev => prev.map(e => e.id===entryId ? updated : e));
-    } catch {}
-  }, [entries, dbId, token]);
+    startEdit(entryId, col, val);
+  };
 
+  // ── Row selection ──────────────────────────────────────────────────────────
+  const handleRowSelect = (entryId) => {
+    setSelectedCell(null);
+    setSelectedRows(prev => {
+      const s = new Set(prev);
+      if (s.has(entryId)) s.delete(entryId); else s.add(entryId);
+      return s;
+    });
+  };
+
+  const handleBulkDelete = async () => {
+    if (!selectedRows.size) return;
+    if (!confirm(`Delete ${selectedRows.size} row${selectedRows.size>1?"s":""}?`)) return;
+    await Promise.all([...selectedRows].map(id =>
+      fetch(`${API}/api/databases/${dbId}/entries/${id}`, { method:"DELETE", headers:{Authorization:`Bearer ${token}`} })
+    ));
+    const newEntries = entries.filter(e => !selectedRows.has(e.id));
+    setEntries(newEntries);
+    setSelectedRows(new Set());
+    // Re-derive columns after deletion
+    const derived = deriveColumns(newEntries, db?.kind);
+    if (derived.length > 0) setColumns(derived);
+  };
+
+  // ── Single row delete ──────────────────────────────────────────────────────
   const handleDeleteRow = useCallback(async (entryId) => {
     await fetch(`${API}/api/databases/${dbId}/entries/${entryId}`, {
       method:"DELETE", headers:{Authorization:`Bearer ${token}`},
     });
     const newEntries = entries.filter(e => e.id !== entryId);
     setEntries(newEntries);
-    setColumns(deriveColumns(newEntries));
-  }, [entries, dbId, token]);
+    const derived = deriveColumns(newEntries, db?.kind);
+    if (derived.length > 0) setColumns(derived);
+  }, [entries, dbId, token, db, deriveColumns]);
 
+  // ── Column ops ────────────────────────────────────────────────────────────
   const handleDeleteCol = useCallback(async (col) => {
     if (!confirm(`Delete column "${col}"?`)) return;
     const updated = await Promise.all(entries.map(async entry => {
@@ -867,6 +1081,7 @@ export default function SpreadsheetPage() {
     } catch {}
   }, [dbId, token]);
 
+  // ── Pull / Upload / Search / Export / Copy ─────────────────────────────────
   const handlePull = async (params) => {
     if (db?.kind === "linkedin") {
       const res  = await fetch(`${API}/api/linkedin/pull`, {
@@ -875,22 +1090,14 @@ export default function SpreadsheetPage() {
       });
       const data = await res.json();
       const rows = (data.results||[]).map(r => ({
-        full_name:     r.full_name||"",
-        job_title:     r.job_title||"",
-        profile_title: r.profile_title||"",
-        company:       r.company||"",
-        email:         r.email||"",
-        linkedin_url:  r.linkedin_url||"",
-        location:      r.location||"",
+        full_name:r.full_name||"", job_title:r.job_title||"", profile_title:r.profile_title||"",
+        company:r.company||"", email:r.email||"", linkedin_url:r.linkedin_url||"", location:r.location||"",
       }));
-      if (rows.length) {
-        await fetch(`${API}/api/databases/add-rows`, {
-          method:"POST", headers:{"Content-Type":"application/json", Authorization:`Bearer ${token}`},
-          body:JSON.stringify({ db_id: Number(dbId), rows }),
-        });
-      }
-      fetchAll();
-      return;
+      if (rows.length) await fetch(`${API}/api/databases/add-rows`, {
+        method:"POST", headers:{"Content-Type":"application/json", Authorization:`Bearer ${token}`},
+        body:JSON.stringify({ db_id:Number(dbId), rows }),
+      });
+      fetchAll(); return;
     }
     const res  = await fetch(`${API}/api/databases/${dbId}/pull`, {
       method:"POST", headers:{"Content-Type":"application/json", Authorization:`Bearer ${token}`},
@@ -902,16 +1109,12 @@ export default function SpreadsheetPage() {
   };
 
   const handleUpload = async (file) => {
-    const formData = new FormData();
-    formData.append("file", file);
-    const res  = await fetch(`${API}/api/databases/${dbId}/upload`, {
-      method:"POST", headers:{Authorization:`Bearer ${token}`}, body:formData,
-    });
+    const fd = new FormData(); fd.append("file", file);
+    const res = await fetch(`${API}/api/databases/${dbId}/upload`, { method:"POST", headers:{Authorization:`Bearer ${token}`}, body:fd });
     if (!res.ok) { const err=await res.json(); throw new Error(err.detail||"Upload failed"); }
     const data = await res.json();
     if (data.columns) setColumns(prev => [...new Set([...prev, ...data.columns])]);
-    fetchAll();
-    return data;
+    fetchAll(); return data;
   };
 
   const handleSearch = async (results) => {
@@ -928,30 +1131,24 @@ export default function SpreadsheetPage() {
 
   const handleExport = async () => {
     try {
-      const res = await fetch(`${API}/api/databases/${dbId}/export`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await fetch(`${API}/api/databases/${dbId}/export`, { headers:{Authorization:`Bearer ${token}`} });
       if (!res.ok) { alert("Export failed"); return; }
-      const blob     = await res.blob();
-      const url      = URL.createObjectURL(blob);
-      const a        = document.createElement("a");
-      a.href         = url;
-      a.download     = `${db?.name || "database"}.xlsx`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
+      const blob = await res.blob();
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement("a");
+      a.href = url; a.download = `${db?.name||"database"}.xlsx`;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } catch { alert("Export failed"); }
   };
 
   const handleCopy = () => {
     if (!entries.length) return;
-    const headers = columns;
-    const rows    = entries.map(e => columns.map(c => e.data?.[c]||""));
-    const tsv     = [headers, ...rows].map(r => r.join("\t")).join("\n");
+    const tsv = [columns, ...entries.map(e => columns.map(c => e.data?.[c]||""))].map(r => r.join("\t")).join("\n");
     navigator.clipboard.writeText(tsv).then(() => alert("Copied! Paste into Google Sheets or Excel."));
   };
 
+  // ── Loading state ──────────────────────────────────────────────────────────
   if (loading) return (
     <div style={{ display:"flex", minHeight:"100vh", background:"#0a0a0a",
       alignItems:"center", justifyContent:"center" }}>
@@ -960,27 +1157,50 @@ export default function SpreadsheetPage() {
     </div>
   );
 
+  const kindLabel = db?.kind === "linkedin" ? "LinkedIn" : "Maps";
+  const rangeActive = selection &&
+    (selection.startRow !== selection.endRow || selection.startCol !== selection.endCol);
+
   return (
-    <div style={{ display:"flex", height:"100vh", background:"#f8f8f8", overflow:"hidden" }}>
+    <div style={{ display:"flex", height:"100vh", background:"#f4f4f4", overflow:"hidden" }}>
       <LeftPanel user={user} onNav={navigate} />
 
       <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden" }}>
-        <div style={{ background:"#fff", borderBottom:"1px solid #eee", padding:"0 20px",
-          height:52, display:"flex", alignItems:"center", gap:12, flexShrink:0 }}>
+        {/* Top bar */}
+        <div style={{ background:"#fff", borderBottom:"1px solid #e0e0e0", padding:"0 16px",
+          height:48, display:"flex", alignItems:"center", gap:10, flexShrink:0 }}>
           <button onClick={()=>navigate("/dashboard")} style={{ background:"none", border:"none",
             color:"#999", cursor:"pointer", fontSize:13, fontFamily:"'DM Sans',sans-serif",
-            display:"flex", alignItems:"center", gap:4, padding:"5px 8px", borderRadius:6 }}
+            display:"flex", alignItems:"center", gap:4, padding:"4px 8px", borderRadius:6 }}
             onMouseEnter={e=>{ e.currentTarget.style.color="#333"; e.currentTarget.style.background="#f5f5f5"; }}
             onMouseLeave={e=>{ e.currentTarget.style.color="#999"; e.currentTarget.style.background="none"; }}>
             ← Databases
           </button>
-          <div style={{ width:1, height:18, background:"#eee" }} />
-          <h1 style={{ fontFamily:"'Syne',sans-serif", fontSize:15, fontWeight:700,
-            color:"#111", margin:0, flex:1 }}>{db?.name||"Database"}</h1>
-          <span style={{ fontSize:12, color:"#bbb" }}>{entries.length} rows</span>
-          {selection && (
-            <span style={{ fontSize:11, color:"#bbb", fontFamily:"'DM Sans',sans-serif" }}>
-              Ctrl+C to copy · Ctrl+V to paste
+          <div style={{ width:1, height:16, background:"#e8e8e8" }} />
+          <h1 style={{ fontFamily:"'Syne',sans-serif", fontSize:14, fontWeight:700,
+            color:"#111", margin:0, flex:1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+            {db?.name||"Database"}
+          </h1>
+          {/* Kind badge */}
+          <span style={{ fontSize:11, fontWeight:600, color: db?.kind==="linkedin" ? "#0a66c2" : "#16a34a",
+            background: db?.kind==="linkedin" ? "rgba(10,102,194,0.09)" : "rgba(22,163,74,0.09)",
+            border: `1px solid ${db?.kind==="linkedin" ? "rgba(10,102,194,0.2)" : "rgba(22,163,74,0.2)"}`,
+            borderRadius:5, padding:"2px 8px", fontFamily:"'DM Sans',sans-serif", flexShrink:0 }}>
+            {kindLabel}
+          </span>
+          <span style={{ fontSize:12, color:"#bbb", flexShrink:0 }}>{entries.length} rows</span>
+          <span style={{ fontSize:12, color:"#bbb", flexShrink:0 }}>{columns.length} cols</span>
+          {/* Bulk delete */}
+          {selectedRows.size > 0 && !isViewer && (
+            <button onClick={handleBulkDelete} style={{ background:"#E8005A", border:"none",
+              borderRadius:7, padding:"5px 12px", color:"#fff", fontSize:12, fontWeight:600,
+              cursor:"pointer", fontFamily:"'DM Sans',sans-serif", flexShrink:0 }}>
+              Delete {selectedRows.size} row{selectedRows.size>1?"s":""}
+            </button>
+          )}
+          {rangeActive && (
+            <span style={{ fontSize:11, color:"#bbb", fontFamily:"'DM Sans',sans-serif", flexShrink:0 }}>
+              Ctrl+C · Ctrl+V
             </span>
           )}
           {!isViewer && (
@@ -997,12 +1217,23 @@ export default function SpreadsheetPage() {
 
         <SpreadsheetGrid
           entries={entries} columns={columns} setColumns={setColumns}
-          onCellChange={handleCellChange} onDeleteRow={handleDeleteRow}
-          onDeleteCol={handleDeleteCol} onAddCol={handleAddCol}
-          onRenameCol={handleRenameCol} isViewer={isViewer}
+          onDeleteRow={handleDeleteRow} onDeleteCol={handleDeleteCol}
+          onAddCol={handleAddCol} onRenameCol={handleRenameCol}
+          isViewer={isViewer}
+          selectedCell={selectedCell}
+          onCellClick={handleCellClick}
+          editCell={editCell} editVal={editVal}
+          onEditValChange={setEditVal}
+          onCellDoubleClick={handleCellDoubleClick}
+          onCellCommit={handleCellCommit}
+          savedCells={savedCells} errorCells={errorCells}
           isCellSelected={isCellSelected}
           onCellMouseDown={handleCellMouseDown}
           onCellMouseEnter={handleCellMouseEnter}
+          colWidths={colWidths} onColResize={(col, w) => setColWidths(prev => ({ ...prev, [col]:w }))}
+          selectedRows={selectedRows} onRowSelect={handleRowSelect}
+          gridRef={gridRef}
+          onKeyDown={handleGridKeyDown}
         />
       </div>
 

@@ -10,6 +10,7 @@ Flow:
 """
 
 import re
+import json
 import random
 import asyncio
 from urllib.parse import urljoin, urlparse
@@ -31,6 +32,27 @@ CONTACT_KEYWORDS = [
 EMAIL_RE = re.compile(r"[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}")
 SKIP_EMAIL_DOMAINS = {"example.com", "domain.com", "email.com", "youremail.com",
                       "sentry.io", "wixpress.com", "squarespace.com"}
+
+# Map common country-code TLDs to country names (fallback when JSON-LD has no address)
+TLD_COUNTRY = {
+    "es": "Spain",       "de": "Germany",     "fr": "France",
+    "it": "Italy",       "nl": "Netherlands", "be": "Belgium",
+    "pt": "Portugal",    "pl": "Poland",      "se": "Sweden",
+    "no": "Norway",      "dk": "Denmark",     "fi": "Finland",
+    "ch": "Switzerland", "at": "Austria",     "cz": "Czech Republic",
+    "hu": "Hungary",     "ro": "Romania",     "gr": "Greece",
+    "tr": "Turkey",      "ru": "Russia",      "uk": "United Kingdom",
+    "ie": "Ireland",     "mx": "Mexico",      "br": "Brazil",
+    "ar": "Argentina",   "co": "Colombia",    "cl": "Chile",
+    "pe": "Peru",        "au": "Australia",   "nz": "New Zealand",
+    "ca": "Canada",      "jp": "Japan",       "cn": "China",
+    "in": "India",       "za": "South Africa",
+}
+
+JSONLD_RE = re.compile(
+    r'<script[^>]+type=["\']application/ld\+json["\'][^>]*>(.*?)</script>',
+    re.DOTALL | re.IGNORECASE,
+)
 
 
 def clean_url(url: str) -> str:
@@ -72,6 +94,32 @@ def find_contact_links(links: list, base_url: str) -> list:
     return list(dict.fromkeys(contact_links))[:3]  # max 3 contact pages
 
 
+def extract_address_from_jsonld(html_content: str) -> tuple:
+    """Parse JSON-LD structured data for addressLocality and addressCountry."""
+    for match in JSONLD_RE.finditer(html_content):
+        try:
+            data  = json.loads(match.group(1))
+            items = data if isinstance(data, list) else [data]
+            for item in items:
+                addr = item.get("address") or (
+                    item.get("location", {}).get("address", {})
+                    if isinstance(item.get("location"), dict) else {}
+                )
+                if isinstance(addr, dict):
+                    city    = addr.get("addressLocality", "").strip()
+                    country = addr.get("addressCountry", "").strip()
+                    if city or country:
+                        return city, country
+        except Exception:
+            continue
+    return "", ""
+
+
+def country_from_tld(url: str) -> str:
+    tld = urlparse(url).netloc.split(".")[-1].lower()
+    return TLD_COUNTRY.get(tld, "")
+
+
 async def extract_company_name(page) -> str:
     """Extract company name from page title or og:site_name meta tag."""
     try:
@@ -102,20 +150,21 @@ async def extract_company_name(page) -> str:
 
 
 async def scrape_website_email(page, url: str) -> tuple:
-    """Visit a website and extract the first email + company name found."""
+    """Visit a website and extract the first email, company name, city, and country."""
     company_name = ""
+    city         = ""
+    country      = ""
     try:
         await page.goto(url, timeout=20000, wait_until="domcontentloaded")
         await page.wait_for_timeout(random.randint(800, 1500))
 
-        # Get company name from homepage
         company_name = await extract_company_name(page)
 
-        # Extract emails from homepage
-        content = await page.content()
-        emails  = extract_emails(content)
+        content        = await page.content()
+        city, country  = extract_address_from_jsonld(content)
+        emails         = extract_emails(content)
         if emails:
-            return emails[0], company_name
+            return emails[0], company_name, city, country
 
         # Also check mailto: links
         mailto_links = await page.query_selector_all("a[href^='mailto:']")
@@ -124,7 +173,7 @@ async def scrape_website_email(page, url: str) -> tuple:
             if href:
                 email = href.replace("mailto:", "").split("?")[0].strip()
                 if email and "@" in email:
-                    return email, company_name
+                    return email, company_name, city, country
 
         # Try contact pages
         all_links = await page.query_selector_all("a[href]")
@@ -142,9 +191,12 @@ async def scrape_website_email(page, url: str) -> tuple:
                 await page.wait_for_timeout(random.randint(500, 1000))
 
                 content = await page.content()
-                emails  = extract_emails(content)
+                if not city and not country:
+                    city, country = extract_address_from_jsonld(content)
+
+                emails = extract_emails(content)
                 if emails:
-                    return emails[0], company_name
+                    return emails[0], company_name, city, country
 
                 # Check mailto links on contact page
                 mailto_links = await page.query_selector_all("a[href^='mailto:']")
@@ -153,14 +205,14 @@ async def scrape_website_email(page, url: str) -> tuple:
                     if href:
                         email = href.replace("mailto:", "").split("?")[0].strip()
                         if email and "@" in email:
-                            return email, company_name
+                            return email, company_name, city, country
             except Exception:
                 continue
 
     except Exception as e:
         print(f"⚠️ Error scraping {url}: {e}")
 
-    return "", company_name
+    return "", company_name, city, country
 
 
 async def scrape_url_list(urls: list, company_type: str,
@@ -189,21 +241,22 @@ async def scrape_url_list(urls: list, company_type: str,
 
             print(f"🌐 Scraping {idx+1}/{len(urls)}: {url}")
 
-            email, company_name = await scrape_website_email(page, url)
+            email, company_name, city, country = await scrape_website_email(page, url)
 
             if email:
-                # Fall back to domain name if no company name found
                 if not company_name:
                     domain       = urlparse(url).netloc.replace("www.", "")
                     company_name = domain.split(".")[0].replace("-", " ").replace("_", " ").title()
+                if not country:
+                    country = country_from_tld(url)
 
                 result = {
                     "name":         company_name,
                     "email":        email,
                     "phone":        "",
                     "website":      url,
-                    "city":         "",
-                    "country":      "",
+                    "city":         city,
+                    "country":      country,
                     "company_type": company_type,
                     "maps_url":     "",
                 }

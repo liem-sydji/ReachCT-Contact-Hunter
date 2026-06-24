@@ -117,7 +117,13 @@ function MapsSearch({ user, token, navigate }) {
       ws["!cols"] = [{wch:30},{wch:30},{wch:18},{wch:35},{wch:18},{wch:18},{wch:22}];
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "ReachCT Export");
-      XLSX.writeFile(wb, `reachct_maps_${new Date().toISOString().slice(0,10)}.xlsx`);
+      const _fn1 = `reachct_maps_${new Date().toISOString().slice(0,10)}.xlsx`;
+      const _buf1 = XLSX.write(wb, { bookType:"xlsx", type:"array" });
+      const _blob1 = new Blob([_buf1], { type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+      const _url1 = URL.createObjectURL(_blob1);
+      const _a1 = document.createElement("a"); _a1.href = _url1; _a1.download = _fn1;
+      document.body.appendChild(_a1); _a1.click(); document.body.removeChild(_a1);
+      URL.revokeObjectURL(_url1);
     });
   };
 
@@ -316,7 +322,13 @@ function LinkedInSearch({ user, token }) {
       ws["!cols"] = [{wch:24},{wch:16},{wch:32},{wch:24},{wch:50},{wch:30}];
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "LinkedIn Export");
-      XLSX.writeFile(wb, `reachct_linkedin_${new Date().toISOString().slice(0,10)}.xlsx`);
+      const _fn2 = `reachct_linkedin_${new Date().toISOString().slice(0,10)}.xlsx`;
+      const _buf2 = XLSX.write(wb, { bookType:"xlsx", type:"array" });
+      const _blob2 = new Blob([_buf2], { type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+      const _url2 = URL.createObjectURL(_blob2);
+      const _a2 = document.createElement("a"); _a2.href = _url2; _a2.download = _fn2;
+      document.body.appendChild(_a2); _a2.click(); document.body.removeChild(_a2);
+      URL.revokeObjectURL(_url2);
     });
   };
 
@@ -630,20 +642,26 @@ function URLScraper({ user, token }) {
   const handleExport = () => {
     if (!results.length) return;
     import("xlsx").then(({ default: XLSX }) => {
-      const headers = ["Company Name","Email","Website","Company Type"];
-      const rows    = results.map(r=>[r.name||"",r.email||"",r.website||"",r.company_type||""]);
+      const headers = ["Company Name","Email","Website","City","Country","Company Type"];
+      const rows    = results.map(r=>[r.name||"",r.email||"",r.website||"",r.city||"",r.country||"",r.company_type||""]);
       const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
-      ws["!cols"] = [{wch:30},{wch:30},{wch:40},{wch:22}];
+      ws["!cols"] = [{wch:30},{wch:30},{wch:40},{wch:20},{wch:20},{wch:22}];
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "URL Scrape Export");
-      XLSX.writeFile(wb, `reachct_urls_${new Date().toISOString().slice(0,10)}.xlsx`);
+      const _fn3 = `reachct_urls_${new Date().toISOString().slice(0,10)}.xlsx`;
+      const _buf3 = XLSX.write(wb, { bookType:"xlsx", type:"array" });
+      const _blob3 = new Blob([_buf3], { type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+      const _url3 = URL.createObjectURL(_blob3);
+      const _a3 = document.createElement("a"); _a3.href = _url3; _a3.download = _fn3;
+      document.body.appendChild(_a3); _a3.click(); document.body.removeChild(_a3);
+      URL.revokeObjectURL(_url3);
     });
   };
 
   const handleCopy = () => {
     if (!results.length) return;
-    const headers = ["Company Name","Email","Website","Company Type"];
-    const rows    = results.map(r=>[r.name||"",r.email||"",r.website||"",r.company_type||""]);
+    const headers = ["Company Name","Email","Website","City","Country","Company Type"];
+    const rows    = results.map(r=>[r.name||"",r.email||"",r.website||"",r.city||"",r.country||"",r.company_type||""]);
     const tsv     = [headers,...rows].map(r=>r.join("\t")).join("\n");
     navigator.clipboard.writeText(tsv).then(()=>alert("Copied!"));
   };
@@ -715,7 +733,7 @@ function URLScraper({ user, token }) {
           </div>
           <div style={{ overflowX:"auto" }}>
             <table className="results-table">
-              <thead><tr><th>Company</th><th>Email</th><th>Website</th><th>Type</th></tr></thead>
+              <thead><tr><th>Company</th><th>Email</th><th>Website</th><th>City</th><th>Country</th><th>Type</th></tr></thead>
               <tbody>
                 {results.map((r,i) => (
                   <tr key={i}>
@@ -727,6 +745,8 @@ function URLScraper({ user, token }) {
                         {r.website.replace(/https?:\/\/(www\.)?/,"").slice(0,35)}
                       </a>
                     </td>
+                    <td style={{fontSize:12,color:"#555"}}>{r.city||"—"}</td>
+                    <td style={{fontSize:12,color:"#555"}}>{r.country||"—"}</td>
                     <td style={{fontSize:12,color:"#888"}}>{r.company_type}</td>
                   </tr>
                 ))}
@@ -746,7 +766,7 @@ function URLScraper({ user, token }) {
         <AddToDBModal
           dbKind="maps"
           rows={results.map(r=>({ name:r.name||"", email:r.email||"", phone:"",
-            website:r.website||"", city:"", country:"", company_type:r.company_type||"" }))}
+            website:r.website||"", city:r.city||"", country:r.country||"", company_type:r.company_type||"" }))}
           onClose={()=>setShowAddDB(false)}
         />
       )}
