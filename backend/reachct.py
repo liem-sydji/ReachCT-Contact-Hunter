@@ -95,7 +95,7 @@ async def try_contact_pages(page, base_url: str) -> dict:
 
 async def scrape_website(browser, url: str, retries: int = MAX_RETRIES) -> dict:
     if not url:
-        return {"email": "", "phone": "", "page_text": ""}
+        return {"email": None, "phone": None, "page_text": ""}
 
     for attempt in range(retries):
         context = None
@@ -131,7 +131,7 @@ async def scrape_website(browser, url: str, retries: int = MAX_RETRIES) -> dict:
                 if data["emails"]: email = data["emails"][0]
                 if not phone and data["phones"]: phone = data["phones"][0]
 
-            return {"email": email, "phone": phone, "page_text": page_text}
+            return {"email": email or None, "phone": phone or None, "page_text": page_text}
 
         except Exception as e:
             print(f"    ⚠️  Failed: {str(e)[:60]}")
@@ -140,7 +140,7 @@ async def scrape_website(browser, url: str, retries: int = MAX_RETRIES) -> dict:
                 try: await context.close()
                 except: pass
 
-    return {"email": "", "phone": "", "page_text": ""}
+    return {"email": None, "phone": None, "page_text": ""}
 
 
 # ── Name extraction ───────────────────────────────────────────────────────────
@@ -349,9 +349,9 @@ async def scrape_google_maps(query: str, city: str, country: str,
                 results.append({
                     "run_id":       run_id,
                     "name":         name,
-                    "email":        email,
-                    "phone":        final_phone,
-                    "website":      website,
+                    "email":        email or None,
+                    "phone":        final_phone or None,
+                    "website":      website or None,
                     "city":         city,
                     "country":      country,
                     "company_type": query,

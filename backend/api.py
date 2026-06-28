@@ -59,7 +59,7 @@ def queue_worker():
             jobs[job_id]["queue_position"] = 0
             for idx, j in enumerate([j for j in jobs.values() if j["status"] == "queued"]):
                 j["queue_position"] = idx + 1
-            t = threading.Thread(target=run_scrape_job_thread, args=(job_id, query, city, country, start, end))
+            t = threading.Thread(target=run_scrape_job_thread, args=(job_id, query, city, country, start, end), daemon=False)
             t.start(); t.join()
             search_queue.task_done()
         except queue_module.Empty: continue
@@ -85,6 +85,11 @@ def startup():
         init_linkedin_table()
     except Exception as e:
         print(f"⚠️  LinkedIn table init: {e}")
+    try:
+        from database import init_internship_table
+        init_internship_table()
+    except Exception as e:
+        print(f"⚠️  Internship table init: {e}")
     print("✅ ReachCT API ready")
 
 @app.get("/api/health")
@@ -986,7 +991,8 @@ Add your contribution clearly separated if appending.""", max_tokens=1500)
 
 # ── LinkedIn / People Search ──────────────────────────────────────────────────
 from database import (init_linkedin_table, upsert_linkedin_contact,
-                      get_linkedin_contacts, get_linkedin_filters)
+                      get_linkedin_contacts, get_linkedin_filters,
+                      upsert_internship_listing, get_internship_listings)
 
 linkedin_jobs: dict  = {}
 linkedin_queue       = queue_module.Queue()
@@ -1002,7 +1008,7 @@ def linkedin_queue_worker():
             for j in linkedin_jobs.values():
                 if j["status"] == "queued":
                     j["queue_position"] = max(0, j.get("queue_position", 1) - 1)
-            t = threading.Thread(target=_run_linkedin_job, args=(item,))
+            t = threading.Thread(target=_run_linkedin_job, args=(item,), daemon=False)
             t.start(); t.join()
             linkedin_queue.task_done()
         except queue_module.Empty:
@@ -1014,30 +1020,74 @@ def linkedin_queue_worker():
 threading.Thread(target=linkedin_queue_worker, daemon=True).start()
 
 
+def _internship_cleanup_worker():
+    """Daily background job — removes internship listings older than 30 days."""
+    import time
+    while True:
+        time.sleep(86400)  # 24 hours
+        try:
+            from database import delete_old_internship_listings
+            delete_old_internship_listings(days=30)
+        except Exception as e:
+            print(f"⚠️  Internship cleanup error: {e}")
+
+threading.Thread(target=_internship_cleanup_worker, daemon=True).start()
+
+
 def _run_linkedin_job(item: dict):
-    """Universal LinkedIn job runner -- handles search, bulk, and smart."""
+    """Universal LinkedIn job runner — handles people, companies, and legacy types."""
     job_id   = item["job_id"]
     job_type = item["type"]
     loop     = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     try:
         linkedin_jobs[job_id]["status"] = "running"
-        if job_type == "search":
+
+        if job_type == "people":
             from linkedin import scrape_linkedin_people
             results = loop.run_until_complete(scrape_linkedin_people(
-                item["role"], item["company"], item["location"],
-                item["keyword"], item["domain"],
-                min(item["max_results"], 30), linkedin_jobs, job_id
+                item["company_type"], item["city"], item["country"],
+                min(item["max_results"], 50), linkedin_jobs, job_id
             ))
-        else:  # bulk or smart
-            from linkedin import scrape_linkedin_bulk
-            results = loop.run_until_complete(scrape_linkedin_bulk(
-                item["targets"], item["role"], item["location"],
-                item["max_per_company"], linkedin_jobs, job_id
+            for person in results:
+                if person.get("linkedin_url"):
+                    upsert_linkedin_contact(person)
+
+        elif job_type == "companies":
+            from linkedin import scrape_linkedin_companies
+            results = loop.run_until_complete(scrape_linkedin_companies(
+                item["intern_title"], item["city"], item["country"],
+                min(item["max_results"], 50), linkedin_jobs, job_id
             ))
-        for person in results:
-            if person.get("linkedin_url"):
-                upsert_linkedin_contact(person)
+            for listing in results:
+                if listing.get("linkedin_url"):
+                    upsert_internship_listing(listing)
+
+        elif job_type == "search":
+            from linkedin import scrape_linkedin_people as _old_people
+            results = loop.run_until_complete(_old_people(
+                item.get("company_type", item.get("role", "")),
+                item.get("city", ""), item.get("country", ""),
+                min(item.get("max_results", 15), 30), linkedin_jobs, job_id
+            ))
+            for person in results:
+                if person.get("linkedin_url"):
+                    upsert_linkedin_contact(person)
+
+        else:  # bulk / smart — legacy
+            from linkedin import scrape_linkedin_people as _old_people
+            results = []
+            for target in item.get("targets", []):
+                company = target.get("company", "")
+                r = loop.run_until_complete(_old_people(
+                    company, "", "",
+                    min(item.get("max_per_company", 5), 10), linkedin_jobs, job_id
+                ))
+                results.extend(r)
+                for person in r:
+                    if person.get("linkedin_url"):
+                        upsert_linkedin_contact(person)
+
         linkedin_jobs[job_id]["results"] = results
         linkedin_jobs[job_id]["status"]  = (
             "cancelled" if linkedin_jobs[job_id].get("status") == "cancelling" else "done"
@@ -1078,6 +1128,77 @@ def start_linkedin_search(body: LinkedInSearchRequest, authorization: str = Head
         })
     return {"job_id": job_id, "queue_position": qpos}
 
+
+# ── People Search ─────────────────────────────────────────────────────────────
+
+class LinkedInPeopleRequest(BaseModel):
+    company_type: str = ""
+    city:         str = ""
+    country:      str = ""
+    max_results:  int = 15
+
+@app.post("/api/linkedin/people")
+def start_linkedin_people(body: LinkedInPeopleRequest, authorization: str = Header(default=None)):
+    get_current_user(authorization)
+    if not body.company_type:
+        raise HTTPException(status_code=400, detail="company_type is required")
+
+    job_id = str(uuid.uuid4())[:8]
+    with linkedin_queue_lock:
+        qpos = sum(1 for j in linkedin_jobs.values() if j["status"] in ("running", "queued", "starting"))
+        linkedin_jobs[job_id] = {
+            "status": "queued", "queue_position": qpos,
+            "found": 0, "results": [], "error": None,
+        }
+        linkedin_queue.put({
+            "job_id": job_id, "type": "people",
+            "company_type": body.company_type,
+            "city": body.city, "country": body.country,
+            "max_results": min(body.max_results, 50),
+        })
+    return {"job_id": job_id, "queue_position": qpos}
+
+
+# ── Companies (Internship) Search ─────────────────────────────────────────────
+
+class LinkedInCompaniesRequest(BaseModel):
+    intern_title: str = ""
+    city:         str = ""
+    country:      str = ""
+    max_results:  int = 15
+
+@app.post("/api/linkedin/companies")
+def start_linkedin_companies(body: LinkedInCompaniesRequest, authorization: str = Header(default=None)):
+    get_current_user(authorization)
+    if not body.intern_title:
+        raise HTTPException(status_code=400, detail="intern_title is required")
+
+    job_id = str(uuid.uuid4())[:8]
+    with linkedin_queue_lock:
+        qpos = sum(1 for j in linkedin_jobs.values() if j["status"] in ("running", "queued", "starting"))
+        linkedin_jobs[job_id] = {
+            "status": "queued", "queue_position": qpos,
+            "found": 0, "results": [], "error": None,
+        }
+        linkedin_queue.put({
+            "job_id": job_id, "type": "companies",
+            "intern_title": body.intern_title,
+            "city": body.city, "country": body.country,
+            "max_results": min(body.max_results, 50),
+        })
+    return {"job_id": job_id, "queue_position": qpos}
+
+@app.get("/api/linkedin/internships")
+def get_internship_results(
+    internship_type: str = "", company: str = "", city: str = "", country: str = "",
+    authorization: str = Header(default=None)
+):
+    """Pull saved internship listings with optional filters."""
+    get_current_user(authorization)
+    results = get_internship_listings(internship_type=internship_type, company=company, city=city, country=country)
+    return {"results": results, "count": len(results)}
+
+
 @app.get("/api/linkedin/status/{job_id}")
 def linkedin_status(job_id: str, authorization: str = Header(default=None)):
     get_current_user(authorization)
@@ -1114,30 +1235,29 @@ def linkedin_filters(authorization: str = Header(default=None)):
     return get_linkedin_filters()
 
 class LinkedInPullRequest(BaseModel):
-    job_titles: List[str] = []
-    companies:  List[str] = []
-    locations:  List[str] = []
+    company_types: List[str] = []
+    companies:     List[str] = []
+    locations:     List[str] = []
 
 @app.post("/api/linkedin/pull")
 def linkedin_pull(body: LinkedInPullRequest, authorization: str = Header(default=None)):
     get_current_user(authorization)
     all_results = []
     seen = set()
-    # If no filters, pull everything
     combos = []
-    if body.job_titles or body.companies or body.locations:
-        jt = body.job_titles or [""]
+    if body.company_types or body.companies or body.locations:
+        ct = body.company_types or [""]
         co = body.companies or [""]
         lo = body.locations or [""]
-        for j in jt:
+        for t in ct:
             for c in co:
                 for l in lo:
-                    combos.append((j, c, l))
+                    combos.append((t, c, l))
     else:
         combos = [("", "", "")]
 
-    for j, c, l in combos:
-        for row in get_linkedin_contacts(j, c, l):
+    for t, c, l in combos:
+        for row in get_linkedin_contacts(t, c, l):
             if row["id"] not in seen:
                 seen.add(row["id"])
                 all_results.append(row)
@@ -1286,7 +1406,7 @@ def url_scrape_queue_worker():
             for j in url_scrape_jobs.values():
                 if j["status"] == "queued":
                     j["queue_position"] = max(0, j.get("queue_position", 1) - 1)
-            t = threading.Thread(target=_run_url_scrape_job, args=(item,))
+            t = threading.Thread(target=_run_url_scrape_job, args=(item,), daemon=False)
             t.start(); t.join()
             url_scrape_queue.task_done()
         except queue_module.Empty:

@@ -1,0 +1,8 @@
+.git/
+frontend/
+backend/venv/
+backend/.env
+*.md
+*.ps1
+.gitignore
+.dockerignore

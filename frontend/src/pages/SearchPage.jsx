@@ -11,6 +11,12 @@ export default function SearchPage() {
   const { user, token } = useAuth();
   const [tab, setTab]   = useState("maps"); // "maps" | "linkedin" | "urls"
 
+  useEffect(() => {
+    if ("Notification" in window && Notification.permission === "default") {
+      Notification.requestPermission();
+    }
+  }, []);
+
   return (
     <div className="inner-page">
       <InnerHeader title="New Search" />
@@ -61,6 +67,43 @@ function MapsSearch({ user, token, navigate }) {
   const [showAddDB, setShowAddDB] = useState(false);
   const pollRef = useRef(null);
 
+  const attachMapsPoll = (job_id, totalHint) => {
+    pollRef.current = setInterval(async () => {
+      try {
+        const jr = await fetch(`${API}/api/job/${job_id}`);
+        if (jr.status === 404) {
+          clearInterval(pollRef.current); setLoading(false);
+          localStorage.removeItem("reachct-job-maps");
+          setError("Search job not found — the server may have restarted. Results already scraped are saved to the shared database.");
+          return;
+        }
+        const jd = await jr.json();
+        if (jd.status==="done"||jd.status==="cancelled") {
+          clearInterval(pollRef.current);
+          setResults(jd.results||[]); setSearched(true); setLoading(false); setJobId(null);
+          localStorage.removeItem("reachct-job-maps");
+          if (Notification.permission==="granted") {
+            const count = (jd.results||[]).length;
+            new Notification("ReachCT — Maps search done", {
+              body: `${count} companies found for "${query}" in ${city}, ${country}`,
+            });
+          }
+        } else if (jd.status==="error") {
+          clearInterval(pollRef.current); setError(jd.error||"Something went wrong"); setLoading(false); setJobId(null);
+          localStorage.removeItem("reachct-job-maps");
+        } else if (jd.queue_position > 0) {
+          setLoadMsg(`Your search is queued at position ${jd.queue_position} — results will save automatically.`);
+        } else if (jd.status==="starting") {
+          setLoadMsg("Starting search…");
+        } else {
+          const progress = jd.progress || 0;
+          const total    = jd.total || totalHint || 25;
+          setLoadMsg(`Scanning companies… ${progress}/${total} processed.`);
+        }
+      } catch {}
+    }, 4000);
+  };
+
   const handleSearch = async () => {
     if (!query||!city||!country) { setError("Please fill in all fields."); return; }
     setError(""); setLoading(true); setSearched(false); setResults([]);
@@ -70,31 +113,13 @@ function MapsSearch({ user, token, navigate }) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail||"Failed to start search");
       setJobId(data.job_id);
+      localStorage.setItem("reachct-job-maps", JSON.stringify({ job_id: data.job_id, started_at: Date.now() }));
       if (data.queue_position > 0) {
         setLoadMsg(`Your search is queued at position ${data.queue_position} — results will save automatically.`);
       } else {
         setLoadMsg("Your search is in progress — this may take a couple of minutes.");
       }
-      pollRef.current = setInterval(async () => {
-        try {
-          const jr = await fetch(`${API}/api/job/${data.job_id}`);
-          const jd = await jr.json();
-          if (jd.status==="done"||jd.status==="cancelled") {
-            clearInterval(pollRef.current);
-            setResults(jd.results||[]); setSearched(true); setLoading(false); setJobId(null);
-          } else if (jd.status==="error") {
-            clearInterval(pollRef.current); setError(jd.error||"Something went wrong"); setLoading(false); setJobId(null);
-          } else if (jd.queue_position > 0) {
-            setLoadMsg(`Your search is queued at position ${jd.queue_position} — results will save automatically.`);
-          } else if (jd.status==="starting") {
-            setLoadMsg("Starting search…");
-          } else {
-            const progress = jd.progress || 0;
-            const total    = jd.total || (end - start);
-            setLoadMsg(`Scanning companies… ${progress}/${total} processed.`);
-          }
-        } catch {}
-      }, 4000);
+      attachMapsPoll(data.job_id, end - start);
     } catch (e) { setError(e.message); setLoading(false); }
   };
 
@@ -136,6 +161,19 @@ function MapsSearch({ user, token, navigate }) {
   };
 
   useEffect(() => () => { if (pollRef.current) clearInterval(pollRef.current); }, []);
+
+  // Reconnect to a running job after page refresh
+  useEffect(() => {
+    const saved = localStorage.getItem("reachct-job-maps");
+    if (!saved) return;
+    try {
+      const { job_id } = JSON.parse(saved);
+      if (!job_id) return;
+      setJobId(job_id); setLoading(true);
+      setLoadMsg("Reconnecting to your running search…");
+      attachMapsPoll(job_id, 25);
+    } catch { localStorage.removeItem("reachct-job-maps"); }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <>
@@ -229,332 +267,425 @@ function MapsSearch({ user, token, navigate }) {
   );
 }
 
-// ─── LinkedIn Search (Smart only — Bulk removed) ───────────────────────────────
+// ─── LinkedIn Search ───────────────────────────────────────────────────────────
 function LinkedInSearch({ user, token }) {
-  const [companyType,   setCompanyType]   = useState("");
-  const [city,          setCity]          = useState("");
-  const [role,          setRole]          = useState("HR");
-  const [start,         setStart]         = useState(0);
-  const [end,           setEnd]           = useState(25);
-  const [filters,       setFilters]       = useState({ company_types:[], cities:{} });
+  const [mode,          setMode]          = useState("people"); // "people" | "internships"
   const [loading,       setLoading]       = useState(false);
   const [loadMsg,       setLoadMsg]       = useState("");
-  const [results,       setResults]       = useState([]);
-  const [searched,      setSearched]      = useState(false);
   const [error,         setError]         = useState("");
   const [jobId,         setJobId]         = useState(null);
+  const [searched,      setSearched]      = useState(false);
   const [showAddDB,     setShowAddDB]     = useState(false);
+
+  // People mode state
+  const [companyType,   setCompanyType]   = useState("");
+  const [city,          setCity]          = useState("");
+  const [country,       setCountry]       = useState("");
+  const [maxResults,    setMaxResults]    = useState(15);
+  const [peopleResults, setPeopleResults] = useState([]);
+
+  // Internship mode state
+  const [internTitle,   setInternTitle]   = useState("");
+  const [internCity,    setInternCity]    = useState("");
+  const [internCountry, setInternCountry] = useState("");
+  const [internMax,     setInternMax]     = useState(15);
+  const [internResults, setInternResults] = useState([]);
+
   const pollRef = useRef(null);
-
-  useEffect(() => {
-    fetch(`${API}/api/filters`).then(r=>r.json()).then(setFilters).catch(()=>{});
-  }, []);
-
-  const allCities = filters?.cities ? Object.values(filters.cities).flat() : [];
 
   const handleCancel = async () => {
     if (!jobId) return;
     try {
-      await fetch(`${API}/api/linkedin/cancel/${jobId}`, {
-        method:"POST",
-        headers:{ Authorization:`Bearer ${token}` },
-      });
+      await fetch(`${API}/api/linkedin/cancel/${jobId}`, { method:"POST", headers:{ Authorization:`Bearer ${token}` } });
       setLoadMsg("Cancelling — collecting results so far…");
     } catch {}
   };
 
-  const handleSmartSearch = async () => {
-    if (!companyType || !city) { setError("Please select a company type and city."); return; }
-    setError(""); setLoading(true); setSearched(false); setResults([]);
-    setLoadMsg("Looking up companies in database…");
+  const attachLinkedInPoll = (newJobId, onDone, lsKey, notifMsg) => {
+    pollRef.current = setInterval(async () => {
+      try {
+        const jr = await fetch(`${API}/api/linkedin/status/${newJobId}`, { headers:{ Authorization:`Bearer ${token}` } });
+        if (jr.status === 404) {
+          clearInterval(pollRef.current); setLoading(false);
+          if (lsKey) localStorage.removeItem(lsKey);
+          setError("Job not found — the server may have restarted. Any results scraped were saved to the shared database.");
+          return;
+        }
+        const jd = await jr.json();
+        if (jd.status==="done"||jd.status==="cancelled") {
+          clearInterval(pollRef.current);
+          onDone(jd.results||[]);
+          setSearched(true); setLoading(false); setJobId(null);
+          if (lsKey) localStorage.removeItem(lsKey);
+          if (Notification.permission==="granted") {
+            const count = (jd.results||[]).length;
+            new Notification("ReachCT — LinkedIn search done", {
+              body: `${count} results${notifMsg ? ` · ${notifMsg}` : ""}`,
+            });
+          }
+        } else if (jd.status==="error") {
+          clearInterval(pollRef.current);
+          setError(jd.error||"Search failed"); setLoading(false); setJobId(null);
+          if (lsKey) localStorage.removeItem(lsKey);
+        } else {
+          const found = jd.found||(jd.results||[]).length;
+          setLoadMsg(jd.queue_position > 0
+            ? `Queued at position ${jd.queue_position}…`
+            : `Searching… (${found} found so far)`);
+        }
+      } catch {}
+    }, 4000);
+  };
+
+  const handlePeopleSearch = async () => {
+    if (!companyType) { setError("Company type / role is required."); return; }
+    setError(""); setLoading(true); setSearched(false); setPeopleResults([]);
+    setLoadMsg("Starting LinkedIn people search…");
     try {
-      const res = await fetch(`${API}/api/linkedin/smart`, {
-        method:"POST",
-        headers:{"Content-Type":"application/json", Authorization:`Bearer ${token}`},
-        body:JSON.stringify({ company_type:companyType, city, role, start:Number(start), end:Number(end) }),
+      const res  = await fetch(`${API}/api/linkedin/people`, {
+        method:"POST", headers:{"Content-Type":"application/json", Authorization:`Bearer ${token}`},
+        body:JSON.stringify({ company_type:companyType, city, country, max_results:maxResults }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail||"Failed");
-
-      const newJobId = data.job_id;
-      setJobId(newJobId);
-
-      if (data.queue_position > 0) {
-        setLoadMsg(`Search queued at position ${data.queue_position} — will start automatically.`);
-      } else {
-        setLoadMsg(`Found ${data.total_companies} companies — searching LinkedIn for ${role}…`);
-      }
-
-      pollRef.current = setInterval(async () => {
-        try {
-          const jr = await fetch(`${API}/api/linkedin/status/${newJobId}`, {
-            headers:{ Authorization:`Bearer ${token}` },
-          });
-          const jd = await jr.json();
-
-          if (jd.status==="done" || jd.status==="cancelled") {
-            clearInterval(pollRef.current);
-            setResults(jd.results||[]); setSearched(true); setLoading(false); setJobId(null);
-          } else if (jd.status==="error") {
-            clearInterval(pollRef.current); setError(jd.error||"Search failed"); setLoading(false); setJobId(null);
-          } else if (jd.status==="queued" && jd.queue_position > 0) {
-            setLoadMsg(`Search queued at position ${jd.queue_position} — will start automatically.`);
-          } else if (jd.status==="starting") {
-            setLoadMsg(`Starting search across ${data.total_companies} companies…`);
-          } else {
-            const found     = jd.found || 0;
-            const idx       = jd.company_index || 0;
-            const total     = jd.total_companies || data.total_companies || 0;
-            const company   = jd.processing || "…";
-            setLoadMsg(`Searching ${company} (${idx}/${total}) — ${found} people found so far`);
-          }
-        } catch {}
-      }, 3000);
+      setJobId(data.job_id);
+      localStorage.setItem("reachct-job-li", JSON.stringify({ job_id:data.job_id, mode:"people", started_at:Date.now() }));
+      setLoadMsg(data.queue_position > 0 ? `Queued at position ${data.queue_position}…` : "Searching LinkedIn…");
+      attachLinkedInPoll(data.job_id, setPeopleResults, "reachct-job-li",
+        `${companyType}${city ? ` · ${city}` : ""}${country ? `, ${country}` : ""}`);
     } catch (e) { setError(e.message); setLoading(false); }
   };
 
-  const handleExport = () => {
-    if (!results.length) return;
+  const handleInternSearch = async () => {
+    if (!internTitle) { setError("Internship title is required."); return; }
+    setError(""); setLoading(true); setSearched(false); setInternResults([]);
+    setLoadMsg("Starting LinkedIn internship search…");
+    try {
+      const res  = await fetch(`${API}/api/linkedin/companies`, {
+        method:"POST", headers:{"Content-Type":"application/json", Authorization:`Bearer ${token}`},
+        body:JSON.stringify({ intern_title:internTitle, city:internCity, country:internCountry, max_results:internMax }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail||"Failed");
+      setJobId(data.job_id);
+      localStorage.setItem("reachct-job-li", JSON.stringify({ job_id:data.job_id, mode:"internships", started_at:Date.now() }));
+      setLoadMsg(data.queue_position > 0 ? `Queued at position ${data.queue_position}…` : "Searching LinkedIn Jobs…");
+      attachLinkedInPoll(data.job_id, setInternResults, "reachct-job-li",
+        `${internTitle}${internCity ? ` · ${internCity}` : ""}${internCountry ? `, ${internCountry}` : ""}`);
+    } catch (e) { setError(e.message); setLoading(false); }
+  };
+
+  const handleExportPeople = () => {
+    if (!peopleResults.length) return;
     import("xlsx").then(({ default: XLSX }) => {
-      const headers = ["Full Name","Role","Profile Title","Company","LinkedIn URL","Email"];
-      const rows    = results.map(r => [r.full_name||"",r.job_title||"",r.profile_title||"",r.company||"",r.linkedin_url||"",r.email||""]);
-      const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+      const headers = ["Full Name","Company Type","Role","Company","LinkedIn URL","Email"];
+      const rows    = peopleResults.map(r=>[r.full_name||"",r.company_type||"",r.profile_title||"",r.company||"",r.linkedin_url||"",r.email||""]);
+      const ws = XLSX.utils.aoa_to_sheet([headers,...rows]);
       ws["!cols"] = [{wch:24},{wch:16},{wch:32},{wch:24},{wch:50},{wch:30}];
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "LinkedIn Export");
-      const _fn2 = `reachct_linkedin_${new Date().toISOString().slice(0,10)}.xlsx`;
-      const _buf2 = XLSX.write(wb, { bookType:"xlsx", type:"array" });
-      const _blob2 = new Blob([_buf2], { type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-      const _url2 = URL.createObjectURL(_blob2);
-      const _a2 = document.createElement("a"); _a2.href = _url2; _a2.download = _fn2;
-      document.body.appendChild(_a2); _a2.click(); document.body.removeChild(_a2);
-      URL.revokeObjectURL(_url2);
+      const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,"LinkedIn People");
+      const buf = XLSX.write(wb,{bookType:"xlsx",type:"array"});
+      const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([buf],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}));
+      a.download = `reachct_people_${new Date().toISOString().slice(0,10)}.xlsx`;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
     });
   };
 
-  const handleCopy = () => {
-    if (!results.length) return;
-    const headers = ["Full Name","Role","Profile Title","Company","LinkedIn URL","Email"];
-    const rows    = results.map(r => [r.full_name||"",r.job_title||"",r.profile_title||"",r.company||"",r.linkedin_url||"",r.email||""]);
-    const tsv     = [headers,...rows].map(r=>r.join("\t")).join("\n");
-    navigator.clipboard.writeText(tsv).then(()=>alert("Copied!"));
+  const handleExportIntern = () => {
+    if (!internResults.length) return;
+    import("xlsx").then(({ default: XLSX }) => {
+      const headers = ["Internship","Type","Company","Email","Website","LinkedIn URL","City","Country"];
+      const rows    = internResults.map(r=>[r.internship||"",r.internship_type||"",r.company||"",r.email||"",r.company_website||"",r.linkedin_url||"",r.city||"",r.country||""]);
+      const ws = XLSX.utils.aoa_to_sheet([headers,...rows]);
+      ws["!cols"] = [{wch:32},{wch:18},{wch:24},{wch:28},{wch:30},{wch:50},{wch:18},{wch:18}];
+      const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,"LinkedIn Internships");
+      const buf = XLSX.write(wb,{bookType:"xlsx",type:"array"});
+      const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([buf],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}));
+      a.download = `reachct_internships_${new Date().toISOString().slice(0,10)}.xlsx`;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    });
   };
 
-  const handleSaveEmail = async (idx) => {
-    const person = results[idx];
-    if (!person?.email) return;
-    try {
-      // Save to DB if user has added to database
-      await fetch(`${API}/api/linkedin/save-email`, {
-        method:"POST",
-        headers:{"Content-Type":"application/json", Authorization:`Bearer ${token}`},
-        body:JSON.stringify({ linkedin_url: person.linkedin_url, email: person.email }),
-      });
-      const updated = [...results];
-      updated[idx] = { ...updated[idx], _saved: true };
-      setResults(updated);
-    } catch {
-      // Mark saved locally even if API call fails — user can still export
-      const updated = [...results];
-      updated[idx] = { ...updated[idx], _saved: true };
-      setResults(updated);
-    }
+  const handleCopyPeople = () => {
+    const h = ["Full Name","Company Type","Role","Company","LinkedIn URL","Email"];
+    const rows = peopleResults.map(r=>[r.full_name||"",r.company_type||"",r.profile_title||"",r.company||"",r.linkedin_url||"",r.email||""]);
+    navigator.clipboard.writeText([h,...rows].map(r=>r.join("\t")).join("\n")).then(()=>alert("Copied!"));
   };
+
+  const handleCopyIntern = () => {
+    const h = ["Internship","Type","Company","Email","Website","LinkedIn URL","City","Country"];
+    const rows = internResults.map(r=>[r.internship||"",r.internship_type||"",r.company||"",r.email||"",r.company_website||"",r.linkedin_url||"",r.city||"",r.country||""]);
+    navigator.clipboard.writeText([h,...rows].map(r=>r.join("\t")).join("\n")).then(()=>alert("Copied!"));
+  };
+
+  const switchMode = (m) => { setMode(m); setSearched(false); setError(""); clearInterval(pollRef.current); setLoading(false); setJobId(null); };
 
   useEffect(() => () => { if (pollRef.current) clearInterval(pollRef.current); }, []);
 
-  // confColor removed — confidence column dropped, emails added manually via Mailmeteor
+  // Reconnect to a running LinkedIn job after page refresh
+  useEffect(() => {
+    if (!token) return;
+    const saved = localStorage.getItem("reachct-job-li");
+    if (!saved) return;
+    try {
+      const { job_id, mode: savedMode } = JSON.parse(saved);
+      if (!job_id) return;
+      setMode(savedMode || "people");
+      setJobId(job_id); setLoading(true);
+      setLoadMsg("Reconnecting to your running search…");
+      const onDone = savedMode === "internships" ? setInternResults : setPeopleResults;
+      attachLinkedInPoll(job_id, onDone, "reachct-job-li");
+    } catch { localStorage.removeItem("reachct-job-li"); }
+  }, [token]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const btnTab = (active, color, label, onClick) => (
+    <button onClick={onClick} style={{
+      padding:"8px 20px", borderRadius:8, border:"none", cursor:"pointer",
+      fontFamily:"'DM Sans',sans-serif", fontSize:13, fontWeight:600,
+      background: active ? color : "#f0f0f0", color: active ? "#fff" : "#888",
+      transition:"all 0.15s",
+    }}>{label}</button>
+  );
 
   return (
     <>
       <div className="form-area">
         <div className="form-card">
-          <div className="form-title">Find People on LinkedIn</div>
-          <p className="hint" style={{ marginTop:-4, marginBottom:16 }}>
-            Pulls companies from your ReachCT database and automatically finds decision makers on LinkedIn.
-          </p>
-
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr 0.5fr 0.5fr", gap:16, marginBottom:16 }}>
-            <div>
-              <label className="field-label">Company Type</label>
-              <select className="field-select" value={companyType} onChange={e=>setCompanyType(e.target.value)}>
-                <option value="">Select company type…</option>
-                {(filters?.company_types||[]).map(ct => <option key={ct} value={ct}>{ct}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="field-label">City</label>
-              <select className="field-select" value={city} onChange={e=>setCity(e.target.value)}>
-                <option value="">Select city…</option>
-                {allCities.map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="field-label">Role to find</label>
-              <input className="field-input" value={role} onChange={e=>setRole(e.target.value)}
-                placeholder="e.g. HR, Director"/>
-            </div>
-            <div>
-              <label className="field-label">Start company</label>
-              <input className="field-input" type="number" min="0" value={start}
-                onChange={e=>{ const v=e.target.value; setStart(v===""?"":Number(v)); }}
-                onBlur={e=>{ if(e.target.value==="") setStart(0); }}/>
-            </div>
-            <div>
-              <label className="field-label">End company</label>
-              <input className="field-input" type="number" min="1" value={end}
-                onChange={e=>{ const v=e.target.value; setEnd(v===""?"":Number(v)); }}
-                onBlur={e=>{ if(e.target.value==="") setEnd(25); }}/>
-            </div>
-
-            <div style={{ gridColumn:"span 5", background:"rgba(232,0,90,0.04)", border:"1px solid rgba(232,0,90,0.15)",
-              borderRadius:10, padding:"12px 16px", fontSize:12, color:"#666" }}>
-              💡 ReachCT will pull <strong>{companyType||"companies"}</strong> in <strong>{city||"selected city"}</strong> (companies {start}→{end})
-              from the database and find the most relevant <strong>{role}</strong> at each — 1 person per company.
-            </div>
+          {/* Mode tabs */}
+          <div style={{ display:"flex", gap:8, marginBottom:24 }}>
+            {btnTab(mode==="people",      "#E8005A", "🔗 People Search",     ()=>switchMode("people"))}
+            {btnTab(mode==="internships", "#9333ea", "🎓 Internship Search", ()=>switchMode("internships"))}
           </div>
 
-          <div className="btn-row">
-            <button className="btn-primary" onClick={handleSmartSearch} disabled={loading}>
-              <SearchIcon/>{loading?"Searching…":"Find People"}
-            </button>
-            {loading && (
-              <button className="btn-danger" onClick={handleCancel}>
-                <StopIcon/>Stop &amp; get results
-              </button>
-            )}
-          </div>
+          {mode === "people" && (
+            <>
+              <div className="form-title">Find People on LinkedIn</div>
+              <p className="hint" style={{ marginTop:-4, marginBottom:16 }}>
+                Search LinkedIn directly for people by company type and location.
+              </p>
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr 0.6fr", gap:16, marginBottom:16 }}>
+                <div>
+                  <label className="field-label">Company Type / Role <span style={{color:"#E8005A"}}>*</span></label>
+                  <input className="field-input" value={companyType} onChange={e=>setCompanyType(e.target.value)}
+                    placeholder="e.g. Marketing Agency"/>
+                </div>
+                <div>
+                  <label className="field-label">City</label>
+                  <input className="field-input" value={city} onChange={e=>setCity(e.target.value)} placeholder="e.g. Madrid"/>
+                </div>
+                <div>
+                  <label className="field-label">Country</label>
+                  <input className="field-input" value={country} onChange={e=>setCountry(e.target.value)} placeholder="e.g. Spain"/>
+                </div>
+                <div>
+                  <label className="field-label">Max Results</label>
+                  <input className="field-input" type="number" min="1" max="50" value={maxResults}
+                    onChange={e=>setMaxResults(Math.min(50,Math.max(1,Number(e.target.value))))}/>
+                </div>
+              </div>
+              <div className="btn-row">
+                <button className="btn-primary" onClick={handlePeopleSearch} disabled={loading}>
+                  <SearchIcon/>{loading?"Searching…":"Find People"}
+                </button>
+                {loading && <button className="btn-danger" onClick={handleCancel}><StopIcon/>Stop &amp; get results</button>}
+              </div>
+            </>
+          )}
+
+          {mode === "internships" && (
+            <>
+              <div className="form-title">Find Internships on LinkedIn</div>
+              <p className="hint" style={{ marginTop:-4, marginBottom:16 }}>
+                Search LinkedIn Jobs for internship listings by title and location.
+              </p>
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr 0.6fr", gap:16, marginBottom:16 }}>
+                <div>
+                  <label className="field-label">Internship Title <span style={{color:"#9333ea"}}>*</span></label>
+                  <input className="field-input" value={internTitle} onChange={e=>setInternTitle(e.target.value)}
+                    placeholder="e.g. Marketing Internship"/>
+                </div>
+                <div>
+                  <label className="field-label">City</label>
+                  <input className="field-input" value={internCity} onChange={e=>setInternCity(e.target.value)} placeholder="e.g. Barcelona"/>
+                </div>
+                <div>
+                  <label className="field-label">Country</label>
+                  <input className="field-input" value={internCountry} onChange={e=>setInternCountry(e.target.value)} placeholder="e.g. Spain"/>
+                </div>
+                <div>
+                  <label className="field-label">Max Results</label>
+                  <input className="field-input" type="number" min="1" max="50" value={internMax}
+                    onChange={e=>setInternMax(Math.min(50,Math.max(1,Number(e.target.value))))}/>
+                </div>
+              </div>
+              <div className="btn-row">
+                <button className="btn-primary" onClick={handleInternSearch} disabled={loading}
+                  style={{ background: loading ? "rgba(147,51,234,0.5)" : "#9333ea" }}>
+                  <SearchIcon/>{loading?"Searching…":"Find Internships"}
+                </button>
+                {loading && <button className="btn-danger" onClick={handleCancel}><StopIcon/>Stop &amp; get results</button>}
+              </div>
+            </>
+          )}
+
           {error && <div className="error-msg">{error}</div>}
           {loading && (
             <div className="loading-area">
-              <div className="spinner"/>
+              <div className="spinner" style={{ borderTopColor: mode==="internships"?"#9333ea":"#E8005A" }}/>
               <p className="loading-msg">{loadMsg}</p>
             </div>
           )}
         </div>
       </div>
 
-      {searched && (
+      {/* People results */}
+      {mode==="people" && searched && (
         <div className="results-area">
           <div className="results-header">
             <div className="results-count">
-              <span>{results.length}</span> people found &nbsp;·&nbsp;
-              <span style={{ color:"#E8005A" }}>{results.filter(r=>r._saved).length}</span> emails saved
+              <span>{peopleResults.length}</span> people found &nbsp;·&nbsp;
+              <span style={{ color:"#E8005A" }}>{peopleResults.filter(r=>r.email).length}</span> with email
             </div>
             <div className="btn-row">
-              {user && results.some(r=>r._saved) && (
+              {user && peopleResults.length > 0 && (
                 <button className="btn-primary" onClick={()=>setShowAddDB(true)}>
-                  + Add to Database ({results.filter(r=>r._saved).length})
+                  + Add to Database ({peopleResults.length})
                 </button>
               )}
-              <button className="btn-secondary" onClick={handleExport}><DownloadIcon/>Export Excel</button>
-              <button className="btn-secondary" onClick={handleCopy}><CopyIcon/>Copy Table</button>
+              <button className="btn-secondary" onClick={handleExportPeople}><DownloadIcon/>Export Excel</button>
+              <button className="btn-secondary" onClick={handleCopyPeople}><CopyIcon/>Copy Table</button>
             </div>
           </div>
-
           <div style={{ overflowX:"auto" }}>
             <table className="results-table">
               <thead>
                 <tr>
-                  <th>Full Name</th><th>Role</th><th>Profile Title</th><th>Company</th>
+                  <th>Full Name</th><th>Company Type</th><th>Role</th><th>Company</th>
                   <th>LinkedIn URL <span style={{fontWeight:400,color:"#aaa",fontSize:11}}>(click to copy)</span></th>
-                  <th>Email</th><th>Save</th>
+                  <th>Email</th>
                 </tr>
               </thead>
               <tbody>
-                {results.map((r, i) => (
+                {peopleResults.map((r, i) => (
                   <tr key={i}>
                     <td style={{ fontWeight:500 }}>{r.full_name}</td>
                     <td><span style={{ background:"rgba(232,0,90,0.08)", border:"1px solid rgba(232,0,90,0.15)",
                       borderRadius:6, padding:"2px 8px", fontSize:11, color:"#E8005A", fontWeight:600,
-                      whiteSpace:"nowrap" }}>{r.job_title||"—"}</span></td>
+                      whiteSpace:"nowrap" }}>{r.company_type||"—"}</span></td>
                     <td style={{ color:"#666", fontSize:12 }}>{r.profile_title||"—"}</td>
                     <td>{r.company||"—"}</td>
                     <td style={{ maxWidth:280 }}>
                       {r.linkedin_url ? (
-                        <span
-                          onClick={() => {
+                        <span onClick={()=>{
                             navigator.clipboard.writeText(r.linkedin_url);
-                            const el = document.getElementById(`url-copied-${i}`);
-                            if (el) { el.style.opacity=1; setTimeout(()=>{ el.style.opacity=0; },1400); }
-                          }}
-                          title="Click to copy"
+                            const el=document.getElementById(`url-copied-${i}`);
+                            if(el){el.style.opacity=1;setTimeout(()=>{el.style.opacity=0;},1400);}
+                          }} title="Click to copy"
                           style={{ fontFamily:"monospace", fontSize:11, color:"#0a66c2",
                             wordBreak:"break-all", cursor:"pointer", display:"block",
-                            padding:"4px 0", borderBottom:"1px dashed #bfdbfe",
-                            userSelect:"none" }}>
+                            padding:"4px 0", borderBottom:"1px dashed #bfdbfe", userSelect:"none" }}>
                           {r.linkedin_url}
                           <span id={`url-copied-${i}`} style={{ marginLeft:6, fontSize:10,
                             color:"#16a34a", opacity:0, transition:"opacity 0.2s",
-                            fontFamily:"'DM Sans',sans-serif", fontStyle:"normal" }}>
-                            ✓ copied
-                          </span>
+                            fontFamily:"'DM Sans',sans-serif" }}>✓ copied</span>
                         </span>
                       ) : "—"}
                     </td>
-                    <td>
-                      <input
-                        value={r.email || ""}
-                        onChange={e => {
-                          const updated = [...results];
-                          updated[i] = { ...updated[i], email: e.target.value, _saved: false };
-                          setResults(updated);
-                        }}
-                        placeholder="Paste email…"
-                        style={{ border:"1.5px solid #e8e8e8", borderRadius:7, padding:"5px 10px",
-                          fontSize:12, fontFamily:"'DM Sans',sans-serif", width:180,
-                          outline:"none", color:"#E8005A" }}
-                        onFocus={e => e.target.style.borderColor="#E8005A"}
-                        onBlur={e => e.target.style.borderColor="#e8e8e8"}
-                      />
-                    </td>
-                    <td>
-                      <button
-                        onClick={() => handleSaveEmail(i)}
-                        disabled={!r.email || r._saved}
-                        style={{ background: r._saved ? "#16a34a" : "#E8005A",
-                          border:"none", borderRadius:7, padding:"5px 12px",
-                          color:"#fff", fontSize:12, fontWeight:600,
-                          cursor: r._saved ? "default" : "pointer",
-                          fontFamily:"'DM Sans',sans-serif",
-                          opacity: (r.email && !r._saved) || r._saved ? 1 : 0.35,
-                          transition:"background 0.2s" }}>
-                        {r._saved ? "✓ Saved" : "Save"}
-                      </button>
-                    </td>
+                    <td style={{ color:"#E8005A", fontSize:12 }}>{r.email||"—"}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
+        </div>
+      )}
 
-          {/* Mailmeteor workflow banner */}
-          <div style={{ marginTop:20, padding:"18px 22px", background:"#f0f7ff",
-            border:"1px solid #bfdbfe", borderRadius:12, fontSize:13, color:"#1e3a8a",
-            lineHeight:2 }}>
-            <div style={{ fontWeight:700, marginBottom:8, fontSize:14 }}>📧 How to get verified emails</div>
-            <ol style={{ margin:0, paddingLeft:22 }}>
-              <li>Click a LinkedIn URL in the table above — it copies to your clipboard</li>
-              <li>Open <a href="https://mailmeteor.com/tools/linkedin-email-finder" target="_blank"
-                rel="noreferrer" style={{ color:"#1d4ed8", fontWeight:600 }}>
-                mailmeteor.com/tools/linkedin-email-finder ↗
-              </a> and paste the URL</li>
-              <li>Copy the verified email it returns</li>
-              <li>Paste into the Email cell for that row and click <strong>Save</strong></li>
-              <li>Once rows are saved, <strong>+ Add to Database</strong> appears to store them for the team</li>
-            </ol>
+      {/* Internship results */}
+      {mode==="internships" && searched && (
+        <div className="results-area">
+          <div className="results-header">
+            <div className="results-count">
+              <span>{internResults.length}</span> internships found
+            </div>
+            <div className="btn-row">
+              {user && internResults.length > 0 && (
+                <button className="btn-primary" onClick={()=>setShowAddDB(true)}
+                  style={{ background:"#9333ea" }}>
+                  + Add to Database ({internResults.length})
+                </button>
+              )}
+              <button className="btn-secondary" onClick={handleExportIntern}><DownloadIcon/>Export Excel</button>
+              <button className="btn-secondary" onClick={handleCopyIntern}><CopyIcon/>Copy Table</button>
+            </div>
+          </div>
+          <div style={{ overflowX:"auto" }}>
+            <table className="results-table">
+              <thead>
+                <tr>
+                  <th>Internship</th><th>Type</th><th>Company</th><th>Email</th>
+                  <th>Website</th>
+                  <th>LinkedIn URL <span style={{fontWeight:400,color:"#aaa",fontSize:11}}>(click to copy)</span></th>
+                  <th>City</th><th>Country</th>
+                </tr>
+              </thead>
+              <tbody>
+                {internResults.map((r, i) => (
+                  <tr key={i}>
+                    <td style={{ fontWeight:500, maxWidth:200 }}>{r.internship||"—"}</td>
+                    <td><span style={{ background:"rgba(147,51,234,0.08)", border:"1px solid rgba(147,51,234,0.2)",
+                      borderRadius:6, padding:"2px 8px", fontSize:11, color:"#9333ea", fontWeight:600,
+                      whiteSpace:"nowrap" }}>{r.internship_type||"—"}</span></td>
+                    <td>{r.company||"—"}</td>
+                    <td style={{ color:"#E8005A", fontSize:12 }}>{r.email||"—"}</td>
+                    <td style={{ fontSize:11, maxWidth:160 }}>
+                      {r.company_website
+                        ? <a href={r.company_website} target="_blank" rel="noreferrer"
+                            style={{ color:"#0a66c2", wordBreak:"break-all" }}>{r.company_website}</a>
+                        : "—"}
+                    </td>
+                    <td style={{ maxWidth:240 }}>
+                      {r.linkedin_url ? (
+                        <span onClick={()=>{
+                            navigator.clipboard.writeText(r.linkedin_url);
+                            const el=document.getElementById(`iurl-${i}`);
+                            if(el){el.style.opacity=1;setTimeout(()=>{el.style.opacity=0;},1400);}
+                          }} title="Click to copy"
+                          style={{ fontFamily:"monospace", fontSize:11, color:"#0a66c2",
+                            wordBreak:"break-all", cursor:"pointer", display:"block",
+                            padding:"4px 0", borderBottom:"1px dashed #bfdbfe", userSelect:"none" }}>
+                          {r.linkedin_url}
+                          <span id={`iurl-${i}`} style={{ marginLeft:6, fontSize:10,
+                            color:"#16a34a", opacity:0, transition:"opacity 0.2s" }}>✓ copied</span>
+                        </span>
+                      ) : "—"}
+                    </td>
+                    <td style={{ color:"#666", fontSize:12 }}>{r.city||"—"}</td>
+                    <td style={{ color:"#666", fontSize:12 }}>{r.country||"—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       )}
 
-      {showAddDB && (
-        <AddToDBModal
-          dbKind="linkedin"
-          rows={results.filter(r=>r._saved).map(r=>({ full_name:r.full_name||"", job_title:r.job_title||"",
-            profile_title:r.profile_title||"", company:r.company||"", email:r.email||"",
-            linkedin_url:r.linkedin_url||"", location:r.location||"" }))}
-          onClose={()=>setShowAddDB(false)}
-        />
+      {showAddDB && mode==="people" && (
+        <AddToDBModal dbKind="linkedin"
+          rows={peopleResults.map(r=>({
+            full_name:r.full_name||"", company_type:r.company_type||"",
+            profile_title:r.profile_title||"", company:r.company||"",
+            email:r.email||"", linkedin_url:r.linkedin_url||"",
+          }))}
+          onClose={()=>setShowAddDB(false)} />
+      )}
+      {showAddDB && mode==="internships" && (
+        <AddToDBModal dbKind="internships"
+          rows={internResults.map(r=>({
+            internship:r.internship||"", internship_type:r.internship_type||"",
+            company:r.company||"", email:r.email||"",
+            company_website:r.company_website||"", linkedin_url:r.linkedin_url||"",
+            city:r.city||"", country:r.country||"",
+          }))}
+          onClose={()=>setShowAddDB(false)} />
       )}
     </>
   );
@@ -585,6 +716,48 @@ function URLScraper({ user, token }) {
     } catch {}
   };
 
+  const attachUrlsPoll = (newJobId, totalHint) => {
+    pollRef.current = setInterval(async () => {
+      try {
+        const jr = await fetch(`${API}/api/scrape/urls/status/${newJobId}`, { headers:{ Authorization:`Bearer ${token}` } });
+        if (jr.status === 404) {
+          clearInterval(pollRef.current); setLoading(false);
+          localStorage.removeItem("reachct-job-urls");
+          setError("Scrape job not found — the server may have restarted. Results already found are saved to the shared database.");
+          return;
+        }
+        const jd = await jr.json();
+        if (jd.status==="done" || jd.status==="cancelled") {
+          clearInterval(pollRef.current);
+          setResults(jd.results||[]); setSkipped(jd.skipped_urls||[]);
+          setSearched(true); setLoading(false); setJobId(null);
+          localStorage.removeItem("reachct-job-urls");
+          if (Notification.permission==="granted") {
+            const count = (jd.results||[]).length;
+            const skip  = (jd.skipped_urls||[]).length;
+            new Notification("ReachCT — URL scrape done", {
+              body: `${count} emails found · ${skip} skipped · ${companyType}`,
+            });
+          }
+        } else if (jd.status==="error") {
+          clearInterval(pollRef.current); setError(jd.error||"Failed"); setLoading(false); setJobId(null);
+          localStorage.removeItem("reachct-job-urls");
+        } else if (jd.status==="queued" && jd.queue_position > 0) {
+          setLoadMsg(`Scraper queued at position ${jd.queue_position} — will start automatically.`);
+        } else if (jd.status==="starting") {
+          setLoadMsg(`Starting scrape…`);
+        } else {
+          const url  = jd.processing || "…";
+          const idx  = jd.index || 0;
+          const tot  = jd.total || totalHint || "?";
+          const fnd  = jd.found || 0;
+          const skp  = jd.skipped || 0;
+          setLoadMsg(`Scraping ${url} (${idx}/${tot}) — ${fnd} emails found, ${skp} skipped`);
+        }
+      } catch {}
+    }, 3000);
+  };
+
   const handleScrape = async () => {
     const urls = urlText.split("\n").map(u=>u.trim()).filter(Boolean);
     if (!companyType) { setError("Please select a company type."); return; }
@@ -599,43 +772,12 @@ function URLScraper({ user, token }) {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail||"Failed to start");
-
-      const newJobId = data.job_id;
-      setJobId(newJobId);
-
-      if (data.queue_position > 0) {
-        setLoadMsg(`Scraper queued at position ${data.queue_position} — will start automatically.`);
-      } else {
-        setLoadMsg(`Starting scrape of ${urls.length} URLs…`);
-      }
-
-      pollRef.current = setInterval(async () => {
-        try {
-          const jr = await fetch(`${API}/api/scrape/urls/status/${newJobId}`, {
-            headers:{ Authorization:`Bearer ${token}` },
-          });
-          const jd = await jr.json();
-
-          if (jd.status==="done" || jd.status==="cancelled") {
-            clearInterval(pollRef.current);
-            setResults(jd.results||[]); setSkipped(jd.skipped_urls||[]);
-            setSearched(true); setLoading(false); setJobId(null);
-          } else if (jd.status==="error") {
-            clearInterval(pollRef.current); setError(jd.error||"Failed"); setLoading(false); setJobId(null);
-          } else if (jd.status==="queued" && jd.queue_position > 0) {
-            setLoadMsg(`Scraper queued at position ${jd.queue_position} — will start automatically.`);
-          } else if (jd.status==="starting") {
-            setLoadMsg(`Starting scrape of ${urls.length} URLs…`);
-          } else {
-            const url     = jd.processing || "…";
-            const idx     = jd.index || 0;
-            const total   = jd.total || urls.length;
-            const found   = jd.found || 0;
-            const skippedCount = jd.skipped || 0;
-            setLoadMsg(`Scraping ${url} (${idx}/${total}) — ${found} emails found, ${skippedCount} skipped`);
-          }
-        } catch {}
-      }, 3000);
+      setJobId(data.job_id);
+      localStorage.setItem("reachct-job-urls", JSON.stringify({ job_id:data.job_id, total:urls.length, started_at:Date.now() }));
+      setLoadMsg(data.queue_position > 0
+        ? `Scraper queued at position ${data.queue_position} — will start automatically.`
+        : `Starting scrape of ${urls.length} URLs…`);
+      attachUrlsPoll(data.job_id, urls.length);
     } catch(e) { setError(e.message); setLoading(false); }
   };
 
@@ -667,6 +809,20 @@ function URLScraper({ user, token }) {
   };
 
   useEffect(() => () => { if (pollRef.current) clearInterval(pollRef.current); }, []);
+
+  // Reconnect to a running URL scrape job after page refresh
+  useEffect(() => {
+    if (!token) return;
+    const saved = localStorage.getItem("reachct-job-urls");
+    if (!saved) return;
+    try {
+      const { job_id, total } = JSON.parse(saved);
+      if (!job_id) return;
+      setJobId(job_id); setLoading(true);
+      setLoadMsg("Reconnecting to your running URL scrape…");
+      attachUrlsPoll(job_id, total);
+    } catch { localStorage.removeItem("reachct-job-urls"); }
+  }, [token]);
 
   return (
     <>

@@ -252,13 +252,13 @@ async def scrape_url_list(urls: list, company_type: str,
 
                 result = {
                     "name":         company_name,
-                    "email":        email,
-                    "phone":        "",
+                    "email":        email or None,
+                    "phone":        None,
                     "website":      url,
-                    "city":         city,
-                    "country":      country,
+                    "city":         city or None,
+                    "country":      country or None,
                     "company_type": company_type,
-                    "maps_url":     "",
+                    "maps_url":     None,
                 }
                 found.append(result)
                 print(f"✅ Found: {email} at {url}")

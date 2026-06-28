@@ -93,7 +93,7 @@ export default function AddToDBModal({ rows, onClose, dbKind = "maps" }) {
                       fontWeight:600, color:"#999", letterSpacing:"0.06em", textTransform:"uppercase" }}>Email</th>
                     <th style={{ padding:"10px 12px", background:"#f8f8f8",
                       borderBottom:"2px solid #eee", textAlign:"left", fontSize:11,
-                      fontWeight:600, color:"#999", letterSpacing:"0.06em", textTransform:"uppercase" }}>{dbKind==="linkedin"?"Title":"Location"}</th>
+                      fontWeight:600, color:"#999", letterSpacing:"0.06em", textTransform:"uppercase" }}>{dbKind==="linkedin"?"Title":dbKind==="internships"?"Internship":"Location"}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -106,13 +106,15 @@ export default function AddToDBModal({ rows, onClose, dbKind = "maps" }) {
                           onClick={e=>e.stopPropagation()} /></td>
                       <td style={{ padding:"10px 12px", fontWeight:500, color:"#111",
                         maxWidth:160, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-                        {row.name||row.full_name||"—"}</td>
+                        {row.name||row.full_name||row.company||"—"}</td>
                       <td style={{ padding:"10px 12px", color:"#E8005A", fontSize:12,
                         maxWidth:160, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
                         {row.email||"—"}</td>
                       <td style={{ padding:"10px 12px", color:"#888", fontSize:12 }}>
                         {dbKind==="linkedin"
                           ? (row.job_title||"—")
+                          : dbKind==="internships"
+                          ? (row.internship||"—")
                           : ([row.city,row.country].filter(Boolean).join(", ")||"—")}</td>
                     </tr>
                   ))}
@@ -135,7 +137,7 @@ export default function AddToDBModal({ rows, onClose, dbKind = "maps" }) {
             <div style={{ overflowY:"auto", flex:1, display:"flex", flexDirection:"column", gap:10 }}>
               {databases.length === 0 && (
                 <div style={{ textAlign:"center", color:"#999", fontSize:14, padding:"40px 0" }}>
-                  No {dbKind==="linkedin"?"LinkedIn":"Maps"} databases yet — create one in My Dashboard first.</div>
+                  No {dbKind==="linkedin"?"LinkedIn":dbKind==="internships"?"Internships":"Maps"} databases yet — create one in My Dashboard first.</div>
               )}
               {databases.map(db => (
                 <div key={db.id} onClick={()=>setChosenDb(db.id)} style={{

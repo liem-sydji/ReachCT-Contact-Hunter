@@ -5,8 +5,9 @@ import { API, COMPANY_TYPES_GROUPED } from "../styles.js";
 import { ReachCTLogo } from "../components/icons.jsx";
 
 // Canonical column priority — unknown cols appended after
-const MAPS_PRIORITY     = ["name","email","phone","website","city","country","company_type"];
-const LINKEDIN_PRIORITY = ["full_name","job_title","profile_title","company","email","linkedin_url","location"];
+const MAPS_PRIORITY         = ["name","email","phone","website","city","country","company_type"];
+const LINKEDIN_PRIORITY     = ["full_name","job_title","profile_title","company","email","linkedin_url","location"];
+const INTERNSHIPS_PRIORITY  = ["internship","internship_type","company","email","company_website","linkedin_url","city","country"];
 
 const DEFAULT_COL_WIDTH = 180;
 const ROW_NUM_W         = 52;
@@ -138,13 +139,14 @@ function ModalFooter({ onClose, onConfirm, loading, label, disabled }) {
 
 // ─── Pull Modal ───────────────────────────────────────────────────────────────
 function PullModal({ onClose, onPull, filters, kind, liFilters }) {
-  const [queries, setQueries]     = useState([]);
-  const [cities, setCities]       = useState([]);
-  const [countries, setCountries] = useState([]);
-  const [jobTitles, setJobTitles] = useState([]);
-  const [companies, setCompanies] = useState([]);
-  const [locations, setLocations] = useState([]);
-  const [loading, setLoading]     = useState(false);
+  const [queries,          setQueries]          = useState([]);
+  const [cities,           setCities]           = useState([]);
+  const [countries,        setCountries]        = useState([]);
+  const [jobTitles,        setJobTitles]        = useState([]);
+  const [companies,        setCompanies]        = useState([]);
+  const [locations,        setLocations]        = useState([]);
+  const [internshipTypes,  setInternshipTypes]  = useState([]);
+  const [loading,          setLoading]          = useState(false);
 
   const allTypes     = filters?.company_types || [];
   const allCountries = filters?.countries || [];
@@ -153,6 +155,7 @@ function PullModal({ onClose, onPull, filters, kind, liFilters }) {
   const handlePull = async () => {
     setLoading(true);
     if (kind === "linkedin") await onPull({ job_titles:jobTitles, companies, locations });
+    else if (kind === "internships") await onPull({ kind:"internships", internshipTypes, companies, cities, countries });
     else await onPull({ queries, cities, countries });
     setLoading(false); onClose();
   };
@@ -169,6 +172,23 @@ function PullModal({ onClose, onPull, filters, kind, liFilters }) {
         <p style={{ fontSize:12, color:"#999" }}>Multiple values are OR-matched. Leave empty to pull all contacts.</p>
       </div>
       <ModalFooter onClose={onClose} onConfirm={handlePull} loading={loading} label="Pull Contacts" />
+    </ModalWrap>
+  );
+
+  if (kind === "internships") return (
+    <ModalWrap onClose={onClose} title="Pull from Internship Listings" subtitle="Import from the shared internship listings database.">
+      <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
+        <div><label style={labelStyle}>Internship Type</label>
+          <TagInput placeholder="e.g. marketing, sales, data" options={[]} value={internshipTypes} onChange={setInternshipTypes} /></div>
+        <div><label style={labelStyle}>Company</label>
+          <TagInput placeholder="e.g. Google" options={[]} value={companies} onChange={setCompanies} /></div>
+        <div><label style={labelStyle}>City</label>
+          <TagInput placeholder="e.g. Paris" options={allCities} value={cities} onChange={setCities} /></div>
+        <div><label style={labelStyle}>Country</label>
+          <TagInput placeholder="e.g. France" options={allCountries} value={countries} onChange={setCountries} /></div>
+        <p style={{ fontSize:12, color:"#999" }}>Multiple values are OR-matched. Leave empty to pull all listings.</p>
+      </div>
+      <ModalFooter onClose={onClose} onConfirm={handlePull} loading={loading} label="Pull Listings" />
     </ModalWrap>
   );
 
@@ -243,6 +263,138 @@ function UploadModal({ onClose, onUpload }) {
         padding:"12px 16px", fontSize:13, color:"#9F1239", marginBottom:8 }}>{error}</div>}
       <ModalFooter onClose={onClose} onConfirm={handleUpload}
         loading={loading} label={result?"Done":"Import"} disabled={!file||!!result} />
+    </ModalWrap>
+  );
+}
+
+// ─── LinkedIn People Search Modal ─────────────────────────────────────────────
+function LinkedInPeopleSearchModal({ onClose, onDone, token }) {
+  const [companyType, setCompanyType] = useState("");
+  const [city,        setCity]        = useState("");
+  const [country,     setCountry]     = useState("");
+  const [maxResults,  setMaxResults]  = useState(15);
+  const [loading,     setLoading]     = useState(false);
+  const [loadMsg,     setLoadMsg]     = useState("");
+  const pollRef = useRef(null);
+
+  const handleSearch = async () => {
+    if (!companyType) return;
+    setLoading(true); setLoadMsg("Starting search…");
+    try {
+      const res  = await fetch(`${API}/api/linkedin/people`, {
+        method:"POST", headers:{"Content-Type":"application/json", Authorization:`Bearer ${token}`},
+        body:JSON.stringify({ company_type:companyType, city, country, max_results:maxResults }),
+      });
+      const data = await res.json();
+      setLoadMsg(data.queue_position > 0 ? `Queued at position ${data.queue_position}…` : "Searching LinkedIn…");
+      pollRef.current = setInterval(async () => {
+        const jr = await fetch(`${API}/api/linkedin/status/${data.job_id}`, { headers:{Authorization:`Bearer ${token}`} });
+        const jd = await jr.json();
+        if (jd.status==="done"||jd.status==="cancelled") {
+          clearInterval(pollRef.current); setLoading(false);
+          await onDone(jd.results||[]); onClose();
+        } else if (jd.status==="error") {
+          clearInterval(pollRef.current); setLoading(false); setLoadMsg(`Error: ${jd.error||"Search failed"}`);
+        } else {
+          const found = jd.found||(jd.results||[]).length;
+          setLoadMsg(jd.queue_position > 0 ? `Queued at position ${jd.queue_position}…` : `Searching… (${found} found so far)`);
+        }
+      }, 5000);
+    } catch { setLoading(false); setLoadMsg("Failed to start search."); }
+  };
+  useEffect(() => () => { if (pollRef.current) clearInterval(pollRef.current); }, []);
+
+  return (
+    <ModalWrap onClose={onClose} title="Search LinkedIn People" subtitle="Find contacts at companies by role on LinkedIn.">
+      <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+        <div><label style={labelStyle}>Company Type / Role</label>
+          <input style={inputStyle} value={companyType} onChange={e=>setCompanyType(e.target.value)}
+            placeholder="e.g. Marketing Agency" /></div>
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+          <div><label style={labelStyle}>City</label>
+            <input style={inputStyle} value={city} onChange={e=>setCity(e.target.value)} placeholder="e.g. Madrid" /></div>
+          <div><label style={labelStyle}>Country</label>
+            <input style={inputStyle} value={country} onChange={e=>setCountry(e.target.value)} placeholder="e.g. Spain" /></div>
+        </div>
+        <div><label style={labelStyle}>Max Results</label>
+          <input style={inputStyle} type="number" min="1" max="50" value={maxResults}
+            onChange={e=>setMaxResults(Math.min(50,Math.max(1,Number(e.target.value))))} /></div>
+        {loading && (
+          <div style={{ display:"flex", alignItems:"center", gap:12, color:"#666", fontSize:13 }}>
+            <div style={{ width:20, height:20, borderRadius:"50%", border:"2px solid #eee",
+              borderTopColor:"#0a66c2", animation:"spin 0.8s linear infinite", flexShrink:0 }} />
+            {loadMsg}
+          </div>
+        )}
+      </div>
+      <ModalFooter onClose={onClose} onConfirm={handleSearch} loading={loading}
+        label={loading?"Searching…":"Search"} disabled={!companyType||loading} />
+    </ModalWrap>
+  );
+}
+
+// ─── LinkedIn Internship Search Modal ─────────────────────────────────────────
+function LinkedInCompaniesSearchModal({ onClose, onDone, token }) {
+  const [internTitle, setInternTitle] = useState("");
+  const [city,        setCity]        = useState("");
+  const [country,     setCountry]     = useState("");
+  const [maxResults,  setMaxResults]  = useState(15);
+  const [loading,     setLoading]     = useState(false);
+  const [loadMsg,     setLoadMsg]     = useState("");
+  const pollRef = useRef(null);
+
+  const handleSearch = async () => {
+    if (!internTitle) return;
+    setLoading(true); setLoadMsg("Starting search…");
+    try {
+      const res  = await fetch(`${API}/api/linkedin/companies`, {
+        method:"POST", headers:{"Content-Type":"application/json", Authorization:`Bearer ${token}`},
+        body:JSON.stringify({ intern_title:internTitle, city, country, max_results:maxResults }),
+      });
+      const data = await res.json();
+      setLoadMsg(data.queue_position > 0 ? `Queued at position ${data.queue_position}…` : "Searching LinkedIn Jobs…");
+      pollRef.current = setInterval(async () => {
+        const jr = await fetch(`${API}/api/linkedin/status/${data.job_id}`, { headers:{Authorization:`Bearer ${token}`} });
+        const jd = await jr.json();
+        if (jd.status==="done"||jd.status==="cancelled") {
+          clearInterval(pollRef.current); setLoading(false);
+          await onDone(jd.results||[]); onClose();
+        } else if (jd.status==="error") {
+          clearInterval(pollRef.current); setLoading(false); setLoadMsg(`Error: ${jd.error||"Search failed"}`);
+        } else {
+          const found = jd.found||(jd.results||[]).length;
+          setLoadMsg(jd.queue_position > 0 ? `Queued at position ${jd.queue_position}…` : `Searching… (${found} found so far)`);
+        }
+      }, 5000);
+    } catch { setLoading(false); setLoadMsg("Failed to start search."); }
+  };
+  useEffect(() => () => { if (pollRef.current) clearInterval(pollRef.current); }, []);
+
+  return (
+    <ModalWrap onClose={onClose} title="Search LinkedIn Internships" subtitle="Find internship listings on LinkedIn Jobs.">
+      <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+        <div><label style={labelStyle}>Internship Title</label>
+          <input style={inputStyle} value={internTitle} onChange={e=>setInternTitle(e.target.value)}
+            placeholder="e.g. Marketing Internship" /></div>
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+          <div><label style={labelStyle}>City</label>
+            <input style={inputStyle} value={city} onChange={e=>setCity(e.target.value)} placeholder="e.g. Barcelona" /></div>
+          <div><label style={labelStyle}>Country</label>
+            <input style={inputStyle} value={country} onChange={e=>setCountry(e.target.value)} placeholder="e.g. Spain" /></div>
+        </div>
+        <div><label style={labelStyle}>Max Results</label>
+          <input style={inputStyle} type="number" min="1" max="50" value={maxResults}
+            onChange={e=>setMaxResults(Math.min(50,Math.max(1,Number(e.target.value))))} /></div>
+        {loading && (
+          <div style={{ display:"flex", alignItems:"center", gap:12, color:"#666", fontSize:13 }}>
+            <div style={{ width:20, height:20, borderRadius:"50%", border:"2px solid #eee",
+              borderTopColor:"#9333ea", animation:"spin 0.8s linear infinite", flexShrink:0 }} />
+            {loadMsg}
+          </div>
+        )}
+      </div>
+      <ModalFooter onClose={onClose} onConfirm={handleSearch} loading={loading}
+        label={loading?"Searching…":"Search"} disabled={!internTitle||loading} />
     </ModalWrap>
   );
 }
@@ -411,7 +563,7 @@ function CollaboratorModal({ onClose, dbId, token }) {
 }
 
 // ─── Three Dots Menu ──────────────────────────────────────────────────────────
-function ThreeDotsMenu({ onPull, onSearch, onShare, onExport, onCopy, kind }) {
+function ThreeDotsMenu({ onPull, onSearch, onLinkedInSearch, onCompaniesSearch, onShare, onExport, onCopy, onUpload, kind }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
   useEffect(() => {
@@ -420,8 +572,11 @@ function ThreeDotsMenu({ onPull, onSearch, onShare, onExport, onCopy, kind }) {
     return () => document.removeEventListener("mousedown", h);
   }, []);
   const options = [
-    { label:"Pull from Database", icon: kind === "linkedin" ? "🔗" : "🗄️", onClick:onPull },
-    ...(kind !== "linkedin" ? [{ label:"Start Search", icon:"🔍", onClick:onSearch }] : []),
+    { label:"Pull from Database", icon: kind === "linkedin" ? "🔗" : kind === "internships" ? "🎓" : "🗄️", onClick:onPull },
+    ...(kind !== "linkedin" && kind !== "internships" ? [{ label:"Start Search", icon:"🔍", onClick:onSearch }] : []),
+    ...(kind === "linkedin"     ? [{ label:"Start People Search",     icon:"🔗", onClick:onLinkedInSearch  }] : []),
+    ...(kind === "internships"  ? [{ label:"Start Internship Search", icon:"🎓", onClick:onCompaniesSearch }] : []),
+    { label:"Push Spreadsheet", icon:"📤", onClick:onUpload },
     { label:"Share Database", icon:"👥", onClick:onShare },
     { label:"Export to Excel", icon:"⬇️", onClick:onExport },
     { label:"Copy Table",      icon:"📋", onClick:onCopy },
@@ -491,6 +646,8 @@ function SpreadsheetGrid({
   colWidths, onColResize,
   // Row selection
   selectedRows, onRowSelect,
+  // Add row
+  onAddRow,
   // Grid ref for keyboard focus
   gridRef,
   onKeyDown,
@@ -555,8 +712,7 @@ function SpreadsheetGrid({
                   textAlign:"left", fontWeight:700, color:"#555", fontSize:11,
                   letterSpacing:"0.05em", textTransform:"uppercase",
                   position:"sticky", top:0,
-                  left: ci === 0 ? ROW_NUM_W : undefined,
-                  zIndex: ci === 0 ? 19 : 9,
+                  zIndex:9,
                   cursor: isViewer ? "default" : "grab", userSelect:"none",
                   boxSizing:"border-box", overflow:"hidden", whiteSpace:"nowrap",
                   transition:"background 0.12s",
@@ -642,7 +798,7 @@ function SpreadsheetGrid({
                     isFocused  ? "rgba(232,0,90,0.07)" :
                     isRange    ? "rgba(232,0,90,0.05)" :
                     rowSel     ? "rgba(232,0,90,0.04)" :
-                    ci === 0   ? "#fff" : "transparent";
+                    "#fff";
 
                   const outlineVal =
                     isEditing  ? "2px solid #E8005A" :
@@ -658,9 +814,6 @@ function SpreadsheetGrid({
                         outline: outlineVal, outlineOffset:"-1px",
                         cursor: isViewer ? "default" : "text",
                         height:ROW_H, verticalAlign:"middle", userSelect:"none",
-                        position: ci === 0 ? "sticky" : "static",
-                        left: ci === 0 ? ROW_NUM_W : undefined,
-                        zIndex: ci === 0 ? 4 : undefined,
                         boxSizing:"border-box",
                         transition: (isSaved||isErr) ? "background 0.25s" : "none",
                       }}
@@ -698,20 +851,29 @@ function SpreadsheetGrid({
           })}
           {/* Empty rows — same height and grid lines as data rows */}
           {Array.from({ length: EMPTY_ROWS }).map((_, i) => (
-            <tr key={`e-${i}`} style={{ borderBottom:"1px solid #e8e8e8", height:ROW_H }}>
+            <tr key={`e-${i}`}
+              className={i === 0 && !isViewer ? "empty-row-add" : ""}
+              onClick={() => i === 0 && !isViewer && onAddRow && onAddRow()}
+              style={{ borderBottom:"1px solid #e8e8e8", height:ROW_H,
+                cursor: i === 0 && !isViewer ? "pointer" : "default" }}>
               <td style={{ background:"#f5f5f5", borderRight:"2px solid #d0d0d0", color:"#ddd",
                 fontSize:11, textAlign:"right", padding:"0 6px",
                 position:"sticky", left:0, height:ROW_H, zIndex:5 }}>
-                {entries.length + i + 1}
+                {i === 0 && !isViewer
+                  ? <span className="empty-row-hint" style={{ fontSize:13, color:"#d0d0d0" }}>+</span>
+                  : entries.length + i + 1}
               </td>
               {columns.map((col, ci) => (
                 <td key={col} style={{
                   borderRight: ci === 0 ? "2px solid #d0d0d0" : "1px solid #e8e8e8",
                   height:ROW_H, background:"#fff",
-                  position: ci === 0 ? "sticky" : "static",
-                  left: ci === 0 ? ROW_NUM_W : undefined,
-                  zIndex: ci === 0 ? 4 : undefined,
-                }} />
+                }}>
+                  {i === 0 && ci === 0 && !isViewer && (
+                    <span className="empty-row-hint" style={{ padding:"0 10px", color:"#ccc", fontSize:12, userSelect:"none" }}>
+                      Click to add a row…
+                    </span>
+                  )}
+                </td>
               ))}
               {!isViewer && <td />}
             </tr>
@@ -723,6 +885,8 @@ function SpreadsheetGrid({
         tbody .row-num-cell:hover .row-del-btn { color: #ccc !important; }
         tbody .row-num-cell:hover .row-del-btn:hover { color: #E8005A !important; }
         thead th:hover .col-del-btn { opacity: 1 !important; }
+        tbody tr.empty-row-add:hover td { background: #fafafa !important; }
+        tbody tr.empty-row-add:hover .empty-row-hint { color: #bbb !important; }
       `}</style>
     </div>
   );
@@ -741,7 +905,9 @@ export default function SpreadsheetPage() {
   const [filters,  setFilters]  = useState({});
   const [liFilters,setLiFilters]= useState({});
   const [modal,    setModal]    = useState(null);
-  const [colWidths,setColWidths]= useState({});
+  const [colWidths,setColWidths]= useState(() => {
+    try { return JSON.parse(localStorage.getItem(`reachct-colwidths-${dbId}`) || '{}'); } catch { return {}; }
+  });
 
   // Cell selection / editing
   const [selectedCell,  setSelectedCell]  = useState(null); // { rowIdx, colIdx, entryId, col }
@@ -763,12 +929,24 @@ export default function SpreadsheetPage() {
   const [selection,   setSelection]   = useState(null);
   const [isSelecting, setIsSelecting] = useState(false);
 
-  const gridRef = useRef(null);
+  const gridRef        = useRef(null);
+  const newRowFocusRef = useRef(false);
   const isViewer = db?.role === "viewer";
+
+  // ── Persist column order + widths across reloads ──────────────────────────
+  useEffect(() => {
+    if (columns.length > 0) localStorage.setItem(`reachct-colorder-${dbId}`, JSON.stringify(columns));
+  }, [columns, dbId]);
+
+  useEffect(() => {
+    if (Object.keys(colWidths).length > 0) localStorage.setItem(`reachct-colwidths-${dbId}`, JSON.stringify(colWidths));
+  }, [colWidths, dbId]);
 
   // ── Column derivation with canonical order ─────────────────────────────────
   const deriveColumns = useCallback((rows, kind) => {
-    const priority = kind === "linkedin" ? LINKEDIN_PRIORITY : MAPS_PRIORITY;
+    const priority = kind === "linkedin" ? LINKEDIN_PRIORITY
+                   : kind === "internships" ? INTERNSHIPS_PRIORITY
+                   : MAPS_PRIORITY;
     const allKeys  = new Set();
     rows.forEach(r => Object.keys(r.data||{}).forEach(k => allKeys.add(k)));
     const ordered = priority.filter(k => allKeys.has(k));
@@ -789,13 +967,23 @@ export default function SpreadsheetPage() {
       const theDb = (Array.isArray(dbs)?dbs:[]).find(d=>String(d.id)===String(dbId)) || null;
       setDb(theDb);
       const safe    = Array.isArray(rows)?rows:[];
-      const realRows = safe.filter(r => Object.values(r.data||{}).some(v => v && String(v).trim() !== ""));
-      setEntries(realRows);
-      const derived = deriveColumns(realRows, theDb?.kind);
+      setEntries(safe);
+      const derived = deriveColumns(safe, theDb?.kind);
+      const fallback = theDb?.kind === "linkedin" ? LINKEDIN_PRIORITY
+                     : theDb?.kind === "internships" ? INTERNSHIPS_PRIORITY
+                     : MAPS_PRIORITY;
       if (derived.length === 0) {
-        setColumns(theDb?.kind === "linkedin" ? LINKEDIN_PRIORITY : MAPS_PRIORITY);
+        setColumns(fallback);
       } else {
-        setColumns(derived);
+        // Restore user's saved column order (from drag-reorder), appending any new columns at end
+        const saved = (() => { try { return JSON.parse(localStorage.getItem(`reachct-colorder-${dbId}`) || 'null'); } catch { return null; } })();
+        if (saved && saved.length > 0) {
+          const retained = saved.filter(c => derived.includes(c));
+          const added    = derived.filter(c => !saved.includes(c));
+          setColumns([...retained, ...added]);
+        } else {
+          setColumns(derived);
+        }
       }
     } catch {}
     setLoading(false);
@@ -855,8 +1043,8 @@ export default function SpreadsheetPage() {
     setEditOrigVal("");
     gridRef.current?.focus();
 
-    if      (direction === "tab")       navTo(rowIdx, colIdx + 1);
-    else if (direction === "shift-tab") navTo(rowIdx, colIdx - 1);
+    if      (direction === "tab")       colIdx === columns.length - 1 ? navTo(rowIdx + 1, 0) : navTo(rowIdx, colIdx + 1);
+    else if (direction === "shift-tab") colIdx === 0 ? navTo(rowIdx - 1, columns.length - 1) : navTo(rowIdx, colIdx - 1);
     else if (direction === "enter")     navTo(rowIdx + 1, colIdx);
     else if (direction === "up")        navTo(rowIdx - 1, colIdx);
     // blur: keep selection where it is
@@ -871,7 +1059,9 @@ export default function SpreadsheetPage() {
 
   // ── Keyboard handler on grid container ────────────────────────────────────
   const handleGridKeyDown = useCallback((e) => {
-    if (editCell) return; // input handles its own keys
+    // Don't steal events from any input/textarea (AddColInline, header rename, etc.)
+    if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
+    if (editCell) return; // cell input handles its own keys
     if (modal)    return; // modal is open
 
     if ((e.ctrlKey || e.metaKey) && e.key === "z") {
@@ -888,9 +1078,13 @@ export default function SpreadsheetPage() {
     const { rowIdx, colIdx, entryId, col } = selectedCell;
 
     if (e.key === "ArrowRight" || (e.key === "Tab" && !e.shiftKey)) {
-      e.preventDefault(); navTo(rowIdx, colIdx + 1);
+      e.preventDefault();
+      if (e.key === "Tab" && colIdx === columns.length - 1) navTo(rowIdx + 1, 0);
+      else navTo(rowIdx, colIdx + 1);
     } else if (e.key === "ArrowLeft" || (e.key === "Tab" && e.shiftKey)) {
-      e.preventDefault(); navTo(rowIdx, colIdx - 1);
+      e.preventDefault();
+      if (e.key === "Tab" && colIdx === 0) navTo(rowIdx - 1, columns.length - 1);
+      else navTo(rowIdx, colIdx - 1);
     } else if (e.key === "ArrowDown") {
       e.preventDefault(); navTo(rowIdx + 1, colIdx);
     } else if (e.key === "ArrowUp") {
@@ -1032,6 +1226,33 @@ export default function SpreadsheetPage() {
     if (derived.length > 0) setColumns(derived);
   };
 
+  // ── Add row ───────────────────────────────────────────────────────────────
+  const handleAddRow = useCallback(async () => {
+    if (isViewer) return;
+    const emptyData = {};
+    columns.forEach(c => { emptyData[c] = ""; });
+    try {
+      await fetch(`${API}/api/databases/${dbId}/entries`, {
+        method:"POST",
+        headers:{"Content-Type":"application/json", Authorization:`Bearer ${token}`},
+        body:JSON.stringify({ rows:[emptyData] }),
+      });
+      newRowFocusRef.current = true;
+      await fetchAll();
+    } catch {}
+  }, [columns, dbId, token, isViewer, fetchAll]);
+
+  // Focus first cell of newly added row after fetchAll resolves
+  useEffect(() => {
+    if (newRowFocusRef.current && entries.length > 0 && columns.length > 0) {
+      newRowFocusRef.current = false;
+      const lastEntry = entries[entries.length - 1];
+      setSelectedCell({ rowIdx:entries.length - 1, colIdx:0, entryId:lastEntry.id, col:columns[0] });
+      startEdit(lastEntry.id, columns[0], lastEntry.data?.[columns[0]] ?? "");
+      gridRef.current?.focus();
+    }
+  }, [entries]);
+
   // ── Single row delete ──────────────────────────────────────────────────────
   const handleDeleteRow = useCallback(async (entryId) => {
     await fetch(`${API}/api/databases/${dbId}/entries/${entryId}`, {
@@ -1099,6 +1320,26 @@ export default function SpreadsheetPage() {
       });
       fetchAll(); return;
     }
+    if (db?.kind === "internships") {
+      const qs = new URLSearchParams();
+      if (params.internshipTypes?.length) params.internshipTypes.forEach(t => qs.append("internship_type", t));
+      if (params.companies?.length)       params.companies.forEach(c => qs.append("company", c));
+      if (params.cities?.length)          params.cities.forEach(c => qs.append("city", c));
+      if (params.countries?.length)       params.countries.forEach(c => qs.append("country", c));
+      const res  = await fetch(`${API}/api/linkedin/internships?${qs}`, { headers:{Authorization:`Bearer ${token}`} });
+      const data = await res.json();
+      const rows = (data.results||[]).map(r => ({
+        internship:r.internship||"", internship_type:r.internship_type||"",
+        company:r.company||"", email:r.email||"",
+        company_website:r.company_website||"", linkedin_url:r.linkedin_url||"",
+        city:r.city||"", country:r.country||"",
+      }));
+      if (rows.length) await fetch(`${API}/api/databases/add-rows`, {
+        method:"POST", headers:{"Content-Type":"application/json", Authorization:`Bearer ${token}`},
+        body:JSON.stringify({ db_id:Number(dbId), rows }),
+      });
+      fetchAll(); return;
+    }
     const res  = await fetch(`${API}/api/databases/${dbId}/pull`, {
       method:"POST", headers:{"Content-Type":"application/json", Authorization:`Bearer ${token}`},
       body:JSON.stringify(params),
@@ -1126,6 +1367,36 @@ export default function SpreadsheetPage() {
       body:JSON.stringify({rows}),
     });
     setColumns(prev => [...new Set([...prev, "name","email","phone","website","city","country","company_type"])]);
+    fetchAll();
+  };
+
+  const handleLinkedInSearch = async (results) => {
+    if (!results.length) return;
+    const rows = results.map(r => ({
+      full_name:r.full_name||"", job_title:r.job_title||"", profile_title:r.profile_title||"",
+      company:r.company||"", email:r.email||"", linkedin_url:r.linkedin_url||"", location:r.location||"",
+    }));
+    await fetch(`${API}/api/databases/${dbId}/entries`, {
+      method:"POST", headers:{"Content-Type":"application/json", Authorization:`Bearer ${token}`},
+      body:JSON.stringify({rows}),
+    });
+    setColumns(prev => [...new Set([...prev, ...LINKEDIN_PRIORITY])]);
+    fetchAll();
+  };
+
+  const handleCompaniesSearch = async (results) => {
+    if (!results.length) return;
+    const rows = results.map(r => ({
+      internship:r.internship||"", internship_type:r.internship_type||"",
+      company:r.company||"", email:r.email||"",
+      company_website:r.company_website||"", linkedin_url:r.linkedin_url||"",
+      city:r.city||"", country:r.country||"",
+    }));
+    await fetch(`${API}/api/databases/${dbId}/entries`, {
+      method:"POST", headers:{"Content-Type":"application/json", Authorization:`Bearer ${token}`},
+      body:JSON.stringify({rows}),
+    });
+    setColumns(prev => [...new Set([...prev, ...INTERNSHIPS_PRIORITY])]);
     fetchAll();
   };
 
@@ -1157,7 +1428,7 @@ export default function SpreadsheetPage() {
     </div>
   );
 
-  const kindLabel = db?.kind === "linkedin" ? "LinkedIn" : "Maps";
+  const kindLabel = db?.kind === "linkedin" ? "LinkedIn" : db?.kind === "internships" ? "Internships" : "Maps";
   const rangeActive = selection &&
     (selection.startRow !== selection.endRow || selection.startCol !== selection.endCol);
 
@@ -1182,14 +1453,26 @@ export default function SpreadsheetPage() {
             {db?.name||"Database"}
           </h1>
           {/* Kind badge */}
-          <span style={{ fontSize:11, fontWeight:600, color: db?.kind==="linkedin" ? "#0a66c2" : "#16a34a",
-            background: db?.kind==="linkedin" ? "rgba(10,102,194,0.09)" : "rgba(22,163,74,0.09)",
-            border: `1px solid ${db?.kind==="linkedin" ? "rgba(10,102,194,0.2)" : "rgba(22,163,74,0.2)"}`,
+          <span style={{ fontSize:11, fontWeight:600,
+            color: db?.kind==="linkedin" ? "#0a66c2" : db?.kind==="internships" ? "#9333ea" : "#16a34a",
+            background: db?.kind==="linkedin" ? "rgba(10,102,194,0.09)" : db?.kind==="internships" ? "rgba(147,51,234,0.09)" : "rgba(22,163,74,0.09)",
+            border: `1px solid ${db?.kind==="linkedin" ? "rgba(10,102,194,0.2)" : db?.kind==="internships" ? "rgba(147,51,234,0.2)" : "rgba(22,163,74,0.2)"}`,
             borderRadius:5, padding:"2px 8px", fontFamily:"'DM Sans',sans-serif", flexShrink:0 }}>
             {kindLabel}
           </span>
           <span style={{ fontSize:12, color:"#bbb", flexShrink:0 }}>{entries.length} rows</span>
           <span style={{ fontSize:12, color:"#bbb", flexShrink:0 }}>{columns.length} cols</span>
+          {/* Add row */}
+          {!isViewer && (
+            <button onClick={handleAddRow} style={{ background:"none", border:"1px solid #e0e0e0",
+              borderRadius:7, padding:"5px 12px", color:"#555", fontSize:12, fontWeight:600,
+              cursor:"pointer", fontFamily:"'DM Sans',sans-serif", flexShrink:0, display:"flex",
+              alignItems:"center", gap:5 }}
+              onMouseEnter={e=>{ e.currentTarget.style.borderColor="#E8005A"; e.currentTarget.style.color="#E8005A"; }}
+              onMouseLeave={e=>{ e.currentTarget.style.borderColor="#e0e0e0"; e.currentTarget.style.color="#555"; }}>
+              + Row
+            </button>
+          )}
           {/* Bulk delete */}
           {selectedRows.size > 0 && !isViewer && (
             <button onClick={handleBulkDelete} style={{ background:"#E8005A", border:"none",
@@ -1207,7 +1490,10 @@ export default function SpreadsheetPage() {
             <ThreeDotsMenu
               onPull={()=>setModal("pull")}
               onSearch={()=>setModal("search")}
+              onLinkedInSearch={()=>setModal("linkedin-search")}
+              onCompaniesSearch={()=>setModal("companies-search")}
               onShare={()=>setModal("share")}
+              onUpload={()=>setModal("upload")}
               onExport={handleExport}
               onCopy={handleCopy}
               kind={db?.kind}
@@ -1232,15 +1518,18 @@ export default function SpreadsheetPage() {
           onCellMouseEnter={handleCellMouseEnter}
           colWidths={colWidths} onColResize={(col, w) => setColWidths(prev => ({ ...prev, [col]:w }))}
           selectedRows={selectedRows} onRowSelect={handleRowSelect}
+          onAddRow={handleAddRow}
           gridRef={gridRef}
           onKeyDown={handleGridKeyDown}
         />
       </div>
 
-      {modal==="pull"   && <PullModal   onClose={()=>setModal(null)} onPull={handlePull} filters={filters} kind={db?.kind} liFilters={liFilters} />}
-      {modal==="upload" && <UploadModal onClose={()=>setModal(null)} onUpload={handleUpload} />}
-      {modal==="search" && <SearchModal onClose={()=>setModal(null)} onSearch={handleSearch} token={token} />}
-      {modal==="share"  && <CollaboratorModal onClose={()=>setModal(null)} dbId={dbId} token={token} />}
+      {modal==="pull"             && <PullModal                   onClose={()=>setModal(null)} onPull={handlePull} filters={filters} kind={db?.kind} liFilters={liFilters} />}
+      {modal==="upload"           && <UploadModal                 onClose={()=>setModal(null)} onUpload={handleUpload} />}
+      {modal==="search"           && <SearchModal                 onClose={()=>setModal(null)} onSearch={handleSearch} token={token} />}
+      {modal==="share"            && <CollaboratorModal           onClose={()=>setModal(null)} dbId={dbId} token={token} />}
+      {modal==="linkedin-search"  && <LinkedInPeopleSearchModal   onClose={()=>setModal(null)} onDone={handleLinkedInSearch}  token={token} />}
+      {modal==="companies-search" && <LinkedInCompaniesSearchModal onClose={()=>setModal(null)} onDone={handleCompaniesSearch} token={token} />}
     </div>
   );
 }

@@ -94,9 +94,12 @@ function CreateDBModal({ onClose, onCreate }) {
         <div style={{ display:"flex", gap:10, marginBottom:20 }}>
           {kindCard("maps", "🗺️", "Maps", "Companies — name, email, phone, website")}
           {kindCard("linkedin", "🔗", "LinkedIn", "People — name, title, company, email")}
+          {kindCard("internships", "🎓", "Internships", "Listings — internship, company, email")}
         </div>
 
-        <input autoFocus placeholder={kind==="linkedin"?"e.g. HR Managers Spain":"e.g. IT Companies Germany"} value={name}
+        <input autoFocus
+          placeholder={kind==="linkedin"?"e.g. HR Managers Spain":kind==="internships"?"e.g. Marketing Internships CT":"e.g. IT Companies Germany"}
+          value={name}
           onChange={e=>setName(e.target.value)} onKeyDown={e=>e.key==="Enter"&&handleCreate()}
           style={{ width:"100%", padding:"10px 14px", borderRadius:10, border:"1.5px solid #333",
             background:"#111", color:"#fff", fontSize:14, fontFamily:"'DM Sans',sans-serif",
@@ -227,9 +230,9 @@ export default function DashboardPage() {
                       textTransform:"uppercase", letterSpacing:"0.06em" }}>
                       {db.role==="owner"?"Owner":db.role}</span>
                     <span style={{ fontSize:10, fontWeight:600, padding:"1px 7px", borderRadius:5,
-                      background: (db.kind==="linkedin") ? "rgba(10,102,194,0.15)" : "rgba(232,0,90,0.12)",
-                      color: (db.kind==="linkedin") ? "#4a9eff" : "#E8005A" }}>
-                      {db.kind==="linkedin" ? "🔗 LinkedIn" : "🗺️ Maps"}</span>
+                      background: db.kind==="linkedin" ? "rgba(10,102,194,0.15)" : db.kind==="internships" ? "rgba(168,85,247,0.15)" : "rgba(232,0,90,0.12)",
+                      color: db.kind==="linkedin" ? "#4a9eff" : db.kind==="internships" ? "#c084fc" : "#E8005A" }}>
+                      {db.kind==="linkedin" ? "🔗 LinkedIn" : db.kind==="internships" ? "🎓 Internships" : "🗺️ Maps"}</span>
                   </div>
                   <div style={{ fontFamily:"'Syne',sans-serif", fontSize:15, fontWeight:700,
                     color:"#fff", letterSpacing:"-0.3px", lineHeight:1.3 }}>{db.name}</div>

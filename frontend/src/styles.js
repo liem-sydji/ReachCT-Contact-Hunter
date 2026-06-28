@@ -1,6 +1,7 @@
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
-// Point this at your LAB backend (separate Railway project), NOT production.
-export const API = "https://reachct-production.up.railway.app";
+// VITE_API_URL in .env.local overrides this for local dev (points to localhost:8000).
+// Production keeps the Railway URL via Netlify env var or the hardcoded fallback.
+export const API = import.meta.env.VITE_API_URL || "https://reachct-production.up.railway.app";
 
 export const ADMIN_PASSWORD = "reachct2026";
 

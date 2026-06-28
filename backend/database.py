@@ -149,22 +149,22 @@ def upsert_company(run_id: str, data: dict) -> str:
             INSERT INTO companies (run_id, name, email, phone, website, city, country, company_type, maps_url)
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
             ON CONFLICT (name, city, country) DO UPDATE SET
-                email        = EXCLUDED.email,
-                phone        = EXCLUDED.phone,
-                website      = EXCLUDED.website,
+                email        = CASE WHEN EXCLUDED.email IS NOT NULL THEN EXCLUDED.email ELSE companies.email END,
+                phone        = CASE WHEN EXCLUDED.phone IS NOT NULL THEN EXCLUDED.phone ELSE companies.phone END,
+                website      = CASE WHEN EXCLUDED.website IS NOT NULL THEN EXCLUDED.website ELSE companies.website END,
                 company_type = EXCLUDED.company_type,
-                maps_url     = EXCLUDED.maps_url
+                maps_url     = CASE WHEN EXCLUDED.maps_url IS NOT NULL THEN EXCLUDED.maps_url ELSE companies.maps_url END
             RETURNING (xmax = 0) AS inserted
         """, (
             run_id,
             data.get("name", ""),
-            data.get("email", ""),
-            data.get("phone", ""),
-            data.get("website", ""),
+            data.get("email"),
+            data.get("phone"),
+            data.get("website"),
             data.get("city", ""),
             data.get("country", ""),
             data.get("company_type", ""),
-            data.get("maps_url", ""),
+            data.get("maps_url"),
         ))
         row      = c.fetchone()
         inserted = row[0] if row else False
@@ -664,7 +664,8 @@ def init_linkedin_table():
             CREATE TABLE IF NOT EXISTS linkedin_contacts (
                 id            SERIAL PRIMARY KEY,
                 full_name     TEXT NOT NULL,
-                job_title     TEXT DEFAULT '',
+                company_type  TEXT DEFAULT '',
+                profile_title TEXT DEFAULT '',
                 company       TEXT DEFAULT '',
                 email         TEXT DEFAULT '',
                 confidence    TEXT DEFAULT '',
@@ -674,6 +675,17 @@ def init_linkedin_table():
                 UNIQUE(linkedin_url)
             )
         """)
+        # Migrate: rename job_title → company_type if old column still exists
+        c.execute("""
+            DO $$ BEGIN
+                IF EXISTS (SELECT 1 FROM information_schema.columns
+                           WHERE table_name='linkedin_contacts' AND column_name='job_title') THEN
+                    ALTER TABLE linkedin_contacts RENAME COLUMN job_title TO company_type;
+                END IF;
+            END $$;
+        """)
+        c.execute("ALTER TABLE linkedin_contacts ADD COLUMN IF NOT EXISTS profile_title TEXT DEFAULT ''")
+        c.execute("ALTER TABLE linkedin_contacts ADD COLUMN IF NOT EXISTS company_type TEXT DEFAULT ''")
         conn.commit()
     except Exception as e:
         conn.rollback()
@@ -689,20 +701,25 @@ def upsert_linkedin_contact(person: dict):
     try:
         c.execute("""
             INSERT INTO linkedin_contacts
-                (full_name, job_title, company, email, confidence, linkedin_url, location)
-            VALUES (%s,%s,%s,%s,%s,%s,%s)
+                (full_name, company_type, profile_title, company, email, confidence, linkedin_url, location)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
             ON CONFLICT (linkedin_url) DO UPDATE SET
-                full_name  = EXCLUDED.full_name,
-                job_title  = EXCLUDED.job_title,
-                company    = EXCLUDED.company,
-                email      = CASE WHEN EXCLUDED.email != '' THEN EXCLUDED.email ELSE linkedin_contacts.email END,
-                confidence = EXCLUDED.confidence,
-                location   = EXCLUDED.location
+                full_name     = EXCLUDED.full_name,
+                company_type  = CASE WHEN EXCLUDED.company_type IS NOT NULL THEN EXCLUDED.company_type ELSE linkedin_contacts.company_type END,
+                profile_title = CASE WHEN EXCLUDED.profile_title IS NOT NULL THEN EXCLUDED.profile_title ELSE linkedin_contacts.profile_title END,
+                company       = CASE WHEN EXCLUDED.company IS NOT NULL THEN EXCLUDED.company ELSE linkedin_contacts.company END,
+                email         = CASE WHEN EXCLUDED.email IS NOT NULL THEN EXCLUDED.email ELSE linkedin_contacts.email END,
+                confidence    = EXCLUDED.confidence,
+                location      = CASE WHEN EXCLUDED.location IS NOT NULL THEN EXCLUDED.location ELSE linkedin_contacts.location END
         """, (
-            person.get("full_name",""), person.get("job_title",""),
-            person.get("company",""), person.get("email",""),
-            person.get("confidence",""), person.get("linkedin_url",""),
-            person.get("location",""),
+            person.get("full_name", ""),
+            person.get("company_type"),
+            person.get("profile_title"),
+            person.get("company"),
+            person.get("email"),
+            person.get("confidence"),
+            person.get("linkedin_url", ""),
+            person.get("location"),
         ))
         conn.commit()
     except Exception as e:
@@ -712,14 +729,14 @@ def upsert_linkedin_contact(person: dict):
         conn.close()
 
 
-def get_linkedin_contacts(job_title: str = "", company: str = "", location: str = "") -> list:
+def get_linkedin_contacts(company_type: str = "", company: str = "", location: str = "") -> list:
     """Pull LinkedIn contacts with optional filters."""
     conn = get_conn()
     c    = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     query  = "SELECT * FROM linkedin_contacts WHERE 1=1"
     params = []
-    if job_title:
-        query += " AND job_title ILIKE %s"; params.append(f"%{job_title}%")
+    if company_type:
+        query += " AND company_type ILIKE %s"; params.append(f"%{company_type}%")
     if company:
         query += " AND company ILIKE %s"; params.append(f"%{company}%")
     if location:
@@ -736,14 +753,123 @@ def get_linkedin_filters() -> dict:
     conn = get_conn()
     c    = conn.cursor()
     try:
-        c.execute("SELECT DISTINCT job_title FROM linkedin_contacts WHERE job_title != '' ORDER BY job_title")
-        titles = [r[0] for r in c.fetchall()]
+        c.execute("SELECT DISTINCT company_type FROM linkedin_contacts WHERE company_type != '' ORDER BY company_type")
+        company_types = [r[0] for r in c.fetchall()]
         c.execute("SELECT DISTINCT company FROM linkedin_contacts WHERE company != '' ORDER BY company")
         companies = [r[0] for r in c.fetchall()]
         c.execute("SELECT DISTINCT location FROM linkedin_contacts WHERE location != '' ORDER BY location")
         locations = [r[0] for r in c.fetchall()]
-        return {"job_titles": titles, "companies": companies, "locations": locations}
+        return {"company_types": company_types, "companies": companies, "locations": locations}
     except Exception:
-        return {"job_titles": [], "companies": [], "locations": []}
+        return {"company_types": [], "companies": [], "locations": []}
+    finally:
+        conn.close()
+
+
+# ── Internship Listings ───────────────────────────────────────────────────────
+
+def init_internship_table():
+    """Create the internship_listings table for Companies search results."""
+    conn = get_conn()
+    c    = conn.cursor()
+    try:
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS internship_listings (
+                id               SERIAL PRIMARY KEY,
+                internship       TEXT NOT NULL DEFAULT '',
+                internship_type  TEXT DEFAULT '',
+                company          TEXT DEFAULT '',
+                linkedin_url     TEXT DEFAULT '',
+                email            TEXT DEFAULT '',
+                company_website  TEXT DEFAULT '',
+                city             TEXT DEFAULT '',
+                country          TEXT DEFAULT '',
+                created_at       TIMESTAMP DEFAULT NOW(),
+                UNIQUE(linkedin_url)
+            )
+        """)
+        c.execute("ALTER TABLE internship_listings ADD COLUMN IF NOT EXISTS internship_type TEXT DEFAULT ''")
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        print(f"⚠️  init_internship_table: {e}")
+    finally:
+        conn.close()
+
+
+def upsert_internship_listing(listing: dict):
+    """Insert or update an internship listing. linkedin_url is the unique key."""
+    conn = get_conn()
+    c    = conn.cursor()
+    try:
+        c.execute("""
+            INSERT INTO internship_listings
+                (internship, internship_type, company, linkedin_url, email, company_website, city, country)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
+            ON CONFLICT (linkedin_url) DO UPDATE SET
+                internship      = EXCLUDED.internship,
+                internship_type = EXCLUDED.internship_type,
+                company         = CASE WHEN EXCLUDED.company IS NOT NULL THEN EXCLUDED.company ELSE internship_listings.company END,
+                email           = CASE WHEN EXCLUDED.email IS NOT NULL THEN EXCLUDED.email ELSE internship_listings.email END,
+                company_website = CASE WHEN EXCLUDED.company_website IS NOT NULL THEN EXCLUDED.company_website ELSE internship_listings.company_website END,
+                city            = CASE WHEN EXCLUDED.city IS NOT NULL THEN EXCLUDED.city ELSE internship_listings.city END,
+                country         = CASE WHEN EXCLUDED.country IS NOT NULL THEN EXCLUDED.country ELSE internship_listings.country END
+        """, (
+            listing.get("internship", ""),
+            listing.get("internship_type", ""),
+            listing.get("company"),
+            listing.get("linkedin_url", ""),
+            listing.get("email"),
+            listing.get("company_website"),
+            listing.get("city"),
+            listing.get("country"),
+        ))
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        print(f"⚠️  upsert_internship_listing: {e}")
+    finally:
+        conn.close()
+
+
+def get_internship_listings(internship_type: str = "", company: str = "", city: str = "", country: str = "") -> list:
+    """Pull internship listings with optional filters."""
+    conn   = get_conn()
+    c      = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    query  = "SELECT * FROM internship_listings WHERE 1=1"
+    params = []
+    if internship_type:
+        query += " AND internship_type ILIKE %s"; params.append(f"%{internship_type}%")
+    if company:
+        query += " AND company ILIKE %s"; params.append(f"%{company}%")
+    if city:
+        query += " AND city ILIKE %s"; params.append(f"%{city}%")
+    if country:
+        query += " AND country ILIKE %s"; params.append(f"%{country}%")
+    query += " ORDER BY created_at DESC LIMIT 500"
+    c.execute(query, params)
+    rows = c.fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def delete_old_internship_listings(days: int = 30) -> int:
+    """Delete internship listings older than `days` days. Returns deleted row count."""
+    conn = get_conn()
+    c    = conn.cursor()
+    try:
+        c.execute(
+            "DELETE FROM internship_listings WHERE created_at < NOW() - INTERVAL '%s days'",
+            (days,)
+        )
+        deleted = c.rowcount
+        conn.commit()
+        if deleted:
+            print(f"🧹 Deleted {deleted} expired internship listing(s) (>{days} days old)")
+        return deleted
+    except Exception as e:
+        conn.rollback()
+        print(f"⚠️  delete_old_internship_listings: {e}")
+        return 0
     finally:
         conn.close()

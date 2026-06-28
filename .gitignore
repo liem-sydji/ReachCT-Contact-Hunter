@@ -5,6 +5,10 @@ __pycache__/
 venv/
 .venv/
 
+# Local dev scripts
+start-local.ps1
+*.ps1
+
 # Build output
 dist/
 build/
