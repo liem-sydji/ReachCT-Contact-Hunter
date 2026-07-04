@@ -22,7 +22,8 @@ from database import (
     upsert_user, get_user_by_email, get_filters,
     create_user_database, get_user_databases, get_user_database,
     delete_user_database, get_db_entries, add_db_entries,
-    update_db_entry, delete_db_entry, rename_column_in_db,
+    update_db_entry, delete_db_entry, rename_column_in_db, set_db_columns,
+    delete_column_from_db,
     add_collaborator, get_collaborators, remove_collaborator,
 )
 from reachct import scrape_google_maps, export_to_excel
@@ -204,15 +205,37 @@ class CreateDBRequest(BaseModel):
     name: str
     kind: str = "maps"   # "maps" or "linkedin"
 
+# Mirrors the frontend's *_PRIORITY column lists — seeds a new database's persisted
+# column list so it starts non-empty even before any row has data.
+DEFAULT_DB_COLUMNS = {
+    "maps":        ["name", "email", "phone", "website", "city", "country", "company_type"],
+    "linkedin":    ["full_name", "job_title", "profile_title", "company", "email", "linkedin_url", "location"],
+    "internships": ["internship", "internship_type", "company", "email", "company_website", "linkedin_url", "city", "country"],
+}
+
 @app.post("/api/databases")
 def create_db(body: CreateDBRequest, authorization: str = Header(default=None)):
     user = get_current_user(authorization)
-    return create_user_database(int(user["sub"]), body.name.strip(), body.kind)
+    columns = DEFAULT_DB_COLUMNS.get(body.kind, DEFAULT_DB_COLUMNS["maps"])
+    return create_user_database(int(user["sub"]), body.name.strip(), body.kind, columns)
 
 @app.get("/api/databases")
 def list_dbs(authorization: str = Header(default=None)):
     user = get_current_user(authorization)
     return get_user_databases(int(user["sub"]))
+
+class SetColumnsRequest(BaseModel):
+    columns: List[str]
+
+@app.put("/api/databases/{db_id}/columns")
+def set_columns(db_id: int, body: SetColumnsRequest, authorization: str = Header(default=None)):
+    user = get_current_user(authorization)
+    db   = get_user_database(db_id, int(user["sub"]))
+    if not db: raise HTTPException(status_code=403, detail="Access denied")
+    if db.get("role") == "viewer": raise HTTPException(status_code=403, detail="Viewers cannot modify columns")
+    updated = set_db_columns(db_id, body.columns)
+    if not updated: raise HTTPException(status_code=404, detail="Database not found")
+    return updated
 
 @app.delete("/api/databases/{db_id}")
 def delete_db(db_id: int, authorization: str = Header(default=None)):
@@ -276,6 +299,15 @@ def rename_column(db_id: int, body: RenameColRequest, authorization: str = Heade
     if db.get("role") == "viewer": raise HTTPException(status_code=403, detail="Viewers cannot rename columns")
     count = rename_column_in_db(db_id, body.old_name, body.new_name)
     return {"renamed": count}
+
+@app.delete("/api/databases/{db_id}/columns/{col_name}")
+def delete_column(db_id: int, col_name: str, authorization: str = Header(default=None)):
+    user = get_current_user(authorization)
+    db   = get_user_database(db_id, int(user["sub"]))
+    if not db: raise HTTPException(status_code=403, detail="Access denied")
+    if db.get("role") == "viewer": raise HTTPException(status_code=403, detail="Viewers cannot delete columns")
+    result = delete_column_from_db(db_id, col_name)
+    return result
 
 # ── Export user database to Excel ─────────────────────────────────────────────
 @app.get("/api/databases/{db_id}/export")

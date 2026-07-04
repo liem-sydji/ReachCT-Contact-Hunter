@@ -73,9 +73,12 @@ def init_db():
             user_id    INT REFERENCES users(id) ON DELETE CASCADE,
             name       TEXT NOT NULL,
             kind       TEXT DEFAULT 'maps',
+            columns    JSONB DEFAULT '[]',
             created_at TIMESTAMP DEFAULT NOW()
         )
     """)
+    # Migration for databases created before the `columns` column existed
+    c.execute("ALTER TABLE user_databases ADD COLUMN IF NOT EXISTS columns JSONB DEFAULT '[]'")
 
     # Collaborators on user databases
     c.execute("""
@@ -261,14 +264,14 @@ def get_filters() -> dict:
 
 # ── User databases ────────────────────────────────────────────────────────────
 
-def create_user_database(user_id: int, name: str, kind: str = "maps") -> dict:
+def create_user_database(user_id: int, name: str, kind: str = "maps", columns: list = None) -> dict:
     conn = get_conn()
     c    = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     try:
         c.execute("""
-            INSERT INTO user_databases (user_id, name, kind)
-            VALUES (%s, %s, %s) RETURNING *
-        """, (user_id, name, kind))
+            INSERT INTO user_databases (user_id, name, kind, columns)
+            VALUES (%s, %s, %s, %s) RETURNING *
+        """, (user_id, name, kind, psycopg2.extras.Json(columns or [])))
         db = dict(c.fetchone())
         conn.commit()
         return db
@@ -366,11 +369,15 @@ def add_db_entries(db_id: int, rows: list) -> list:
 
 
 def update_db_entry(entry_id: int, db_id: int, data: dict) -> dict | None:
+    """Merge the given fields into a row's JSONB data — never a full overwrite.
+    Two collaborators editing different columns of the same row close together
+    would otherwise clobber each other's change (last PATCH wins on the whole blob)."""
     conn = get_conn()
     c    = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     try:
         c.execute("""
-            UPDATE user_database_entries SET data = %s
+            UPDATE user_database_entries
+            SET data = COALESCE(data, '{}'::jsonb) || %s::jsonb
             WHERE id = %s AND database_id = %s RETURNING *
         """, (psycopg2.extras.Json(data), entry_id, db_id))
         row = c.fetchone()
@@ -462,7 +469,7 @@ def remove_collaborator(db_id: int, owner_id: int, target_user_id: int) -> bool:
 
 
 def rename_column_in_db(db_id: int, old_name: str, new_name: str) -> int:
-    """Rename a key in all JSONB entries for a database."""
+    """Rename a key in all JSONB entries for a database, and in the persisted column list."""
     conn = get_conn()
     c    = conn.cursor()
     try:
@@ -473,8 +480,65 @@ def rename_column_in_db(db_id: int, old_name: str, new_name: str) -> int:
             WHERE database_id = %s AND data ? %s
         """, (old_name, new_name, old_name, db_id, old_name))
         count = c.rowcount
+
+        c.execute("SELECT columns FROM user_databases WHERE id = %s", (db_id,))
+        row  = c.fetchone()
+        cols = row[0] if row and row[0] else []
+        if old_name in cols:
+            cols = [new_name if col == old_name else col for col in cols]
+            c.execute("UPDATE user_databases SET columns = %s WHERE id = %s",
+                      (psycopg2.extras.Json(cols), db_id))
+
         conn.commit()
         return count
+    except Exception as e:
+        conn.rollback()
+        raise e
+    finally:
+        conn.close()
+
+
+def delete_column_from_db(db_id: int, col: str) -> dict:
+    """Remove a key from every row's JSONB data and from the persisted column list,
+    atomically in one DB round trip — avoids the old N-requests-from-the-client
+    pattern where a row deleted mid-loop by another collaborator could corrupt
+    local state."""
+    conn = get_conn()
+    c    = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    try:
+        c.execute("""
+            UPDATE user_database_entries SET data = data - %s
+            WHERE database_id = %s AND data ? %s
+        """, (col, db_id, col))
+        rows_affected = c.rowcount
+
+        c.execute("SELECT columns FROM user_databases WHERE id = %s", (db_id,))
+        row  = c.fetchone()
+        cols = [x for x in ((row["columns"] if row else []) or []) if x != col]
+        c.execute("UPDATE user_databases SET columns = %s WHERE id = %s RETURNING *",
+                  (psycopg2.extras.Json(cols), db_id))
+        updated_db = c.fetchone()
+
+        conn.commit()
+        return {"rows_affected": rows_affected, "database": dict(updated_db) if updated_db else None}
+    except Exception as e:
+        conn.rollback()
+        raise e
+    finally:
+        conn.close()
+
+
+def set_db_columns(db_id: int, columns: list) -> dict | None:
+    """Overwrite the persisted, ordered column list for a database."""
+    conn = get_conn()
+    c    = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    try:
+        c.execute("""
+            UPDATE user_databases SET columns = %s WHERE id = %s RETURNING *
+        """, (psycopg2.extras.Json(columns), db_id))
+        row = c.fetchone()
+        conn.commit()
+        return dict(row) if row else None
     except Exception as e:
         conn.rollback()
         raise e

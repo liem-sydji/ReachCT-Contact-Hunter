@@ -933,16 +933,12 @@ export default function SpreadsheetPage() {
   const newRowFocusRef = useRef(false);
   const isViewer = db?.role === "viewer";
 
-  // ── Persist column order + widths across reloads ──────────────────────────
-  useEffect(() => {
-    if (columns.length > 0) localStorage.setItem(`reachct-colorder-${dbId}`, JSON.stringify(columns));
-  }, [columns, dbId]);
-
+  // ── Persist column widths across reloads (cosmetic, per-browser only) ─────
   useEffect(() => {
     if (Object.keys(colWidths).length > 0) localStorage.setItem(`reachct-colwidths-${dbId}`, JSON.stringify(colWidths));
   }, [colWidths, dbId]);
 
-  // ── Column derivation with canonical order ─────────────────────────────────
+  // ── Column derivation with canonical order (fallback for legacy DBs / self-heal) ──
   const deriveColumns = useCallback((rows, kind) => {
     const priority = kind === "linkedin" ? LINKEDIN_PRIORITY
                    : kind === "internships" ? INTERNSHIPS_PRIORITY
@@ -954,9 +950,20 @@ export default function SpreadsheetPage() {
     return [...ordered, ...extras];
   }, []);
 
+  // ── Persist the column list to the backend (source of truth, shared across collaborators) ──
+  const persistColumns = useCallback(async (id, cols) => {
+    try {
+      await fetch(`${API}/api/databases/${id}/columns`, {
+        method:"PUT",
+        headers:{"Content-Type":"application/json", Authorization:`Bearer ${token}`},
+        body:JSON.stringify({ columns: cols }),
+      });
+    } catch {}
+  }, [token]);
+
   // ── Data fetching ──────────────────────────────────────────────────────────
-  const fetchAll = useCallback(async () => {
-    setLoading(true);
+  const fetchAll = useCallback(async ({ silent = false } = {}) => {
+    if (!silent) setLoading(true);
     try {
       const [dbRes, entRes] = await Promise.all([
         fetch(`${API}/api/databases`,             { headers:{Authorization:`Bearer ${token}`} }),
@@ -968,26 +975,34 @@ export default function SpreadsheetPage() {
       setDb(theDb);
       const safe    = Array.isArray(rows)?rows:[];
       setEntries(safe);
-      const derived = deriveColumns(safe, theDb?.kind);
-      const fallback = theDb?.kind === "linkedin" ? LINKEDIN_PRIORITY
-                     : theDb?.kind === "internships" ? INTERNSHIPS_PRIORITY
-                     : MAPS_PRIORITY;
-      if (derived.length === 0) {
-        setColumns(fallback);
+
+      // The persisted column list on the database is the source of truth — it survives
+      // even when there's no row data for a column yet. Still scan actual row data for
+      // any stray keys not in that list (legacy DBs from before this existed, or bulk
+      // imports) and fold those in, self-healing the persisted list going forward.
+      const persisted = Array.isArray(theDb?.columns) ? theDb.columns : [];
+      const derived   = deriveColumns(safe, theDb?.kind);
+      const fallback  = theDb?.kind === "linkedin" ? LINKEDIN_PRIORITY
+                      : theDb?.kind === "internships" ? INTERNSHIPS_PRIORITY
+                      : MAPS_PRIORITY;
+
+      let finalColumns;
+      if (persisted.length > 0) {
+        const extras = derived.filter(c => !persisted.includes(c));
+        finalColumns = [...persisted, ...extras];
+      } else if (derived.length > 0) {
+        finalColumns = derived;
       } else {
-        // Restore user's saved column order (from drag-reorder), appending any new columns at end
-        const saved = (() => { try { return JSON.parse(localStorage.getItem(`reachct-colorder-${dbId}`) || 'null'); } catch { return null; } })();
-        if (saved && saved.length > 0) {
-          const retained = saved.filter(c => derived.includes(c));
-          const added    = derived.filter(c => !saved.includes(c));
-          setColumns([...retained, ...added]);
-        } else {
-          setColumns(derived);
-        }
+        finalColumns = fallback;
+      }
+      setColumns(finalColumns);
+
+      if (theDb && theDb.role !== "viewer" && JSON.stringify(finalColumns) !== JSON.stringify(persisted)) {
+        persistColumns(theDb.id, finalColumns);
       }
     } catch {}
-    setLoading(false);
-  }, [dbId, token, deriveColumns]);
+    if (!silent) setLoading(false);
+  }, [dbId, token, deriveColumns, persistColumns]);
 
   useEffect(() => {
     if (!token) { navigate("/login"); return; }
@@ -996,20 +1011,46 @@ export default function SpreadsheetPage() {
     fetch(`${API}/api/linkedin/filters`, { headers:{Authorization:`Bearer ${token}`} }).then(r=>r.json()).then(setLiFilters).catch(()=>{});
   }, [dbId, token]);
 
+  // ── Background sync: pick up collaborators' edits without a manual reload ──
+  // Skipped while actively editing/loading/in a modal so a poll can't yank the
+  // grid out from under an in-progress action.
+  const skipPollRef = useRef(false);
+  useEffect(() => {
+    skipPollRef.current = !!(editCell || modal || loading);
+  }, [editCell, modal, loading]);
+
+  useEffect(() => {
+    if (!token) return;
+    const interval = setInterval(() => {
+      if (skipPollRef.current) return;
+      fetchAll({ silent: true });
+    }, 8000);
+    return () => clearInterval(interval);
+  }, [token, dbId, fetchAll]);
+
   // ── Save a cell value ──────────────────────────────────────────────────────
   const saveCell = useCallback(async (entryId, col, val) => {
     const entry = entries.find(e => e.id === entryId);
     if (!entry) return;
     const oldVal = entry.data?.[col] ?? "";
     if (val === oldVal) return;
-    const newData = { ...(entry.data||{}), [col]: val };
     const cellKey = `${entryId}-${col}`;
     try {
-      const res     = await fetch(`${API}/api/databases/${dbId}/entries/${entryId}`, {
+      // Send only the changed field — the backend merges it into the row's JSONB data.
+      // Sending the whole row (built from this client's possibly-stale copy) would
+      // silently clobber a different field a collaborator changed in the meantime.
+      const res = await fetch(`${API}/api/databases/${dbId}/entries/${entryId}`, {
         method:"PATCH",
         headers:{"Content-Type":"application/json", Authorization:`Bearer ${token}`},
-        body:JSON.stringify({data:newData}),
+        body:JSON.stringify({ data: { [col]: val } }),
       });
+      if (res.status === 404) {
+        // Row was deleted by another collaborator — drop it locally instead of
+        // splicing the error body in as if it were the updated entry.
+        setEntries(prev => prev.filter(e => e.id !== entryId));
+        throw new Error("row deleted");
+      }
+      if (!res.ok) throw new Error("save failed");
       const updated = await res.json();
       setEntries(prev => prev.map(e => e.id===entryId ? updated : e));
       setLastEdit({ entryId, col, oldVal });
@@ -1221,9 +1262,7 @@ export default function SpreadsheetPage() {
     const newEntries = entries.filter(e => !selectedRows.has(e.id));
     setEntries(newEntries);
     setSelectedRows(new Set());
-    // Re-derive columns after deletion
-    const derived = deriveColumns(newEntries, db?.kind);
-    if (derived.length > 0) setColumns(derived);
+    // Columns are a persisted, independent list — deleting rows never touches them.
   };
 
   // ── Add row ───────────────────────────────────────────────────────────────
@@ -1260,39 +1299,51 @@ export default function SpreadsheetPage() {
     });
     const newEntries = entries.filter(e => e.id !== entryId);
     setEntries(newEntries);
-    const derived = deriveColumns(newEntries, db?.kind);
-    if (derived.length > 0) setColumns(derived);
-  }, [entries, dbId, token, db, deriveColumns]);
+    // Columns are a persisted, independent list — deleting a row never touches them.
+  }, [entries, dbId, token]);
 
   // ── Column ops ────────────────────────────────────────────────────────────
   const handleDeleteCol = useCallback(async (col) => {
     if (!confirm(`Delete column "${col}"?`)) return;
-    const updated = await Promise.all(entries.map(async entry => {
-      const newData = { ...(entry.data||{}) };
-      delete newData[col];
-      const res = await fetch(`${API}/api/databases/${dbId}/entries/${entry.id}`, {
-        method:"PATCH",
-        headers:{"Content-Type":"application/json", Authorization:`Bearer ${token}`},
-        body:JSON.stringify({data:newData}),
+    try {
+      // Single atomic bulk-delete on the server — avoids the old per-row PATCH
+      // loop, where a row deleted by another collaborator mid-loop could corrupt
+      // local state with a 404 error body mistaken for the updated row.
+      await fetch(`${API}/api/databases/${dbId}/columns/${encodeURIComponent(col)}`, {
+        method:"DELETE", headers:{Authorization:`Bearer ${token}`},
       });
-      return res.json();
+    } catch { return; }
+    setEntries(prev => prev.map(e => {
+      if (!e.data || !(col in e.data)) return e;
+      const data = { ...e.data };
+      delete data[col];
+      return { ...e, data };
     }));
-    setEntries(updated);
     setColumns(prev => prev.filter(c => c !== col));
-  }, [entries, dbId, token]);
+  }, [dbId, token]);
 
   const handleAddCol = useCallback((colName) => {
     if (!colName || columns.includes(colName)) return;
-    setColumns(prev => [...prev, colName]);
-  }, [columns]);
+    const next = [...columns, colName];
+    setColumns(next);
+    persistColumns(dbId, next);
+  }, [columns, dbId, persistColumns]);
+
+  const handleReorderCols = useCallback((next) => {
+    setColumns(next);
+    persistColumns(dbId, next);
+  }, [dbId, persistColumns]);
 
   const handleRenameCol = useCallback(async (oldName, newName) => {
     try {
-      await fetch(`${API}/api/databases/${dbId}/rename-column`, {
+      const res = await fetch(`${API}/api/databases/${dbId}/rename-column`, {
         method:"POST",
         headers:{"Content-Type":"application/json", Authorization:`Bearer ${token}`},
         body:JSON.stringify({old_name:oldName, new_name:newName}),
       });
+      // Only reflect the rename locally once the server confirms it — otherwise this
+      // client's view would silently diverge from the actual server/collaborator state.
+      if (!res.ok) return;
       setEntries(prev => prev.map(entry => {
         const data = { ...(entry.data||{}) };
         if (oldName in data) { data[newName] = data[oldName]; delete data[oldName]; }
@@ -1502,7 +1553,7 @@ export default function SpreadsheetPage() {
         </div>
 
         <SpreadsheetGrid
-          entries={entries} columns={columns} setColumns={setColumns}
+          entries={entries} columns={columns} setColumns={handleReorderCols}
           onDeleteRow={handleDeleteRow} onDeleteCol={handleDeleteCol}
           onAddCol={handleAddCol} onRenameCol={handleRenameCol}
           isViewer={isViewer}
