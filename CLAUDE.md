@@ -10,7 +10,7 @@ Everyone contributes to a shared growing database. Every search adds companies. 
 
 - **Backend:** FastAPI + PostgreSQL (Railway) + Playwright (scraping) + Claude Haiku (ReachAI agent)
 - **Frontend:** React 18 + Vite, all inline styles, no CSS framework
-- **Hosting:** Railway (backend + DB), Netlify (frontend)
+- **Hosting:** Railway (backend + DB), Cloudfare (frontend)
 
 ## Non-obvious decisions worth knowing
 

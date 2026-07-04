@@ -1,12 +1,12 @@
 """
 ReachCT — webscraper.py
-Scrape emails from a list of company website URLs.
+Scrape emails and phone numbers from a list of company website URLs.
 
 Flow:
 1. Visit homepage
 2. Find contact/about pages
-3. Extract emails from all visited pages
-4. Return first valid email found
+3. Extract emails and phone numbers from all visited pages
+4. Return first valid email found (with phone, if any)
 """
 
 import re
@@ -32,6 +32,19 @@ CONTACT_KEYWORDS = [
 EMAIL_RE = re.compile(r"[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}")
 SKIP_EMAIL_DOMAINS = {"example.com", "domain.com", "email.com", "youremail.com",
                       "sentry.io", "wixpress.com", "squarespace.com"}
+
+# Phone matching for arbitrary website text is riskier than for Maps listings (which are
+# short, isolated strings) — full page HTML/text is full of prices, dates, SKUs, etc.
+# So unlike a plain digit-run regex, this requires a leading "+" or actual separators
+# between digit groups, which plain numeric noise rarely has.
+PHONE_RE = re.compile(
+    r"(?<!\d)(?:"
+    r"\+\d{7,15}"
+    r"|(?:\+\d{1,3}[\s.\-]?)?(?:\(\d{1,4}\)[\s.\-]?)?\d{2,4}(?:[\s.\-]\d{2,4}){1,4}"
+    r")(?!\d)"
+)
+# Catches "2020-01-15" style dates that would otherwise pass as a formatted phone number
+DATE_LIKE_RE = re.compile(r"^(19|20)\d{2}[\s.\-]\d{1,2}[\s.\-]\d{1,2}$")
 
 # Map common country-code TLDs to country names (fallback when JSON-LD has no address)
 TLD_COUNTRY = {
@@ -76,6 +89,25 @@ def extract_emails(text: str) -> list:
         seen.add(e)
         clean.append(e)
     return clean
+
+
+def extract_phones(text: str) -> list:
+    found = []
+    seen  = set()
+    for m in PHONE_RE.finditer(text):
+        raw    = m.group().strip()
+        digits = re.sub(r"\D", "", raw)
+        if not (7 <= len(digits) <= 15):
+            continue
+        if len(set(digits)) <= 1:          # e.g. "0000000000"
+            continue
+        if DATE_LIKE_RE.match(raw):
+            continue
+        if raw in seen:
+            continue
+        seen.add(raw)
+        found.append(raw)
+    return found
 
 
 def find_contact_links(links: list, base_url: str) -> list:
@@ -149,22 +181,56 @@ async def extract_company_name(page) -> str:
     return ""
 
 
-async def scrape_website_email(page, url: str) -> tuple:
-    """Visit a website and extract the first email, company name, city, and country."""
+async def find_tel_link(page) -> str:
+    """First usable number from any `a[href^='tel:']` on the current page."""
+    tel_links = await page.query_selector_all("a[href^='tel:']")
+    for link in tel_links:
+        href = await link.get_attribute("href")
+        if not href:
+            continue
+        candidate = href.replace("tel:", "").split("?")[0].strip()
+        digits    = re.sub(r"\D", "", candidate)
+        if 7 <= len(digits) <= 15:
+            return candidate
+    return ""
+
+
+async def scrape_website_contact(page, url: str,
+                                  user_city: str = "", user_country: str = "") -> tuple:
+    """Visit a website and extract the first email, a phone number, company name, city, and country.
+
+    If user_city/user_country are given, they're used as-is and address extraction is
+    skipped for that field — the caller has already told us where the company is.
+    """
     company_name = ""
     city         = ""
     country      = ""
+    phone        = ""
+
+    def resolve_address(extracted_city, extracted_country):
+        return (user_city or extracted_city), (user_country or extracted_country)
+
     try:
         await page.goto(url, timeout=20000, wait_until="domcontentloaded")
         await page.wait_for_timeout(random.randint(800, 1500))
 
         company_name = await extract_company_name(page)
 
-        content        = await page.content()
-        city, country  = extract_address_from_jsonld(content)
-        emails         = extract_emails(content)
+        content = await page.content()
+        if user_city and user_country:
+            city, country = user_city, user_country
+        else:
+            city, country = resolve_address(*extract_address_from_jsonld(content))
+
+        phones = extract_phones(content)
+        if phones:
+            phone = phones[0]
+        if not phone:
+            phone = await find_tel_link(page)
+
+        emails = extract_emails(content)
         if emails:
-            return emails[0], company_name, city, country
+            return emails[0], phone, company_name, city, country
 
         # Also check mailto: links
         mailto_links = await page.query_selector_all("a[href^='mailto:']")
@@ -173,7 +239,7 @@ async def scrape_website_email(page, url: str) -> tuple:
             if href:
                 email = href.replace("mailto:", "").split("?")[0].strip()
                 if email and "@" in email:
-                    return email, company_name, city, country
+                    return email, phone, company_name, city, country
 
         # Try contact pages
         all_links = await page.query_selector_all("a[href]")
@@ -191,12 +257,19 @@ async def scrape_website_email(page, url: str) -> tuple:
                 await page.wait_for_timeout(random.randint(500, 1000))
 
                 content = await page.content()
-                if not city and not country:
-                    city, country = extract_address_from_jsonld(content)
+                if not (user_city and user_country) and not city and not country:
+                    city, country = resolve_address(*extract_address_from_jsonld(content))
+
+                if not phone:
+                    phones = extract_phones(content)
+                    if phones:
+                        phone = phones[0]
+                    else:
+                        phone = await find_tel_link(page)
 
                 emails = extract_emails(content)
                 if emails:
-                    return emails[0], company_name, city, country
+                    return emails[0], phone, company_name, city, country
 
                 # Check mailto links on contact page
                 mailto_links = await page.query_selector_all("a[href^='mailto:']")
@@ -205,24 +278,29 @@ async def scrape_website_email(page, url: str) -> tuple:
                     if href:
                         email = href.replace("mailto:", "").split("?")[0].strip()
                         if email and "@" in email:
-                            return email, company_name, city, country
+                            return email, phone, company_name, city, country
             except Exception:
                 continue
 
     except Exception as e:
         print(f"⚠️ Error scraping {url}: {e}")
 
-    return "", company_name, city, country
+    return "", phone, company_name, city, country
 
 
 async def scrape_url_list(urls: list, company_type: str,
-                           jobs: dict, run_id: str) -> dict:
+                           jobs: dict, run_id: str,
+                           user_city: str = "", user_country: str = "") -> dict:
     """
-    Scrape a list of URLs for emails.
+    Scrape a list of URLs for emails and phone numbers.
+    If user_city/user_country are provided, they're saved as-is for every company
+    instead of being extracted from each site.
     Returns: { found: [...], skipped: [...] }
     """
     found   = []
     skipped = []
+    user_city    = (user_city or "").strip()
+    user_country = (user_country or "").strip()
 
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
@@ -241,19 +319,21 @@ async def scrape_url_list(urls: list, company_type: str,
 
             print(f"🌐 Scraping {idx+1}/{len(urls)}: {url}")
 
-            email, company_name, city, country = await scrape_website_email(page, url)
+            email, phone, company_name, city, country = await scrape_website_contact(
+                page, url, user_city, user_country
+            )
 
             if email:
                 if not company_name:
                     domain       = urlparse(url).netloc.replace("www.", "")
                     company_name = domain.split(".")[0].replace("-", " ").replace("_", " ").title()
-                if not country:
+                if not country and not user_country:
                     country = country_from_tld(url)
 
                 result = {
                     "name":         company_name,
                     "email":        email or None,
-                    "phone":        None,
+                    "phone":        phone or None,
                     "website":      url,
                     "city":         city or None,
                     "country":      country or None,

@@ -479,7 +479,8 @@ function LinkedInSearch({ user, token }) {
                 <div>
                   <label className="field-label">Max Results</label>
                   <input className="field-input" type="number" min="1" max="50" value={maxResults}
-                    onChange={e=>setMaxResults(Math.min(50,Math.max(1,Number(e.target.value))))}/>
+                    onChange={e=>{ const v=e.target.value; setMaxResults(v===""?"":Math.min(50,Number(v))); }}
+                    onBlur={e=>{ if(e.target.value==="") setMaxResults(15); else setMaxResults(Math.max(1,Math.min(50,Number(e.target.value)))); }}/>
                 </div>
               </div>
               <div className="btn-row">
@@ -514,7 +515,8 @@ function LinkedInSearch({ user, token }) {
                 <div>
                   <label className="field-label">Max Results</label>
                   <input className="field-input" type="number" min="1" max="50" value={internMax}
-                    onChange={e=>setInternMax(Math.min(50,Math.max(1,Number(e.target.value))))}/>
+                    onChange={e=>{ const v=e.target.value; setInternMax(v===""?"":Math.min(50,Number(v))); }}
+                    onBlur={e=>{ if(e.target.value==="") setInternMax(15); else setInternMax(Math.max(1,Math.min(50,Number(e.target.value)))); }}/>
                 </div>
               </div>
               <div className="btn-row">
@@ -695,6 +697,8 @@ function LinkedInSearch({ user, token }) {
 function URLScraper({ user, token }) {
   const [companyType, setCompanyType] = useState("");
   const [urlText,     setUrlText]     = useState("");
+  const [scrapeCity,    setScrapeCity]    = useState("");
+  const [scrapeCountry, setScrapeCountry] = useState("");
   const [loading,     setLoading]     = useState(false);
   const [loadMsg,     setLoadMsg]     = useState("");
   const [results,     setResults]     = useState([]);
@@ -768,7 +772,7 @@ function URLScraper({ user, token }) {
       const res = await fetch(`${API}/api/scrape/urls`, {
         method:"POST",
         headers:{"Content-Type":"application/json", Authorization:`Bearer ${token}`},
-        body:JSON.stringify({ urls, company_type:companyType }),
+        body:JSON.stringify({ urls, company_type:companyType, city:scrapeCity, country:scrapeCountry }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail||"Failed to start");
@@ -784,10 +788,10 @@ function URLScraper({ user, token }) {
   const handleExport = () => {
     if (!results.length) return;
     import("xlsx").then(({ default: XLSX }) => {
-      const headers = ["Company Name","Email","Website","City","Country","Company Type"];
-      const rows    = results.map(r=>[r.name||"",r.email||"",r.website||"",r.city||"",r.country||"",r.company_type||""]);
+      const headers = ["Company Name","Email","Phone","Website","City","Country","Company Type"];
+      const rows    = results.map(r=>[r.name||"",r.email||"",r.phone||"",r.website||"",r.city||"",r.country||"",r.company_type||""]);
       const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
-      ws["!cols"] = [{wch:30},{wch:30},{wch:40},{wch:20},{wch:20},{wch:22}];
+      ws["!cols"] = [{wch:30},{wch:30},{wch:18},{wch:40},{wch:20},{wch:20},{wch:22}];
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "URL Scrape Export");
       const _fn3 = `reachct_urls_${new Date().toISOString().slice(0,10)}.xlsx`;
@@ -802,8 +806,8 @@ function URLScraper({ user, token }) {
 
   const handleCopy = () => {
     if (!results.length) return;
-    const headers = ["Company Name","Email","Website","City","Country","Company Type"];
-    const rows    = results.map(r=>[r.name||"",r.email||"",r.website||"",r.city||"",r.country||"",r.company_type||""]);
+    const headers = ["Company Name","Email","Phone","Website","City","Country","Company Type"];
+    const rows    = results.map(r=>[r.name||"",r.email||"",r.phone||"",r.website||"",r.city||"",r.country||"",r.company_type||""]);
     const tsv     = [headers,...rows].map(r=>r.join("\t")).join("\n");
     navigator.clipboard.writeText(tsv).then(()=>alert("Copied!"));
   };
@@ -830,21 +834,36 @@ function URLScraper({ user, token }) {
         <div className="form-card">
           <div className="form-title">Scrape Emails from URLs</div>
           <p className="hint" style={{ marginTop:-4, marginBottom:16 }}>
-            Paste company website URLs — ReachCT visits each one and extracts emails. Companies without emails are skipped.
+            Paste company website URLs — ReachCT visits each one and extracts emails and phone numbers. Companies without emails are skipped.
           </p>
           <div style={{ display:"grid", gridTemplateColumns:"1fr 2fr", gap:16, marginBottom:16 }}>
-            <div>
-              <label className="field-label">Company Type <span style={{color:"#E8005A"}}>*</span></label>
-              <select className="field-select" value={companyType} onChange={e=>setCompanyType(e.target.value)}>
-                <option value="">Select type…</option>
-                {Object.entries(COMPANY_TYPES_GROUPED).map(([letter, types]) => (
-                  <optgroup key={letter} label={`── ${letter} ──`}>
-                    {types.map(ct => <option key={ct} value={ct}>{ct}</option>)}
-                  </optgroup>
-                ))}
-              </select>
-              <p style={{ fontSize:11, color:"#999", marginTop:6 }}>
-                All scraped companies will be saved with this type.
+            <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
+              <div>
+                <label className="field-label">Company Type <span style={{color:"#E8005A"}}>*</span></label>
+                <select className="field-select" value={companyType} onChange={e=>setCompanyType(e.target.value)}>
+                  <option value="">Select type…</option>
+                  {Object.entries(COMPANY_TYPES_GROUPED).map(([letter, types]) => (
+                    <optgroup key={letter} label={`── ${letter} ──`}>
+                      {types.map(ct => <option key={ct} value={ct}>{ct}</option>)}
+                    </optgroup>
+                  ))}
+                </select>
+                <p style={{ fontSize:11, color:"#999", marginTop:6 }}>
+                  All scraped companies will be saved with this type.
+                </p>
+              </div>
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+                <div>
+                  <label className="field-label">City (optional)</label>
+                  <input className="field-input" value={scrapeCity} onChange={e=>setScrapeCity(e.target.value)} placeholder="e.g. Madrid"/>
+                </div>
+                <div>
+                  <label className="field-label">Country (optional)</label>
+                  <input className="field-input" value={scrapeCountry} onChange={e=>setScrapeCountry(e.target.value)} placeholder="e.g. Spain"/>
+                </div>
+              </div>
+              <p style={{ fontSize:11, color:"#999", marginTop:-10 }}>
+                If provided, every company is saved with this city/country instead of what the scraper detects on the site.
               </p>
             </div>
             <div>
@@ -889,12 +908,13 @@ function URLScraper({ user, token }) {
           </div>
           <div style={{ overflowX:"auto" }}>
             <table className="results-table">
-              <thead><tr><th>Company</th><th>Email</th><th>Website</th><th>City</th><th>Country</th><th>Type</th></tr></thead>
+              <thead><tr><th>Company</th><th>Email</th><th>Phone</th><th>Website</th><th>City</th><th>Country</th><th>Type</th></tr></thead>
               <tbody>
                 {results.map((r,i) => (
                   <tr key={i}>
                     <td style={{fontWeight:500}}>{r.name}</td>
                     <td style={{color:"#E8005A"}}>{r.email}</td>
+                    <td style={{fontSize:12,color:"#555"}}>{r.phone||"—"}</td>
                     <td>
                       <a href={r.website} target="_blank" rel="noreferrer"
                         style={{color:"#666",fontSize:12}}>
@@ -921,7 +941,7 @@ function URLScraper({ user, token }) {
       {showAddDB && (
         <AddToDBModal
           dbKind="maps"
-          rows={results.map(r=>({ name:r.name||"", email:r.email||"", phone:"",
+          rows={results.map(r=>({ name:r.name||"", email:r.email||"", phone:r.phone||"",
             website:r.website||"", city:r.city||"", country:r.country||"", company_type:r.company_type||"" }))}
           onClose={()=>setShowAddDB(false)}
         />

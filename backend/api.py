@@ -1391,6 +1391,8 @@ def start_linkedin_smart(body: LinkedInSmartRequest, authorization: str = Header
 class URLScrapeRequest(BaseModel):
     urls:         List[str]
     company_type: str
+    city:         Optional[str] = None
+    country:      Optional[str] = None
 
 url_scrape_jobs: dict = {}
 url_scrape_queue      = queue_module.Queue()
@@ -1426,7 +1428,8 @@ def _run_url_scrape_job(item: dict):
         url_scrape_jobs[job_id]["status"] = "running"
         from webscraper import scrape_url_list
         data = loop.run_until_complete(
-            scrape_url_list(item["urls"], item["company_type"], url_scrape_jobs, job_id)
+            scrape_url_list(item["urls"], item["company_type"], url_scrape_jobs, job_id,
+                             item.get("city", ""), item.get("country", ""))
         )
         run_id = f"url_{job_id}"
         for company in data["found"]:
@@ -1466,6 +1469,8 @@ def start_url_scrape(body: URLScrapeRequest, authorization: str = Header(default
             "job_id": job_id,
             "urls": urls,
             "company_type": body.company_type.strip(),
+            "city": (body.city or "").strip(),
+            "country": (body.country or "").strip(),
         })
     return {"job_id": job_id, "total": len(urls), "queue_position": qpos}
 
