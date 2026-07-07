@@ -226,7 +226,7 @@ def format_phone(raw: str, country: str = "") -> str:
     if not raw:
         return ""
     if raw.strip().startswith("+"):
-        return f"+{re.sub(r'\D', '', raw)}"
+        return "+" + re.sub(r"\D", "", raw)
 
     cc = COUNTRY_CALLING_CODE.get(country) if country else None
     if not cc:

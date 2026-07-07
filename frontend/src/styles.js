@@ -26,7 +26,7 @@ export const COMPANY_TYPES_GROUPED = {
   "O": ["Operations Company"],
   "P": ["Pharmaceutical Company", "PR Agency"],
   "R": ["Real Estate Company", "Research Institute", "Restaurant Company", "Retail Company"],
-  "S": ["Sales Company","Student Apartment","Student Residence","Software Company", "Start-Up","Short Term Rental"],
+  "S": ["Sales Company","Student Apartment","Student Residence","Software Company","Startup","Short Term Rental"],
   "T": ["Tourism Company", "Travel Agency"],
   "V": ["Veterinary Company"],
 };
