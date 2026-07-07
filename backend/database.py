@@ -340,7 +340,11 @@ def delete_user_database(db_id: int, user_id: int) -> bool:
 def get_db_entries(db_id: int) -> list:
     conn = get_conn()
     c    = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-    c.execute("SELECT * FROM user_database_entries WHERE database_id = %s ORDER BY created_at ASC", (db_id,))
+    # id as a tiebreaker: rows inserted in the same batch share one created_at (Postgres's
+    # NOW() is fixed per-transaction, not per-statement), so created_at alone lets tied rows
+    # come back in a different order on every fetch — a visible "rows keep jumping" bug now
+    # that entries are polled periodically instead of only fetched once per page load.
+    c.execute("SELECT * FROM user_database_entries WHERE database_id = %s ORDER BY created_at ASC, id ASC", (db_id,))
     rows = c.fetchall()
     conn.close()
     return [dict(r) for r in rows]
