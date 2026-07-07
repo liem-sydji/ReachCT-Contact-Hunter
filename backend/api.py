@@ -19,7 +19,7 @@ from pydantic import BaseModel
 
 from database import (
     init_db, save_search, upsert_company, get_companies,
-    upsert_user, get_user_by_email, get_filters,
+    upsert_user, get_user_by_email, get_filters, search_users,
     create_user_database, get_user_databases, get_user_database,
     delete_user_database, get_db_entries, add_db_entries,
     update_db_entry, delete_db_entry, rename_column_in_db, set_db_columns,
@@ -465,6 +465,14 @@ def add_rows_to_db(body: AddRowsToDBRequest, authorization: str = Header(default
     return {"inserted": len(entries)}
 
 # ── Collaborators ─────────────────────────────────────────────────────────────
+@app.get("/api/users/search")
+def search_users_endpoint(q: str = "", authorization: str = Header(default=None)):
+    user = get_current_user(authorization)
+    q = q.strip()
+    if len(q) < 2:
+        return []
+    return search_users(q, exclude_id=int(user["sub"]))
+
 class AddCollaboratorRequest(BaseModel):
     email: str
     role:  str = "viewer"

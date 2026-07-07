@@ -142,6 +142,24 @@ def get_user_by_email(email: str) -> dict | None:
     return dict(row) if row else None
 
 
+def search_users(query: str, exclude_id: int = None, limit: int = 8) -> list:
+    """Directory-style lookup by name/email — powers the collaborator autocomplete."""
+    conn = get_conn()
+    c    = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    like = f"%{query}%"
+    sql    = "SELECT id, email, name, picture FROM users WHERE (email ILIKE %s OR name ILIKE %s)"
+    params = [like, like]
+    if exclude_id is not None:
+        sql += " AND id != %s"
+        params.append(exclude_id)
+    sql += " ORDER BY name ASC NULLS LAST, email ASC LIMIT %s"
+    params.append(limit)
+    c.execute(sql, params)
+    rows = c.fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
 # ── Shared companies ──────────────────────────────────────────────────────────
 
 def upsert_company(run_id: str, data: dict) -> str:

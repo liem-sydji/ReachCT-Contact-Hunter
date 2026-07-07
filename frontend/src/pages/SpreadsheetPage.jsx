@@ -14,6 +14,17 @@ const ROW_NUM_W         = 52;
 const ROW_H             = 32;
 const EMPTY_ROWS        = 50;
 
+// Renders a cell value as a clickable link when it looks like a website URL
+// (but not an email — those stay plain text, they aren't meant to be opened in a browser).
+function toHref(val) {
+  const v = (val || "").trim();
+  if (!v || v.includes("@")) return null;
+  if (/^https?:\/\//i.test(v)) return v;
+  if (/^www\./i.test(v)) return `https://${v}`;
+  if (/^[^\s]+\.[a-z]{2,}(\/[^\s]*)?$/i.test(v)) return `https://${v}`;
+  return null;
+}
+
 // ─── Left Panel ───────────────────────────────────────────────────────────────
 function LeftPanel({ user, onNav }) {
   return (
@@ -483,13 +494,35 @@ function CollaboratorModal({ onClose, dbId, token }) {
   const [collabs, setCollabs] = useState([]);
   const [loading, setLoading] = useState(false);
   const [msg, setMsg]         = useState("");
+  const [suggestions,     setSuggestions]     = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const debounceRef = useRef(null);
   useEffect(() => { fetchCollabs(); }, []);
+  useEffect(() => () => { if (debounceRef.current) clearTimeout(debounceRef.current); }, []);
   const fetchCollabs = async () => {
     try {
       const res  = await fetch(`${API}/api/databases/${dbId}/collaborators`, { headers:{Authorization:`Bearer ${token}`} });
       const data = await res.json();
       setCollabs(Array.isArray(data)?data:[]);
     } catch {}
+  };
+  const handleEmailChange = (v) => {
+    setEmail(v); setMsg("");
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    const q = v.trim();
+    if (q.length < 2) { setSuggestions([]); setShowSuggestions(false); return; }
+    debounceRef.current = setTimeout(async () => {
+      try {
+        const res  = await fetch(`${API}/api/users/search?q=${encodeURIComponent(q)}`, { headers:{Authorization:`Bearer ${token}`} });
+        const data = await res.json();
+        const existing = new Set(collabs.map(c => c.email));
+        setSuggestions((Array.isArray(data)?data:[]).filter(u => !existing.has(u.email)));
+        setShowSuggestions(true);
+      } catch { setSuggestions([]); }
+    }, 250);
+  };
+  const selectSuggestion = (u) => {
+    setEmail(u.email); setSuggestions([]); setShowSuggestions(false);
   };
   const handleAdd = async () => {
     if (!email.trim()) return; setLoading(true);
@@ -499,7 +532,7 @@ function CollaboratorModal({ onClose, dbId, token }) {
         body:JSON.stringify({email:email.trim(),role}),
       });
       if (!res.ok) { const err=await res.json(); setMsg(err.detail||"Failed"); }
-      else { setEmail(""); setMsg(""); fetchCollabs(); }
+      else { setEmail(""); setMsg(""); setSuggestions([]); fetchCollabs(); }
     } catch { setMsg("Failed to add collaborator"); }
     setLoading(false);
   };
@@ -513,8 +546,37 @@ function CollaboratorModal({ onClose, dbId, token }) {
     <ModalWrap onClose={onClose} title="Share Database" subtitle="Add collaborators by their ReachCT email.">
       <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
         <div style={{ display:"flex", gap:8 }}>
-          <input style={{ ...inputStyle, flex:1 }} value={email} onChange={e=>setEmail(e.target.value)}
-            placeholder="colleague@email.com" onKeyDown={e=>e.key==="Enter"&&handleAdd()} />
+          <div style={{ position:"relative", flex:1 }}>
+            <input style={{ ...inputStyle, width:"100%", boxSizing:"border-box" }} value={email}
+              onChange={e=>handleEmailChange(e.target.value)}
+              onFocus={()=>{ if (suggestions.length) setShowSuggestions(true); }}
+              onBlur={()=>setTimeout(()=>setShowSuggestions(false), 150)}
+              placeholder="colleague@email.com" onKeyDown={e=>e.key==="Enter"&&handleAdd()} />
+            {showSuggestions && suggestions.length > 0 && (
+              <div style={{ position:"absolute", top:"100%", left:0, right:0, zIndex:100, background:"#fff",
+                border:"1px solid #eee", borderRadius:10, boxShadow:"0 4px 20px rgba(0,0,0,0.1)",
+                maxHeight:220, overflowY:"auto", marginTop:4 }}>
+                {suggestions.map(u => (
+                  <div key={u.id} onMouseDown={()=>selectSuggestion(u)} style={{ display:"flex", alignItems:"center",
+                    gap:10, padding:"8px 12px", cursor:"pointer" }}
+                    onMouseEnter={e=>e.currentTarget.style.background="#f9f9f9"}
+                    onMouseLeave={e=>e.currentTarget.style.background="#fff"}>
+                    {u.picture ? <img src={u.picture} alt="" referrerPolicy="no-referrer"
+                      style={{ width:24, height:24, borderRadius:"50%", objectFit:"cover" }} />
+                    : <div style={{ width:24, height:24, borderRadius:"50%", background:"#E8005A",
+                        display:"flex", alignItems:"center", justifyContent:"center",
+                        fontSize:11, color:"#fff", fontWeight:700, flexShrink:0 }}>{(u.name||u.email||"?")[0].toUpperCase()}</div>}
+                    <div style={{ overflow:"hidden" }}>
+                      <div style={{ fontSize:13, fontWeight:500, color:"#111", whiteSpace:"nowrap",
+                        overflow:"hidden", textOverflow:"ellipsis" }}>{u.name||u.email}</div>
+                      {u.name && <div style={{ fontSize:11, color:"#999", whiteSpace:"nowrap",
+                        overflow:"hidden", textOverflow:"ellipsis" }}>{u.email}</div>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
           <select value={role} onChange={e=>setRole(e.target.value)} style={{ padding:"10px 12px",
             border:"1.5px solid #e8e8e8", borderRadius:10, fontSize:13, fontFamily:"'DM Sans',sans-serif",
             color:"#111", background:"#fff", outline:"none", cursor:"pointer" }}>
@@ -805,8 +867,12 @@ function SpreadsheetGrid({
                     isFocused  ? "2px solid rgba(232,0,90,0.55)" :
                     isRange    ? "1px solid rgba(232,0,90,0.2)" : "none";
 
+                  const href = toHref(val);
+
                   return (
                     <td key={col}
+                      data-entry-id={entry.id}
+                      data-col={col}
                       style={{
                         padding:0,
                         borderRight: ci === 0 ? "2px solid #d0d0d0" : "1px solid #e8e8e8",
@@ -839,7 +905,14 @@ function SpreadsheetGrid({
                         <div style={{ padding:"0 10px", height:ROW_H, display:"flex", alignItems:"center",
                           overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap",
                           color: col==="email" ? "#E8005A" : "#333", fontWeight: col==="email" ? 500 : 400 }}>
-                          {val}
+                          {href ? (
+                            <a href={href} target="_blank" rel="noreferrer"
+                              onClick={e => e.stopPropagation()}
+                              style={{ color:"#E8005A", textDecoration:"underline",
+                                overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                              {val}
+                            </a>
+                          ) : val}
                         </div>
                       )}
                     </td>
@@ -1229,6 +1302,56 @@ export default function SpreadsheetPage() {
     const { rowIdx, colIdx } = getCellCoords(entryId, col);
     setSelection(prev => prev ? { ...prev, endRow:rowIdx, endCol:colIdx } : null);
   };
+
+  // Kept fresh every render so the auto-scroll loop below (which only restarts when
+  // isSelecting flips) always calls the latest version instead of a stale closure.
+  const handleCellMouseEnterRef = useRef(handleCellMouseEnter);
+  useEffect(() => { handleCellMouseEnterRef.current = handleCellMouseEnter; });
+
+  // ── Auto-scroll the grid while drag-selecting past its visible edge ───────
+  // Range selection only expanded to cells the mouse physically entered, so dragging
+  // to the bottom of the viewport and holding there couldn't reach rows below the fold.
+  useEffect(() => {
+    if (!isSelecting) return;
+    const mousePos = { x: 0, y: 0 };
+    const onMove = (e) => { mousePos.x = e.clientX; mousePos.y = e.clientY; };
+    window.addEventListener("mousemove", onMove);
+
+    const EDGE = 50, MAX_SPEED = 22;
+    let raf;
+    const tick = () => {
+      const el = gridRef.current;
+      if (el) {
+        const rect = el.getBoundingClientRect();
+        const { x, y } = mousePos;
+        let scrolled = false;
+
+        const distTop = y - rect.top, distBottom = rect.bottom - y;
+        if (distBottom >= -EDGE && distBottom < EDGE) {
+          el.scrollTop += MAX_SPEED * (1 - Math.max(distBottom, 0) / EDGE); scrolled = true;
+        } else if (distTop >= -EDGE && distTop < EDGE) {
+          el.scrollTop -= MAX_SPEED * (1 - Math.max(distTop, 0) / EDGE); scrolled = true;
+        }
+
+        const distLeft = x - rect.left, distRight = rect.right - x;
+        if (distRight >= -EDGE && distRight < EDGE) {
+          el.scrollLeft += MAX_SPEED * (1 - Math.max(distRight, 0) / EDGE); scrolled = true;
+        } else if (distLeft >= -EDGE && distLeft < EDGE) {
+          el.scrollLeft -= MAX_SPEED * (1 - Math.max(distLeft, 0) / EDGE); scrolled = true;
+        }
+
+        if (scrolled) {
+          const hovered = document.elementFromPoint(x, y);
+          const cellEl  = hovered && hovered.closest("[data-entry-id]");
+          if (cellEl) handleCellMouseEnterRef.current(Number(cellEl.dataset.entryId), cellEl.dataset.col);
+        }
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+
+    return () => { window.removeEventListener("mousemove", onMove); cancelAnimationFrame(raf); };
+  }, [isSelecting]);
 
   // ── Cell click / double-click ──────────────────────────────────────────────
   const handleCellClick = (rowIdx, colIdx, entryId, col) => {
