@@ -300,6 +300,11 @@ function LinkedInPeopleSearchModal({ onClose, onDone, token }) {
       setLoadMsg(data.queue_position > 0 ? `Queued at position ${data.queue_position}…` : "Searching LinkedIn…");
       pollRef.current = setInterval(async () => {
         const jr = await fetch(`${API}/api/linkedin/status/${data.job_id}`, { headers:{Authorization:`Bearer ${token}`} });
+        if (jr.status === 404) {
+          clearInterval(pollRef.current); setLoading(false);
+          setLoadMsg("Search job not found — the server may have restarted. Please start the search again.");
+          return;
+        }
         const jd = await jr.json();
         if (jd.status==="done"||jd.status==="cancelled") {
           clearInterval(pollRef.current); setLoading(false);
@@ -366,6 +371,11 @@ function LinkedInCompaniesSearchModal({ onClose, onDone, token }) {
       setLoadMsg(data.queue_position > 0 ? `Queued at position ${data.queue_position}…` : "Searching LinkedIn Jobs…");
       pollRef.current = setInterval(async () => {
         const jr = await fetch(`${API}/api/linkedin/status/${data.job_id}`, { headers:{Authorization:`Bearer ${token}`} });
+        if (jr.status === 404) {
+          clearInterval(pollRef.current); setLoading(false);
+          setLoadMsg("Search job not found — the server may have restarted. Please start the search again.");
+          return;
+        }
         const jd = await jr.json();
         if (jd.status==="done"||jd.status==="cancelled") {
           clearInterval(pollRef.current); setLoading(false);
@@ -430,6 +440,11 @@ function SearchModal({ onClose, onSearch, token }) {
       setLoadMsg(data.queue_position > 0 ? `Queued at position ${data.queue_position}…` : "Your search is in progress…");
       pollRef.current = setInterval(async () => {
         const jr = await fetch(`${API}/api/job/${data.job_id}`);
+        if (jr.status === 404) {
+          clearInterval(pollRef.current); setLoading(false);
+          setLoadMsg("Search job not found — the server may have restarted. Please start the search again.");
+          return;
+        }
         const jd = await jr.json();
         if (jd.status==="done"||jd.status==="cancelled") {
           clearInterval(pollRef.current); setLoading(false);
@@ -1290,11 +1305,14 @@ export default function SpreadsheetPage() {
     return rowIdx >= minR && rowIdx <= maxR && colIdx >= minC && colIdx <= maxC;
   };
 
+  const dragOriginRef = useRef(null);
+
   const handleCellMouseDown = (entryId, col, e) => {
     if (e.button !== 0) return;
     const { rowIdx, colIdx } = getCellCoords(entryId, col);
     setSelection({ startRow:rowIdx, startCol:colIdx, endRow:rowIdx, endCol:colIdx });
     setIsSelecting(true);
+    dragOriginRef.current = { x: e.clientX, y: e.clientY };
   };
 
   const handleCellMouseEnter = (entryId, col) => {
@@ -1314,14 +1332,22 @@ export default function SpreadsheetPage() {
   useEffect(() => {
     if (!isSelecting) return;
     const mousePos = { x: 0, y: 0 };
-    const onMove = (e) => { mousePos.x = e.clientX; mousePos.y = e.clientY; };
+    let hasDragged = false;
+    const DRAG_THRESHOLD = 6; // px — a click/double-click's mousedown+mouseup shouldn't count as a drag
+    const onMove = (e) => {
+      mousePos.x = e.clientX; mousePos.y = e.clientY;
+      if (!hasDragged && dragOriginRef.current) {
+        const dx = e.clientX - dragOriginRef.current.x, dy = e.clientY - dragOriginRef.current.y;
+        if (Math.hypot(dx, dy) > DRAG_THRESHOLD) hasDragged = true;
+      }
+    };
     window.addEventListener("mousemove", onMove);
 
     const EDGE = 50, MAX_SPEED = 22;
     let raf;
     const tick = () => {
       const el = gridRef.current;
-      if (el) {
+      if (el && hasDragged) {
         const rect = el.getBoundingClientRect();
         const { x, y } = mousePos;
         let scrolled = false;
