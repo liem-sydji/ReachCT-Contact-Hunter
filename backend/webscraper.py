@@ -34,17 +34,27 @@ SKIP_EMAIL_DOMAINS = {"example.com", "domain.com", "email.com", "youremail.com",
                       "sentry.io", "wixpress.com", "squarespace.com"}
 
 # Phone matching for arbitrary website text is riskier than for Maps listings (which are
-# short, isolated strings) — full page HTML/text is full of prices, dates, SKUs, etc.
-# So unlike a plain digit-run regex, this requires a leading "+" or actual separators
-# between digit groups, which plain numeric noise rarely has.
+# short, isolated strings) — full page HTML/text is full of prices, dates, GPS coordinates,
+# SKUs, etc. There's no way to know a bare match like "8260-1786" is a phone number and not
+# a product code from its shape alone (country formats vary too much to require "+" or 3+
+# groups outright) — extract_phones() below gates ambiguous shapes on nearby label context
+# ("Tel:", "Phone", ...) instead.
 PHONE_RE = re.compile(
     r"(?<!\d)(?:"
-    r"\+\d{7,15}"
-    r"|(?:\+\d{1,3}[\s.\-]?)?(?:\(\d{1,4}\)[\s.\-]?)?\d{2,4}(?:[\s.\-]\d{2,4}){1,4}"
+    r"\+\d{7,15}"                                              # +46735514590
+    r"|\(\d{1,4}\)[\s.\-]?\d{2,4}(?:[\s.\-]\d{2,4}){0,3}"       # (030) 1234567
+    r"|(?:\+\d{1,3}[\s.\-])?\d{2,4}(?:[\s.\-]\d{2,4}){1,4}"     # 030 123 4567, or bare 030-1234567
     r")(?!\d)"
 )
 # Catches "2020-01-15" style dates that would otherwise pass as a formatted phone number
 DATE_LIKE_RE = re.compile(r"^(19|20)\d{2}[\s.\-]\d{1,2}[\s.\-]\d{1,2}$")
+# Label words that precede a real phone number — used to confirm otherwise-ambiguous
+# bare matches (no "+", no parens, fewer than 3 digit groups) instead of rejecting them outright
+PHONE_CONTEXT_RE = re.compile(
+    r"\b(tel|tlf|tfno|fax|phone|mobile|cell|whatsapp|call|tel[eé]fono|telefon|kontakt)\b",
+    re.IGNORECASE,
+)
+PHONE_CONTEXT_WINDOW = 40  # chars to look back from a match for a label keyword
 
 # Map common country-code TLDs to country names (fallback when JSON-LD has no address)
 TLD_COUNTRY = {
@@ -60,6 +70,25 @@ TLD_COUNTRY = {
     "pe": "Peru",        "au": "Australia",   "nz": "New Zealand",
     "ca": "Canada",      "jp": "Japan",       "cn": "China",
     "in": "India",       "za": "South Africa",
+}
+
+# International calling codes by country name — keyed to match TLD_COUNTRY's values, and
+# only ever looked up from a country the user explicitly typed in (see format_phone below).
+# A site's TLD is not a reliable stand-in: most companies use generic .com/.io domains
+# regardless of where they're actually based.
+COUNTRY_CALLING_CODE = {
+    "Spain": "34",       "Germany": "49",      "France": "33",
+    "Italy": "39",       "Netherlands": "31",  "Belgium": "32",
+    "Portugal": "351",   "Poland": "48",       "Sweden": "46",
+    "Norway": "47",      "Denmark": "45",      "Finland": "358",
+    "Switzerland": "41", "Austria": "43",      "Czech Republic": "420",
+    "Hungary": "36",     "Romania": "40",      "Greece": "30",
+    "Turkey": "90",      "Russia": "7",        "United Kingdom": "44",
+    "Ireland": "353",    "Mexico": "52",       "Brazil": "55",
+    "Argentina": "54",   "Colombia": "57",     "Chile": "56",
+    "Peru": "51",        "Australia": "61",    "New Zealand": "64",
+    "Canada": "1",       "Japan": "81",        "China": "86",
+    "India": "91",       "South Africa": "27",
 }
 
 JSONLD_RE = re.compile(
@@ -91,6 +120,22 @@ def extract_emails(text: str) -> list:
     return clean
 
 
+def _separator_chars(raw: str) -> set:
+    """Distinct separator "kinds" used in a match — all whitespace counts as one kind."""
+    seps = set()
+    for ch in raw:
+        if ch.isspace():
+            seps.add(" ")
+        elif ch in ".-":
+            seps.add(ch)
+    return seps
+
+
+def _has_phone_context(text: str, start: int) -> bool:
+    window = text[max(0, start - PHONE_CONTEXT_WINDOW):start]
+    return bool(PHONE_CONTEXT_RE.search(window))
+
+
 def extract_phones(text: str) -> list:
     found = []
     seen  = set()
@@ -102,6 +147,23 @@ def extract_phones(text: str) -> list:
         if len(set(digits)) <= 1:          # e.g. "0000000000"
             continue
         if DATE_LIKE_RE.match(raw):
+            continue
+        # Real formatted numbers use one separator style throughout. Mixing kinds
+        # (e.g. "36.008 100.512", "2026-03-02 14") means two unrelated numbers —
+        # GPS coordinates, a date plus a time — sitting next to each other in text.
+        # These are rejected outright, regardless of any nearby label.
+        if len(_separator_chars(raw)) > 1:
+            continue
+        # "255 255 255" (RGB triplet) etc. — identical repeated groups aren't a phone,
+        # also rejected outright.
+        groups = [g for g in re.split(r"[\s.\-()]+", raw) if g]
+        if len(groups) > 1 and len(set(groups)) == 1:
+            continue
+        # A bare 2-group number with no "+" or parens is as plausibly a price/SKU/id
+        # as a phone — country formats vary too much to reject it on shape alone, so
+        # it only counts if a phone-label keyword appears just before it in the text.
+        unambiguous = raw.startswith("+") or "(" in raw or len(groups) >= 3
+        if not unambiguous and not _has_phone_context(text, m.start()):
             continue
         if raw in seen:
             continue
@@ -150,6 +212,30 @@ def extract_address_from_jsonld(html_content: str) -> tuple:
 def country_from_tld(url: str) -> str:
     tld = urlparse(url).netloc.split(".")[-1].lower()
     return TLD_COUNTRY.get(tld, "")
+
+
+def format_phone(raw: str, country: str = "") -> str:
+    """Normalize a scraped number to a consistent "+<countrycode><digits>" form.
+
+    Already-international numbers ("+46735514590") are just stripped of separators.
+    A bare local number only gets a country code prepended when `country` was
+    explicitly supplied by the user for this scrape — there's no reliable way to guess
+    it otherwise, since most companies use generic .com/.io domains regardless of where
+    they're actually based. Without a known country, the number is left as scraped.
+    """
+    if not raw:
+        return ""
+    if raw.strip().startswith("+"):
+        return f"+{re.sub(r'\D', '', raw)}"
+
+    cc = COUNTRY_CALLING_CODE.get(country) if country else None
+    if not cc:
+        return raw.strip()
+
+    digits = re.sub(r"\D", "", raw)
+    if digits.startswith("0"):
+        digits = digits[1:]
+    return f"+{cc}{digits}"
 
 
 async def extract_company_name(page) -> str:
@@ -230,7 +316,7 @@ async def scrape_website_contact(page, url: str,
 
         emails = extract_emails(content)
         if emails:
-            return emails[0], phone, company_name, city, country
+            return emails[0], format_phone(phone, user_country), company_name, city, country
 
         # Also check mailto: links
         mailto_links = await page.query_selector_all("a[href^='mailto:']")
@@ -239,7 +325,7 @@ async def scrape_website_contact(page, url: str,
             if href:
                 email = href.replace("mailto:", "").split("?")[0].strip()
                 if email and "@" in email:
-                    return email, phone, company_name, city, country
+                    return email, format_phone(phone, user_country), company_name, city, country
 
         # Try contact pages
         all_links = await page.query_selector_all("a[href]")
@@ -269,7 +355,7 @@ async def scrape_website_contact(page, url: str,
 
                 emails = extract_emails(content)
                 if emails:
-                    return emails[0], phone, company_name, city, country
+                    return emails[0], format_phone(phone, user_country), company_name, city, country
 
                 # Check mailto links on contact page
                 mailto_links = await page.query_selector_all("a[href^='mailto:']")
@@ -278,14 +364,14 @@ async def scrape_website_contact(page, url: str,
                     if href:
                         email = href.replace("mailto:", "").split("?")[0].strip()
                         if email and "@" in email:
-                            return email, phone, company_name, city, country
+                            return email, format_phone(phone, user_country), company_name, city, country
             except Exception:
                 continue
 
     except Exception as e:
         print(f"⚠️ Error scraping {url}: {e}")
 
-    return "", phone, company_name, city, country
+    return "", format_phone(phone, user_country), company_name, city, country
 
 
 async def scrape_url_list(urls: list, company_type: str,
