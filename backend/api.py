@@ -56,6 +56,11 @@ def queue_worker():
     while True:
         try:
             job_id, query, city, country, start, end = search_queue.get(timeout=300)
+            # Job was cancelled while still queued — don't start it
+            if jobs.get(job_id, {}).get("status") == "cancelling":
+                jobs[job_id]["status"] = "cancelled"
+                search_queue.task_done()
+                continue
             jobs[job_id]["status"]         = "starting"
             jobs[job_id]["queue_position"] = 0
             for idx, j in enumerate([j for j in jobs.values() if j["status"] == "queued"]):
@@ -140,6 +145,10 @@ def run_scrape_job_thread(job_id, query, city, country, start, end):
 
 async def run_scrape_job(job_id, query, city, country, start, end):
     try:
+        # Cancel may land between the worker dequeuing and this thread starting
+        if jobs[job_id].get("status") == "cancelling":
+            jobs[job_id]["status"] = "cancelled"
+            return
         jobs[job_id]["status"] = "running"
         results = await scrape_google_maps(query, city, country, start, end, job_id, jobs=jobs, job_id=job_id)
         for c in results: upsert_company(job_id, c)

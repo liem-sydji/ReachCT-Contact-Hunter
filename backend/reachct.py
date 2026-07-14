@@ -184,6 +184,10 @@ async def get_business_name(page) -> str:
 
 # ── Google Maps scraper ───────────────────────────────────────────────────────
 
+def _is_cancelling(jobs: dict, job_id: str) -> bool:
+    return bool(jobs and job_id and jobs.get(job_id, {}).get("status") == "cancelling")
+
+
 async def scrape_google_maps(query: str, city: str, country: str,
                               start_idx: int, end_idx: int, run_id: str,
                               jobs: dict = None, job_id: str = None) -> list:
@@ -270,7 +274,7 @@ async def scrape_google_maps(query: str, city: str, country: str,
 
         for i, listing_href in enumerate(batch):
             # Check for cancellation — hard stop, kill browser immediately
-            if jobs and job_id and jobs.get(job_id, {}).get("status") == "cancelling":
+            if _is_cancelling(jobs, job_id):
                 print(f"  🛑 Search hard-stopped at listing {start_idx+i+1} — saving {len(results)} results")
                 try:
                     await browser.close()
@@ -339,7 +343,8 @@ async def scrape_google_maps(query: str, city: str, country: str,
                 print(f"  🌐 {website[:65] if website else 'no website'}")
 
                 web_data = {"email": "", "phone": "", "page_text": ""}
-                if website:
+                # Skip the slow website scrape if a cancel came in mid-listing
+                if website and not _is_cancelling(jobs, job_id):
                     web_data = await scrape_website(browser, website)
 
                 final_phone = phone_maps or web_data["phone"]
@@ -379,6 +384,10 @@ async def scrape_google_maps(query: str, city: str, country: str,
                     await page.wait_for_timeout(random_delay(1500, 2000))
 
                 continue
+
+            finally:
+                if jobs and job_id and job_id in jobs:
+                    jobs[job_id]["progress"] = i + 1
 
         await browser.close()
 

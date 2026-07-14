@@ -91,6 +91,8 @@ function MapsSearch({ user, token, navigate }) {
         } else if (jd.status==="error") {
           clearInterval(pollRef.current); setError(jd.error||"Something went wrong"); setLoading(false); setJobId(null);
           localStorage.removeItem("reachct-job-maps");
+        } else if (jd.status==="cancelling") {
+          setLoadMsg("Cancelling — saving results collected so far…");
         } else if (jd.queue_position > 0) {
           setLoadMsg(`Your search is queued at position ${jd.queue_position} — results will save automatically.`);
         } else if (jd.status==="starting") {
