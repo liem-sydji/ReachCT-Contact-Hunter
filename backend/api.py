@@ -52,12 +52,22 @@ jobs: dict   = {}
 search_queue = queue_module.Queue()
 queue_lock   = threading.Lock()
 
+# Each worker below is single-threaded and blocks on t.join() while a job runs — if a
+# job ever hangs instead of raising (a wedged browser, a network stall outlasting an
+# internal timeout), the worker never dequeues anything again and every future job for
+# that scraper just sits "queued" forever. These caps bound that: t.join(timeout=...)
+# gives up on a hung job so the queue can keep moving, at the cost of abandoning that
+# one job's thread to finish (or not) in the background.
+MAPS_JOB_TIMEOUT_S     = 25 * 60
+LINKEDIN_JOB_TIMEOUT_S = 20 * 60
+URL_SCRAPE_TIMEOUT_S   = 20 * 60
+
 def queue_worker():
     while True:
         try:
             job_id, query, city, country, start, end = search_queue.get(timeout=300)
             # Job was cancelled while still queued — don't start it
-            if jobs.get(job_id, {}).get("status") == "cancelling":
+            if jobs.get(job_id, {}).get("status") in ("cancelling", "cancelled"):
                 jobs[job_id]["status"] = "cancelled"
                 search_queue.task_done()
                 continue
@@ -66,7 +76,11 @@ def queue_worker():
             for idx, j in enumerate([j for j in jobs.values() if j["status"] == "queued"]):
                 j["queue_position"] = idx + 1
             t = threading.Thread(target=run_scrape_job_thread, args=(job_id, query, city, country, start, end), daemon=False)
-            t.start(); t.join()
+            t.start(); t.join(timeout=MAPS_JOB_TIMEOUT_S)
+            if t.is_alive():
+                print(f"⏱️  Maps job {job_id} exceeded {MAPS_JOB_TIMEOUT_S}s — abandoning it so the queue can continue")
+                jobs[job_id]["status"] = "error"
+                jobs[job_id]["error"]  = "Search timed out"
             search_queue.task_done()
         except queue_module.Empty: continue
         except Exception as e: print(f"❌ Queue worker error: {e}"); continue
@@ -150,6 +164,10 @@ async def run_scrape_job(job_id, query, city, country, start, end):
             jobs[job_id]["status"] = "cancelled"
             return
         jobs[job_id]["status"] = "running"
+        # Published so cancel_job can reach this job's browser from another thread —
+        # the cooperative in-loop cancel check can't help if the scrape is genuinely
+        # hung mid-await, since that check never gets a chance to run again.
+        jobs[job_id]["_loop"] = asyncio.get_running_loop()
         results = await scrape_google_maps(query, city, country, start, end, job_id, jobs=jobs, job_id=job_id)
         for c in results: upsert_company(job_id, c)
         save_search(job_id, query, city, country, start, end, len(results))
@@ -158,11 +176,29 @@ async def run_scrape_job(job_id, query, city, country, start, end):
     except Exception as e:
         jobs[job_id]["status"] = "error"; jobs[job_id]["error"] = str(e)
 
+def _force_close_browser(job: dict):
+    """Reach into a running job's live browser from outside its thread and close it —
+    unsticks a genuinely hung scrape that the cooperative cancel check can't interrupt."""
+    loop    = job.get("_loop")
+    browser = job.get("_browser")
+    if loop and browser:
+        try:
+            asyncio.run_coroutine_threadsafe(browser.close(), loop)
+        except Exception as e:
+            print(f"⚠️  Force-close browser failed: {e}")
+
 @app.post("/api/job/{job_id}/cancel")
 def cancel_job(job_id: str):
     job = jobs.get(job_id)
     if not job: raise HTTPException(status_code=404, detail="Job not found")
-    if job["status"] in ("running","queued"): job["status"] = "cancelling"; return {"message":"Cancellation requested"}
+    # A queued job hasn't started anything yet — cancel it outright instead of waiting
+    # for the queue worker to dequeue it, which won't happen until the currently
+    # running job finishes (the worker is single-threaded and blocks on t.join()).
+    if job["status"] == "queued": job["status"] = "cancelled"; return {"message":"Cancelled"}
+    if job["status"] == "running":
+        job["status"] = "cancelling"
+        _force_close_browser(job)
+        return {"message":"Cancellation requested"}
     return {"message": f"Job already {job['status']}"}
 
 @app.get("/api/job/{job_id}")
@@ -517,7 +553,9 @@ def admin_get_jobs():
 def admin_cancel_all():
     cancelled = []
     for jid, job in jobs.items():
-        if job["status"] in ("running","queued","starting"):
+        if job["status"] == "queued":
+            job["status"] = "cancelled"; cancelled.append(jid)
+        elif job["status"] in ("running","starting"):
             job["status"] = "cancelling"; cancelled.append(jid)
     return {"cancelled": cancelled, "count": len(cancelled)}
 
@@ -1052,13 +1090,22 @@ def linkedin_queue_worker():
         try:
             item   = linkedin_queue.get(timeout=300)
             job_id = item["job_id"]
+            # Job was cancelled while still queued — don't start it
+            if linkedin_jobs.get(job_id, {}).get("status") in ("cancelling", "cancelled"):
+                linkedin_jobs[job_id]["status"] = "cancelled"
+                linkedin_queue.task_done()
+                continue
             linkedin_jobs[job_id]["status"]         = "starting"
             linkedin_jobs[job_id]["queue_position"] = 0
             for j in linkedin_jobs.values():
                 if j["status"] == "queued":
                     j["queue_position"] = max(0, j.get("queue_position", 1) - 1)
             t = threading.Thread(target=_run_linkedin_job, args=(item,), daemon=False)
-            t.start(); t.join()
+            t.start(); t.join(timeout=LINKEDIN_JOB_TIMEOUT_S)
+            if t.is_alive():
+                print(f"⏱️  LinkedIn job {job_id} exceeded {LINKEDIN_JOB_TIMEOUT_S}s — abandoning it so the queue can continue")
+                linkedin_jobs[job_id]["status"] = "error"
+                linkedin_jobs[job_id]["error"]  = "Search timed out"
             linkedin_queue.task_done()
         except queue_module.Empty:
             continue
@@ -1262,7 +1309,12 @@ def cancel_linkedin_job(job_id: str, authorization: str = Header(default=None)):
     job = linkedin_jobs.get(job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
-    if job["status"] in ("running", "queued", "starting"):
+    # A queued job hasn't started anything yet — cancel it outright instead of waiting
+    # for the currently running job to finish (the worker is single-threaded).
+    if job["status"] == "queued":
+        job["status"] = "cancelled"
+        return {"message": "Cancelled"}
+    if job["status"] in ("running", "starting"):
         job["status"] = "cancelling"
         return {"message": "Cancellation requested"}
     return {"message": f"Job already {job['status']}"}
@@ -1452,13 +1504,22 @@ def url_scrape_queue_worker():
         try:
             item   = url_scrape_queue.get(timeout=300)
             job_id = item["job_id"]
+            # Job was cancelled while still queued — don't start it
+            if url_scrape_jobs.get(job_id, {}).get("status") in ("cancelling", "cancelled"):
+                url_scrape_jobs[job_id]["status"] = "cancelled"
+                url_scrape_queue.task_done()
+                continue
             url_scrape_jobs[job_id]["status"]         = "starting"
             url_scrape_jobs[job_id]["queue_position"] = 0
             for j in url_scrape_jobs.values():
                 if j["status"] == "queued":
                     j["queue_position"] = max(0, j.get("queue_position", 1) - 1)
             t = threading.Thread(target=_run_url_scrape_job, args=(item,), daemon=False)
-            t.start(); t.join()
+            t.start(); t.join(timeout=URL_SCRAPE_TIMEOUT_S)
+            if t.is_alive():
+                print(f"⏱️  URL scrape job {job_id} exceeded {URL_SCRAPE_TIMEOUT_S}s — abandoning it so the queue can continue")
+                url_scrape_jobs[job_id]["status"] = "error"
+                url_scrape_jobs[job_id]["error"]  = "Scrape timed out"
             url_scrape_queue.task_done()
         except queue_module.Empty:
             continue
@@ -1538,7 +1599,12 @@ def cancel_url_scrape(job_id: str, authorization: str = Header(default=None)):
     job = url_scrape_jobs.get(job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
-    if job["status"] in ("running", "queued", "starting"):
+    # A queued job hasn't started anything yet — cancel it outright instead of waiting
+    # for the currently running job to finish (the worker is single-threaded).
+    if job["status"] == "queued":
+        job["status"] = "cancelled"
+        return {"message": "Cancelled"}
+    if job["status"] in ("running", "starting"):
         job["status"] = "cancelling"
         return {"message": "Cancellation requested"}
     return {"message": f"Job already {job['status']}"}

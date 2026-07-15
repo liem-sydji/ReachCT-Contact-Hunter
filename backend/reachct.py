@@ -202,6 +202,7 @@ async def scrape_google_maps(query: str, city: str, country: str,
 
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=HEADLESS)
+        if jobs and job_id: jobs[job_id]["_browser"] = browser
         context = await browser.new_context(
             user_agent=random.choice(USER_AGENTS),
             locale="es-ES",
@@ -289,6 +290,7 @@ async def scrape_google_maps(query: str, city: str, country: str,
                 except: pass
                 await asyncio.sleep(2)
                 browser = await p.chromium.launch(headless=HEADLESS)
+                if jobs and job_id: jobs[job_id]["_browser"] = browser
                 context = await browser.new_context(
                     user_agent=random.choice(USER_AGENTS),
                     locale="es-ES",
@@ -374,6 +376,7 @@ async def scrape_google_maps(query: str, city: str, country: str,
                     except: pass
                     await asyncio.sleep(2)
                     browser = await p.chromium.launch(headless=HEADLESS)
+                    if jobs and job_id: jobs[job_id]["_browser"] = browser
                     context = await browser.new_context(
                         user_agent=random.choice(USER_AGENTS),
                         locale="es-ES",
