@@ -176,6 +176,11 @@ async def run_scrape_job(job_id, query, city, country, start, end):
     except Exception as e:
         jobs[job_id]["status"] = "error"; jobs[job_id]["error"] = str(e)
 
+def _public_job(job: dict) -> dict:
+    """Strip internal, non-JSON-serializable handles (event loop, live browser object)
+    before a job dict goes out over the API — FastAPI's encoder can't serialize those."""
+    return {k: v for k, v in job.items() if not k.startswith("_")}
+
 def _force_close_browser(job: dict):
     """Reach into a running job's live browser from outside its thread and close it —
     unsticks a genuinely hung scrape that the cooperative cancel check can't interrupt."""
@@ -205,7 +210,7 @@ def cancel_job(job_id: str):
 def get_job(job_id: str):
     job = jobs.get(job_id)
     if not job: raise HTTPException(status_code=404, detail="Job not found")
-    return job
+    return _public_job(job)
 
 # ── Companies ─────────────────────────────────────────────────────────────────
 class MultiFilterRequest(BaseModel):
@@ -547,7 +552,7 @@ def remove_collab(db_id: int, target_user_id: int, authorization: str = Header(d
 # ── Admin ─────────────────────────────────────────────────────────────────────
 @app.get("/api/admin/jobs")
 def admin_get_jobs():
-    return {"jobs": [{"id": jid, **job} for jid, job in jobs.items()]}
+    return {"jobs": [{"id": jid, **_public_job(job)} for jid, job in jobs.items()]}
 
 @app.post("/api/admin/cancel-all")
 def admin_cancel_all():
@@ -1301,7 +1306,7 @@ def linkedin_status(job_id: str, authorization: str = Header(default=None)):
     job = linkedin_jobs.get(job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
-    return job
+    return _public_job(job)
 
 @app.post("/api/linkedin/cancel/{job_id}")
 def cancel_linkedin_job(job_id: str, authorization: str = Header(default=None)):
@@ -1591,7 +1596,7 @@ def url_scrape_status(job_id: str, authorization: str = Header(default=None)):
     job = url_scrape_jobs.get(job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
-    return job
+    return _public_job(job)
 
 @app.post("/api/scrape/urls/cancel/{job_id}")
 def cancel_url_scrape(job_id: str, authorization: str = Header(default=None)):
