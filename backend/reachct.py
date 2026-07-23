@@ -47,6 +47,10 @@ EMAIL_BLACKLIST = [
 ]
 
 MAX_RETRIES = 1  # 1 attempt per site
+# page.evaluate()/page.content() have no timeout of their own — a site whose JS blocks
+# the main thread would hang the scrape forever. Hard cap on one website visit
+# (legit worst case ≈ 57s: 15s homepage + pauses + 5 contact paths × ~7s).
+PER_SITE_TIMEOUT_S = 90
 # ─────────────────────────────────────────────────────────────────────────────
 
 
@@ -136,9 +140,11 @@ async def scrape_website(browser, url: str, retries: int = MAX_RETRIES) -> dict:
         except Exception as e:
             print(f"    ⚠️  Failed: {str(e)[:60]}")
         finally:
+            # Bounded close: this also runs while asyncio.wait_for is cancelling us, and a
+            # wedged context would otherwise stall that cancellation indefinitely.
             if context:
-                try: await context.close()
-                except: pass
+                try: await asyncio.wait_for(context.close(), timeout=5)
+                except BaseException: pass
 
     return {"email": None, "phone": None, "page_text": ""}
 
@@ -347,7 +353,11 @@ async def scrape_google_maps(query: str, city: str, country: str,
                 web_data = {"email": "", "phone": "", "page_text": ""}
                 # Skip the slow website scrape if a cancel came in mid-listing
                 if website and not _is_cancelling(jobs, job_id):
-                    web_data = await scrape_website(browser, website)
+                    try:
+                        web_data = await asyncio.wait_for(
+                            scrape_website(browser, website), timeout=PER_SITE_TIMEOUT_S)
+                    except asyncio.TimeoutError:
+                        print(f"  ⏱️  Website stuck >{PER_SITE_TIMEOUT_S}s — skipping: {website[:65]}")
 
                 final_phone = phone_maps or web_data["phone"]
                 email       = web_data["email"]

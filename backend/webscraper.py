@@ -21,6 +21,11 @@ USER_AGENTS = [
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
 ]
 
+# page.evaluate()/page.content() have no timeout of their own — a site whose JS blocks
+# the main thread would hang the scrape forever. Hard cap on one website visit
+# (legit worst case ≈ 70s: 20s homepage + pauses + 3 contact pages × ~16s).
+PER_SITE_TIMEOUT_S = 90
+
 # Pages most likely to have contact emails
 CONTACT_KEYWORDS = [
     "contact", "contacto", "kontakt", "kontakty",
@@ -405,9 +410,25 @@ async def scrape_url_list(urls: list, company_type: str,
 
             print(f"🌐 Scraping {idx+1}/{len(urls)}: {url}")
 
-            email, phone, company_name, city, country = await scrape_website_contact(
-                page, url, user_city, user_country
-            )
+            try:
+                email, phone, company_name, city, country = await asyncio.wait_for(
+                    scrape_website_contact(page, url, user_city, user_country),
+                    timeout=PER_SITE_TIMEOUT_S,
+                )
+            except asyncio.TimeoutError:
+                print(f"⏱️  Stuck >{PER_SITE_TIMEOUT_S}s — skipping: {url}")
+                email, phone, company_name, city, country = "", "", "", "", ""
+                # The page is shared across URLs and its JS may still be wedged —
+                # replace it so the next URL starts clean.
+                try:
+                    await asyncio.wait_for(context.close(), timeout=5)
+                except BaseException:
+                    pass
+                context = await browser.new_context(
+                    user_agent=random.choice(USER_AGENTS),
+                    locale="en-US",
+                )
+                page = await context.new_page()
 
             if email:
                 if not company_name:
