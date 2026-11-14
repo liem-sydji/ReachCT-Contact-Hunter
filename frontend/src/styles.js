@@ -1,12 +1,13 @@
+import { groovyCss } from "./groovyStyles.js";
+
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
-// VITE_API_URL in .env.local overrides this for local dev (points to localhost:8000).
-// Production keeps the Railway URL via Netlify env var or the hardcoded fallback.
-export const API = import.meta.env.VITE_API_URL || "https://reachct-production.up.railway.app";
+// Local API while we develop on this machine. When we test on the ReachCT Lab
+// Railway instance, set VITE_API_URL to that service's URL.
+export const API = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
-export const ADMIN_PASSWORD = "reachct2026";
-
-// Google OAuth Client ID
-export const GOOGLE_CLIENT_ID = "863794295102-us9cq39mkd6s6su7u0380hr2ncrice5b.apps.googleusercontent.com";
+// Same client ID as GOOGLE_CLIENT_ID in backend/.env. The Google client must
+// allow the JavaScript origin http://localhost:5173.
+export const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || "";
 
 // ─── COMPANY TYPES (grouped alphabetically for <optgroup>) ────────────────────
 export const COMPANY_TYPES_GROUPED = {
@@ -35,12 +36,12 @@ export const COMPANY_TYPES_GROUPED = {
 
 // ─── GLOBAL STYLES ────────────────────────────────────────────────────────────
 export const css = `
-  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT,WONK@9..144,800..900,100,1&family=Poppins:wght@400;500;600&family=Shrikhand&family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap');
 
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
   body {
-    font-family: 'DM Sans', sans-serif;
+    font-family: 'Poppins', 'DM Sans', sans-serif;
     background: #0a0a0a;
     color: #fff;
     min-height: 100vh;
@@ -209,4 +210,6 @@ export const css = `
     .info-wrap { padding: 0 20px; }
     .landing-title { font-size: 40px; }
   }
+
+  ${groovyCss}
 `;
