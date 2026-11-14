@@ -6,11 +6,20 @@ export const y2kCss = `
   @import url('https://fonts.googleapis.com/css2?family=Anton&family=Big+Shoulders+Stencil+Display:wght@800&family=Space+Mono:wght@400;700&family=Unbounded:wght@800;900&display=swap');
 
   .y2k-root {
-    --paper: #EDEAE2;
-    --cream: #EEE6CF;
-    --fog: #D6D7DB;
-    --ink: #2E2F3D;
-    --ink-deep: #0A0F1F;
+    /* Locked palette — do not remap these */
+    --palette-paper: #EDEAE2;
+    --palette-cream: #EEE6CF;
+    --palette-fog: #D6D7DB;
+    --palette-ink: #2E2F3D;
+    --palette-ink-deep: #0A0F1F;
+    --palette-ink-void: #05070F;
+
+    /* Semantic surfaces (light default) */
+    --paper: var(--palette-paper);
+    --cream: var(--palette-cream);
+    --fog: var(--palette-fog);
+    --ink: var(--palette-ink);
+    --ink-deep: var(--palette-ink-deep);
     --pink: #E12963;
     --pink-deep: #C21E55;
     --orange: #E85018;
@@ -31,6 +40,8 @@ export const y2kCss = `
     --y2k-shadow: 4px 4px 0 var(--ink);
     --y2k-radius-pill: 999px;
     --y2k-radius-window: 28px;
+    --y2k-grain-opacity: 0.07;
+    --y2k-grain-blend: multiply;
 
     position: relative;
     min-height: 100vh;
@@ -39,6 +50,21 @@ export const y2kCss = `
     font-family: var(--y2k-font-body);
     overflow-x: clip;
     -webkit-font-smoothing: antialiased;
+    color-scheme: light;
+  }
+
+  /* Dark mode: ink-deep ground, paper text, accents unchanged */
+  .y2k-root[data-theme="dark"] {
+    --paper: var(--palette-ink-deep);
+    --cream: #12182A;
+    --fog: #1A2238;
+    --ink: var(--palette-paper);
+    --ink-deep: var(--palette-ink-void);
+    --cobalt: #6B9AE8;
+    --mint: #B8E6DD;
+    --y2k-grain-opacity: 0.12;
+    --y2k-grain-blend: soft-light;
+    color-scheme: dark;
   }
 
   /* Paper grain overlay */
@@ -48,9 +74,9 @@ export const y2kCss = `
     inset: 0;
     pointer-events: none;
     z-index: 9998;
-    opacity: 0.07;
+    opacity: var(--y2k-grain-opacity);
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-    mix-blend-mode: multiply;
+    mix-blend-mode: var(--y2k-grain-blend);
   }
 
   .y2k-root *,
@@ -371,18 +397,21 @@ export const y2kCss = `
   /* ── StarfieldPanel ── */
   .y2k-starfield {
     position: relative;
-    background: var(--ink-deep);
-    color: var(--paper);
+    background: var(--palette-ink-deep);
+    color: var(--palette-paper);
     overflow: hidden;
     border: var(--y2k-border);
     min-height: 220px;
     padding: 32px;
   }
+  .y2k-root[data-theme="dark"] .y2k-starfield {
+    background: var(--palette-ink-void);
+  }
   .y2k-starfield__star {
     position: absolute;
     width: 2px;
     height: 2px;
-    background: var(--paper);
+    background: var(--palette-paper);
     border-radius: 50%;
     opacity: 0.55;
     animation: y2k-twinkle 2.4s ease-in-out infinite;
@@ -568,8 +597,8 @@ export const y2kCss = `
   .y2k-nav__overlay {
     position: fixed;
     inset: 0;
-    background: var(--ink);
-    color: var(--paper);
+    background: var(--palette-ink-deep);
+    color: var(--palette-paper);
     z-index: 200;
     display: flex;
     flex-direction: column;
@@ -586,7 +615,7 @@ export const y2kCss = `
     line-height: 0.9;
     background: none;
     border: 0;
-    color: var(--paper);
+    color: var(--palette-paper);
     text-align: left;
     cursor: pointer;
     padding: 0;
@@ -598,16 +627,45 @@ export const y2kCss = `
     letter-spacing: 0.1em;
     text-transform: uppercase;
     background: none;
-    border: 1.5px solid var(--paper);
-    color: var(--paper);
+    border: 1.5px solid var(--palette-paper);
+    color: var(--palette-paper);
     padding: 10px 14px;
     cursor: pointer;
+  }
+  .y2k-nav__actions {
+    justify-self: end;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .y2k-theme-toggle {
+    font-family: var(--y2k-font-mono);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    background: transparent;
+    color: var(--ink);
+    border: var(--y2k-border);
+    border-radius: var(--y2k-radius-pill);
+    padding: 6px 12px;
+    cursor: pointer;
+    line-height: 1;
+  }
+  .y2k-theme-toggle:focus-visible {
+    outline: 2px solid var(--pink);
+    outline-offset: 2px;
+  }
+  .y2k-theme-toggle:hover {
+    background: var(--ink);
+    color: var(--paper);
   }
   @media (max-width: 767px) {
     .y2k-nav__center,
     .y2k-nav__year { display: none; }
     .y2k-nav__menu-btn { display: inline-flex; align-items: center; justify-content: center; }
-    .y2k-nav__bar { grid-template-columns: 1fr auto; }
+    .y2k-nav__bar { grid-template-columns: 1fr auto auto; }
+    .y2k-nav__actions { gap: 8px; }
   }
 
   /* ── Hero ── */
@@ -695,6 +753,25 @@ export const y2kCss = `
   .y2k-section--ink .y2k-rule,
   .y2k-section--ink .y2k-rule--labelled::before,
   .y2k-section--ink .y2k-rule--labelled::after { background: var(--paper); }
+  /* Inverse ink blocks stay navy even in dark mode */
+  .y2k-root[data-theme="dark"] .y2k-section--ink {
+    background: var(--palette-ink);
+    color: var(--palette-paper);
+  }
+  .y2k-root[data-theme="dark"] .y2k-section--ink .y2k-bracket,
+  .y2k-root[data-theme="dark"] .y2k-section--ink .y2k-pill,
+  .y2k-root[data-theme="dark"] .y2k-section--ink .y2k-rail,
+  .y2k-root[data-theme="dark"] .y2k-section--ink .y2k-rule__label {
+    color: var(--palette-paper);
+  }
+  .y2k-root[data-theme="dark"] .y2k-section--ink .y2k-pill {
+    border-color: var(--palette-paper);
+  }
+  .y2k-root[data-theme="dark"] .y2k-section--ink .y2k-rule,
+  .y2k-root[data-theme="dark"] .y2k-section--ink .y2k-rule--labelled::before,
+  .y2k-root[data-theme="dark"] .y2k-section--ink .y2k-rule--labelled::after {
+    background: var(--palette-paper);
+  }
   .y2k-section--pink { background: var(--pink); color: var(--paper); }
   .y2k-section--pink .y2k-bracket,
   .y2k-section--pink .y2k-rail { color: var(--paper); }
@@ -750,9 +827,13 @@ export const y2kCss = `
     overflow: hidden;
     border-top: var(--y2k-border);
     border-bottom: var(--y2k-border);
-    background: var(--ink);
-    color: var(--paper);
+    background: var(--palette-ink);
+    color: var(--palette-paper);
     padding: 8px 0;
+  }
+  .y2k-root[data-theme="dark"] .y2k-ticker {
+    background: var(--palette-ink-void);
+    color: var(--palette-paper);
   }
   .y2k-ticker__track {
     display: flex;

@@ -2,12 +2,15 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import PillLabel from "./PillLabel.jsx";
 import Rule from "./Rule.jsx";
+import ThemeToggle from "./ThemeToggle.jsx";
 
 export default function Navbar({
   logoLabel = "ReachCT",
   centerLabel = "STYLE GUIDE",
   year = "26 / 2026",
   links = [],
+  theme,
+  onThemeChange,
 }) {
   const [open, setOpen] = useState(false);
 
@@ -25,8 +28,13 @@ export default function Navbar({
           <PillLabel>{centerLabel}</PillLabel>
         </div>
 
-        <div className="y2k-nav__year" aria-hidden="true">
-          {year}
+        <div className="y2k-nav__actions">
+          <span className="y2k-nav__year" aria-hidden="true">
+            {year}
+          </span>
+          {onThemeChange && (
+            <ThemeToggle theme={theme} onChange={onThemeChange} />
+          )}
         </div>
 
         <button
@@ -49,6 +57,9 @@ export default function Navbar({
           >
             Close
           </button>
+          {onThemeChange && (
+            <ThemeToggle theme={theme} onChange={onThemeChange} />
+          )}
           {(links.length
             ? links
             : [

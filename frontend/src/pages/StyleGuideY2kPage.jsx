@@ -1,4 +1,10 @@
-import { y2kTokens } from "../themeY2k.js";
+import { useEffect, useState } from "react";
+import {
+  getPreferredY2kTheme,
+  persistY2kTheme,
+  y2kTokens,
+  y2kTokensDark,
+} from "../themeY2k.js";
 import {
   Button,
   PillLabel,
@@ -25,7 +31,7 @@ import {
   CursorSparkle,
 } from "../components/y2k/index.js";
 
-const SWATCHES = [
+const LIGHT_SWATCHES = [
   ["paper", y2kTokens.paper],
   ["cream", y2kTokens.cream],
   ["fog", y2kTokens.fog],
@@ -41,6 +47,22 @@ const SWATCHES = [
   ["ring-yellow", y2kTokens.ringYellow],
 ];
 
+const DARK_SWATCHES = [
+  ["paper → ink-deep", y2kTokensDark.paper],
+  ["cream", y2kTokensDark.cream],
+  ["fog", y2kTokensDark.fog],
+  ["ink → paper", y2kTokensDark.ink],
+  ["ink-deep → void", y2kTokensDark.inkDeep],
+  ["pink", y2kTokensDark.pink],
+  ["pink-deep", y2kTokensDark.pinkDeep],
+  ["orange", y2kTokensDark.orange],
+  ["cobalt (AA lift)", y2kTokensDark.cobalt],
+  ["mint (AA lift)", y2kTokensDark.mint],
+  ["ring-coral", y2kTokensDark.ringCoral],
+  ["ring-pink", y2kTokensDark.ringPink],
+  ["ring-yellow", y2kTokensDark.ringYellow],
+];
+
 function Swatch({ name, hex }) {
   return (
     <div className="y2k-sg__swatch">
@@ -54,12 +76,27 @@ function Swatch({ name, hex }) {
 }
 
 export default function StyleGuideY2kPage() {
+  const [theme, setTheme] = useState("light");
+
+  useEffect(() => {
+    setTheme(getPreferredY2kTheme());
+  }, []);
+
+  const setAndPersist = (next) => {
+    setTheme(next);
+    persistY2kTheme(next);
+  };
+
+  const swatches = theme === "dark" ? DARK_SWATCHES : LIGHT_SWATCHES;
+
   return (
-    <div className="y2k-root y2k-sg">
+    <div className="y2k-root y2k-sg" data-theme={theme}>
       <CursorSparkle />
       <MonoTicker />
       <Navbar
         centerLabel="Y2K POSTER"
+        theme={theme}
+        onThemeChange={setAndPersist}
         links={[
           { to: "/style-guide-y2k", label: "Tokens" },
           { to: "/", label: "App home" },
@@ -88,9 +125,15 @@ export default function StyleGuideY2kPage() {
         <p className="y2k-sg__lead">
           CSS custom properties on <code>.y2k-root</code>, mirrored in{" "}
           <code>themeY2k.js</code>. Pink and orange are decoration / big type only.
+          Dark mode: <code>data-theme=&quot;dark&quot;</code> → ink-deep ground, paper text;
+          accents stay (cobalt/mint lift slightly for AA on dark).
         </p>
+        <div className="y2k-sg__row" style={{ marginBottom: 16 }}>
+          <PillLabel filled={theme === "dark"}>{theme === "dark" ? "Dark mode" : "Light mode"}</PillLabel>
+          <BracketLabel>TOGGLE IN NAV</BracketLabel>
+        </div>
         <div className="y2k-sg__grid">
-          {SWATCHES.map(([name, hex]) => (
+          {swatches.map(([name, hex]) => (
             <Swatch key={name} name={name} hex={hex} />
           ))}
         </div>
