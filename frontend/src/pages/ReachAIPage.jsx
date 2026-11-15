@@ -14,6 +14,8 @@ const SUGGESTIONS = [
   "Create a database called 'Barcelona Leads' and pull all companies from Barcelona into it",
 ];
 
+const EMPTY_SUGGESTIONS = SUGGESTIONS.slice(0, 3);
+
 function MessageBubble({ msg, bugMood = "idle" }) {
   const isUser = msg.role === "user";
   const text   = typeof msg.content === "string" ? msg.content
@@ -21,7 +23,6 @@ function MessageBubble({ msg, bugMood = "idle" }) {
     : "";
   if (!text) return null;
 
-  // Convert /dashboard/db/123 links to clickable
   const parts = text.split(/(\/?dashboard\/db\/\d+)/g);
 
   return (
@@ -81,11 +82,52 @@ function TypingIndicator() {
   );
 }
 
+function Composer({
+  input,
+  setInput,
+  onSend,
+  onKeyDown,
+  loading,
+  textareaRef,
+  hint = true,
+}) {
+  return (
+    <div className="reachai-composer">
+      <div className="reachai-composer__row">
+        <textarea
+          ref={textareaRef}
+          value={input}
+          onChange={e => setInput(e.target.value)}
+          onKeyDown={onKeyDown}
+          placeholder="Ask ReachAI anything…"
+          rows={2}
+          className="reachai-composer__input"
+        />
+        <button
+          type="button"
+          className="reachai-composer__send"
+          onClick={onSend}
+          disabled={!input.trim() || loading}
+          aria-label="Send"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
+            strokeLinecap="round" strokeLinejoin="round">
+            <path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/>
+          </svg>
+        </button>
+      </div>
+      {hint && (
+        <p className="reachai-composer__hint">Press Enter to send · Shift+Enter for new line</p>
+      )}
+    </div>
+  );
+}
+
 export default function ReachAIPage() {
-  const { user, token }     = useAuth();
-  const navigate            = useNavigate();
-  const [messages, setMessages] = useState([]); // full history sent to API
-  const [display,  setDisplay]  = useState([]); // display-only (user + assistant text)
+  const { token } = useAuth();
+  const navigate = useNavigate();
+  const [messages, setMessages] = useState([]);
+  const [display,  setDisplay]  = useState([]);
   const [input,    setInput]    = useState("");
   const [loading,  setLoading]  = useState(false);
   const [error,    setError]    = useState("");
@@ -94,13 +136,15 @@ export default function ReachAIPage() {
   const textareaRef = useRef(null);
   const celebrateTimer = useRef(null);
 
+  const isEmpty = display.length === 0;
+
   useEffect(() => {
     if (!token) navigate("/login");
   }, [token]);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior:"smooth" });
-  }, [display, loading, celebrate]);
+    if (!isEmpty) bottomRef.current?.scrollIntoView({ behavior:"smooth" });
+  }, [display, loading, celebrate, isEmpty]);
 
   useEffect(() => () => {
     if (celebrateTimer.current) clearTimeout(celebrateTimer.current);
@@ -146,7 +190,10 @@ export default function ReachAIPage() {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); }
   };
 
-  const handleSuggestion = (s) => { setInput(s); textareaRef.current?.focus(); };
+  const handleSuggestion = (s) => {
+    setInput(s);
+    requestAnimationFrame(() => textareaRef.current?.focus());
+  };
 
   const clearChat = () => {
     setMessages([]); setDisplay([]); setError(""); setCelebrate(false);
@@ -161,111 +208,93 @@ export default function ReachAIPage() {
 
   return (
     <PageTransition>
-    <div className="inner-page" style={{ display:"flex", flexDirection:"column", height:"100vh" }}>
-      <InnerHeader title="ReachAI" />
+      <div className={`inner-page reachai-page${isEmpty ? " reachai-page--empty" : ""}`}>
+        {isEmpty && <PaperHeatmapField className="reachai-page__heat" />}
 
-      {/* Chat area */}
-      <div style={{ flex:1, overflowY:"auto", padding:"24px 0" }}>
-        <div style={{ maxWidth:760, margin:"0 auto", padding:"0 24px" }}>
+        <InnerHeader title="ReachAI" />
 
-          {/* Empty state */}
-          {display.length === 0 && (
-            <div className="reachai-empty">
-              <PaperHeatmapField />
-              <div className="reachai-empty__content">
-                <div className="reachai-empty__mark" aria-hidden="true">
-                  <ReachAIBug mood="idle" size={72} />
-                </div>
-                <h2 className="reachai-empty__title">ReachAI</h2>
-                <p className="reachai-empty__sub">
-                  Your AI assistant for ReachCT. Search companies, manage your databases, and get insights — just by asking.
-                </p>
-                <div className="reachai-empty__grid">
-                  {SUGGESTIONS.map((s, i) => (
-                    <button
-                      key={i}
-                      type="button"
-                      className={`reachai-suggest${i === 4 ? " reachai-suggest--wide" : ""}`}
-                      onClick={() => handleSuggestion(s)}
-                    >
-                      {s}
-                    </button>
-                  ))}
-                </div>
+        {isEmpty ? (
+          <div className="reachai-home">
+            <div className="reachai-home__mark" aria-hidden="true">
+              <ReachAIBug mood="idle" size={88} />
+            </div>
+            <h1 className="reachai-home__title">ReachAI</h1>
+            <p className="reachai-home__sub">
+              Search companies, manage databases, and get insights — just by asking.
+            </p>
+
+            <div className="reachai-home__composer">
+              <Composer
+                input={input}
+                setInput={setInput}
+                onSend={handleSend}
+                onKeyDown={handleKeyDown}
+                loading={loading}
+                textareaRef={textareaRef}
+              />
+            </div>
+
+            <div className="reachai-home__suggestions">
+              {EMPTY_SUGGESTIONS.map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  className="reachai-suggest"
+                  onClick={() => handleSuggestion(s)}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="reachai-chat">
+              <div className="reachai-chat__inner">
+                {display.map((msg, i) => (
+                  <MessageBubble
+                    key={i}
+                    msg={msg}
+                    bugMood={
+                      msg.role === "assistant" && i === lastAssistantIdx && celebrate
+                        ? "happy"
+                        : "idle"
+                    }
+                  />
+                ))}
+                {loading && <TypingIndicator />}
+                {error && (
+                  <div className="reachai-error">{error}</div>
+                )}
+                <div ref={bottomRef} />
               </div>
             </div>
-          )}
 
-          {/* Messages */}
-          {display.map((msg, i) => (
-            <MessageBubble
-              key={i}
-              msg={msg}
-              bugMood={
-                msg.role === "assistant" && i === lastAssistantIdx && celebrate
-                  ? "happy"
-                  : "idle"
-              }
-            />
-          ))}
-          {loading && <TypingIndicator />}
-          {error && (
-            <div style={{ background:"#FFF1F2", border:"1px solid #FECDD3", borderRadius:10,
-              padding:"10px 16px", fontSize:13, color:"#9F1239", marginBottom:16 }}>
-              {error}
+            <div className="reachai-dock">
+              <div className="reachai-dock__inner">
+                <button type="button" className="reachai-dock__clear" onClick={clearChat}>
+                  Clear conversation
+                </button>
+                <Composer
+                  input={input}
+                  setInput={setInput}
+                  onSend={handleSend}
+                  onKeyDown={handleKeyDown}
+                  loading={loading}
+                  textareaRef={textareaRef}
+                />
+              </div>
             </div>
-          )}
-          <div ref={bottomRef} />
-        </div>
-      </div>
+          </>
+        )}
 
-      {/* Input area */}
-      <div style={{ background:"var(--cream-light)", borderTop:"1px solid var(--sand)", padding:"16px 24px" }}>
-        <div style={{ maxWidth:760, margin:"0 auto" }}>
-          {display.length > 0 && (
-            <button onClick={clearChat} style={{ fontSize:12, color:"#bbb", background:"none",
-              border:"none", cursor:"pointer", fontFamily:"var(--font-body)",
-              marginBottom:8, padding:0 }}
-              onMouseEnter={e=>e.target.style.color="#666"} onMouseLeave={e=>e.target.style.color="#bbb"}>
-              Clear conversation
-            </button>
-          )}
-          <div style={{ display:"flex", gap:10, alignItems:"flex-end" }}>
-            <textarea ref={textareaRef} value={input} onChange={e=>setInput(e.target.value)}
-              onKeyDown={handleKeyDown} placeholder="Ask ReachAI anything… e.g. 'Search 25 IT companies in Berlin and save to my Tech Leads database'"
-              rows={2} style={{ flex:1, padding:"12px 16px", border:"1.5px solid var(--sand)",
-                borderRadius:12, fontSize:14, fontFamily:"var(--font-body)",
-                color:"var(--ink)", outline:"none", resize:"none", lineHeight:1.5,
-                transition:"border-color 0.15s" }}
-              onFocus={e=>e.target.style.borderColor="var(--coral)"}
-              onBlur={e=>e.target.style.borderColor="#e8e8e8"} />
-            <button onClick={handleSend} disabled={!input.trim()||loading} style={{
-              background:"var(--coral)", border:"none", borderRadius:10, width:44, height:44,
-              display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer",
-              transition:"all 0.15s", flexShrink:0,
-              opacity:input.trim()&&!loading?1:0.4,
-            }}
-              onMouseEnter={e=>e.currentTarget.style.background="var(--hot-pink)"}
-              onMouseLeave={e=>e.currentTarget.style.background="var(--coral)"}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5"
-                strokeLinecap="round" strokeLinejoin="round">
-                <path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/>
-              </svg>
-            </button>
-          </div>
-          <p style={{ fontSize:11, color:"#ccc", marginTop:8, textAlign:"center" }}>
-            Press Enter to send · Shift+Enter for new line
-          </p>
-        </div>
+        <style>{`
+          @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-4px); }
+          }
+        `}</style>
       </div>
-
-      <style>{`
-        @keyframes bounce {
-          0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-4px); }
-        }
-      `}</style>
-    </div>
     </PageTransition>
   );
 }

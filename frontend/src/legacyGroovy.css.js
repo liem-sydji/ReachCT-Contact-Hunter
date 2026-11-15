@@ -830,68 +830,140 @@ export const legacyGroovyCss = `
     100% { transform: translateY(-2px) scaleX(1.01); }
   }
 
-  .reachai-empty {
-    position: relative;
-    text-align: center;
-    padding: 48px 20px 32px;
-    border-radius: var(--radius-card);
-    border: var(--border-chunky);
+  /* ReachAI full-page empty home + chat shell */
+  .reachai-page {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    min-height: 100vh;
     overflow: hidden;
-    background: var(--cream);
-    box-shadow: var(--shadow-hard);
-    isolation: isolate;
+    position: absolute;
+    inset: 0;
   }
-  .reachai-empty__content {
+  .reachai-page--empty {
+    background: transparent;
+  }
+  .reachai-page__heat {
+    position: absolute !important;
+    inset: 0 !important;
+    z-index: 0;
+  }
+  .reachai-page--empty .inner-header {
+    position: relative;
+    z-index: 2;
+    background: rgba(45,43,44,0.92);
+  }
+  .reachai-home {
     position: relative;
     z-index: 1;
-  }
-  .reachai-empty__mark {
-    margin: 0 auto 16px;
+    flex: 1;
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
-    width: auto;
-    height: auto;
-    background: transparent;
-    border: none;
-    box-shadow: none;
-    padding: 8px 0 4px;
+    text-align: center;
+    padding: 24px 20px 40px;
+    overflow: auto;
   }
-  .reachai-empty__title {
+  .reachai-home__mark {
+    margin-bottom: 10px;
+  }
+  .reachai-home__title {
     font-family: var(--font-display);
     font-weight: 900;
     font-variation-settings: "SOFT" 100, "WONK" 1;
-    font-size: 26px;
+    font-size: clamp(28px, 5vw, 36px);
     letter-spacing: -0.03em;
     color: var(--ink);
     margin: 0 0 8px;
+    text-shadow: 2px 2px 0 rgba(246,235,217,0.85);
   }
-  .reachai-empty__sub {
-    color: #5a524c;
+  .reachai-home__sub {
+    color: #4a433e;
     font-size: 14px;
     line-height: 1.5;
     max-width: 420px;
-    margin: 0 auto 28px;
+    margin: 0 auto 22px;
     font-family: var(--font-body);
   }
-  .reachai-empty__grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
-    max-width: 620px;
-    margin: 0 auto;
+  .reachai-home__composer {
+    width: min(640px, 100%);
+    margin-bottom: 16px;
+  }
+  .reachai-home__suggestions {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: min(640px, 100%);
     text-align: left;
   }
-  .reachai-suggest {
-    background: rgba(250,244,231,0.96);
+  .reachai-composer {
+    width: 100%;
+  }
+  .reachai-composer__row {
+    display: flex;
+    gap: 10px;
+    align-items: flex-end;
+    background: var(--cream-light);
+    border: var(--border-chunky);
+    border-radius: 22px;
+    padding: 12px 12px 12px 16px;
+    box-shadow: var(--shadow-hard);
+  }
+  .reachai-composer__input {
+    flex: 1;
+    border: none;
+    background: transparent;
+    resize: none;
+    outline: none;
+    font-family: var(--font-body);
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--ink);
+    min-height: 48px;
+  }
+  .reachai-composer__input::placeholder { color: #8a8078; }
+  .reachai-composer__send {
+    width: 44px;
+    height: 44px;
+    flex-shrink: 0;
     border: var(--border-chunky);
     border-radius: 14px;
-    padding: 14px 16px;
+    background: var(--coral);
+    color: var(--ink);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 3px 3px 0 var(--ink);
+    transition: transform var(--dur-fast) var(--ease-bounce), background var(--dur-fast) ease;
+  }
+  .reachai-composer__send:hover:not(:disabled) {
+    transform: translate(-1px, -2px);
+    background: var(--marigold);
+  }
+  .reachai-composer__send:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    box-shadow: none;
+  }
+  .reachai-composer__hint {
+    margin: 10px 0 0;
+    font-size: 11px;
+    color: #6b625a;
+    text-align: center;
+  }
+  .reachai-suggest {
+    background: rgba(250,244,231,0.94);
+    border: var(--border-chunky);
+    border-radius: 14px;
+    padding: 12px 16px;
     cursor: pointer;
     font-size: 13px;
     font-family: var(--font-body);
     color: var(--ink);
     line-height: 1.45;
+    text-align: left;
     box-shadow: 3px 3px 0 rgba(45,43,44,0.55);
     backdrop-filter: blur(2px);
     transition: transform var(--dur-ui) var(--ease-bounce), box-shadow var(--dur-ui) var(--ease-bounce),
@@ -902,10 +974,49 @@ export const legacyGroovyCss = `
     box-shadow: 5px 5px 0 var(--ink);
     background: var(--cream-light);
   }
-  .reachai-suggest--wide { grid-column: 1 / -1; }
-  @media (max-width: 640px) {
-    .reachai-empty__grid { grid-template-columns: 1fr; }
-    .reachai-suggest--wide { grid-column: auto; }
+  .reachai-chat {
+    position: relative;
+    z-index: 1;
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px 0;
+    background: var(--bg-paper);
+  }
+  .reachai-chat__inner {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 0 24px;
+  }
+  .reachai-dock {
+    position: relative;
+    z-index: 2;
+    background: var(--cream-light);
+    border-top: var(--border-chunky);
+    padding: 14px 24px 18px;
+  }
+  .reachai-dock__inner {
+    max-width: 760px;
+    margin: 0 auto;
+  }
+  .reachai-dock__clear {
+    font-size: 12px;
+    color: #8a8078;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-family: var(--font-body);
+    margin-bottom: 8px;
+    padding: 0;
+  }
+  .reachai-dock__clear:hover { color: var(--ink); }
+  .reachai-error {
+    background: #FFF1F2;
+    border: 1px solid #FECDD3;
+    border-radius: 10px;
+    padding: 10px 16px;
+    font-size: 13px;
+    color: #9F1239;
+    margin-bottom: 16px;
   }
 
   /* ── ReachAI pixel bug mascot ── */
