@@ -4,12 +4,7 @@ import { useAuth } from "../context/AuthContext.jsx";
 import { API } from "../styles.js";
 import { InnerHeader } from "../components/shared.jsx";
 import { PageTransition, PaperHeatmapField } from "../components/ui/index.js";
-
-const AIIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M12 2a10 10 0 1 0 10 10"/><path d="M12 6v6l4 2"/><circle cx="18" cy="6" r="3" fill="currentColor" stroke="none"/>
-  </svg>
-);
+import ReachAIBug from "../components/ReachAIBug.jsx";
 
 const SUGGESTIONS = [
   "Search for 25 Marketing Agencies in Madrid, Spain and save to my database",
@@ -19,7 +14,7 @@ const SUGGESTIONS = [
   "Create a database called 'Barcelona Leads' and pull all companies from Barcelona into it",
 ];
 
-function MessageBubble({ msg }) {
+function MessageBubble({ msg, bugMood = "idle" }) {
   const isUser = msg.role === "user";
   const text   = typeof msg.content === "string" ? msg.content
     : Array.isArray(msg.content) ? msg.content.filter(b => b.type === "text").map(b => b.text).join(" ")
@@ -32,18 +27,18 @@ function MessageBubble({ msg }) {
   return (
     <div style={{ display:"flex", justifyContent: isUser?"flex-end":"flex-start", marginBottom:16 }}>
       {!isUser && (
-        <div style={{ width:32, height:32, borderRadius:"50%", background:"linear-gradient(135deg,var(--coral),#ff6b9d)",
-          display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0,
-          marginRight:10, marginTop:2 }}>
-          <span style={{ fontSize:14 }}>✦</span>
+        <div style={{ flexShrink:0, marginRight:10, marginTop:2 }}>
+          <ReachAIBug mood={bugMood} size={40} />
         </div>
       )}
       <div style={{
         maxWidth:"70%", padding:"12px 16px", borderRadius: isUser?"16px 16px 4px 16px":"16px 16px 16px 4px",
         background: isUser?"var(--coral)":"var(--cream)",
-        color: isUser?"#fff":"#111",
+        color: isUser?"#fff":"var(--ink)",
         fontSize:14, lineHeight:1.6, fontFamily:"var(--font-body)",
         whiteSpace:"pre-wrap", wordBreak:"break-word",
+        border: isUser ? "none" : "var(--border-chunky)",
+        boxShadow: isUser ? "none" : "3px 3px 0 rgba(45,43,44,0.35)",
       }}>
         {parts.map((part, i) => {
           if (part.match(/\/?dashboard\/db\/\d+/)) {
@@ -59,9 +54,10 @@ function MessageBubble({ msg }) {
         })}
       </div>
       {isUser && (
-        <div style={{ width:32, height:32, borderRadius:"50%", background:"#333",
+        <div style={{ width:32, height:32, borderRadius:"50%", background:"var(--ink)",
           display:"flex", alignItems:"center", justifyContent:"center",
-          flexShrink:0, marginLeft:10, marginTop:2, fontSize:14, color:"var(--cream)" }}>
+          flexShrink:0, marginLeft:10, marginTop:2, fontSize:14, color:"var(--cream)",
+          border:"2px solid var(--cream)" }}>
           👤
         </div>
       )}
@@ -72,12 +68,10 @@ function MessageBubble({ msg }) {
 function TypingIndicator() {
   return (
     <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:16 }}>
-      <div style={{ width:32, height:32, borderRadius:"50%", background:"linear-gradient(135deg,var(--coral),#ff6b9d)",
-        display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
-        <span style={{ fontSize:14 }}>✦</span>
-      </div>
+      <ReachAIBug mood="thinking" size={40} />
       <div style={{ background:"var(--cream)", borderRadius:"16px 16px 16px 4px", padding:"12px 16px",
-        display:"flex", gap:4, alignItems:"center" }}>
+        display:"flex", gap:4, alignItems:"center",
+        border:"var(--border-chunky)", boxShadow:"3px 3px 0 rgba(45,43,44,0.35)" }}>
         {[0,1,2].map(i => (
           <div key={i} style={{ width:7, height:7, borderRadius:"50%", background:"#aaa",
             animation:`bounce 1.2s ${i*0.2}s ease-in-out infinite` }} />
@@ -95,8 +89,10 @@ export default function ReachAIPage() {
   const [input,    setInput]    = useState("");
   const [loading,  setLoading]  = useState(false);
   const [error,    setError]    = useState("");
+  const [celebrate, setCelebrate] = useState(false);
   const bottomRef = useRef(null);
   const textareaRef = useRef(null);
+  const celebrateTimer = useRef(null);
 
   useEffect(() => {
     if (!token) navigate("/login");
@@ -104,12 +100,22 @@ export default function ReachAIPage() {
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior:"smooth" });
-  }, [display, loading]);
+  }, [display, loading, celebrate]);
+
+  useEffect(() => () => {
+    if (celebrateTimer.current) clearTimeout(celebrateTimer.current);
+  }, []);
+
+  const startCelebrate = () => {
+    setCelebrate(true);
+    if (celebrateTimer.current) clearTimeout(celebrateTimer.current);
+    celebrateTimer.current = setTimeout(() => setCelebrate(false), 2800);
+  };
 
   const handleSend = async () => {
     const text = input.trim();
     if (!text || loading) return;
-    setInput(""); setError("");
+    setInput(""); setError(""); setCelebrate(false);
 
     const userMsg = { role:"user", content: text };
     const newMessages = [...messages, userMsg];
@@ -129,6 +135,7 @@ export default function ReachAIPage() {
       const assistantMsg = { role:"assistant", content: data.reply };
       setMessages(data.messages);
       setDisplay(prev => [...prev, assistantMsg]);
+      startCelebrate();
     } catch (e) {
       setError(e.message);
     }
@@ -141,12 +148,19 @@ export default function ReachAIPage() {
 
   const handleSuggestion = (s) => { setInput(s); textareaRef.current?.focus(); };
 
-  const clearChat = () => { setMessages([]); setDisplay([]); setError(""); };
+  const clearChat = () => {
+    setMessages([]); setDisplay([]); setError(""); setCelebrate(false);
+  };
+
+  const lastAssistantIdx = (() => {
+    for (let i = display.length - 1; i >= 0; i--) {
+      if (display[i].role === "assistant") return i;
+    }
+    return -1;
+  })();
 
   return (
-
     <PageTransition>
-    
     <div className="inner-page" style={{ display:"flex", flexDirection:"column", height:"100vh" }}>
       <InnerHeader title="ReachAI" />
 
@@ -159,7 +173,9 @@ export default function ReachAIPage() {
             <div className="reachai-empty">
               <PaperHeatmapField />
               <div className="reachai-empty__content">
-                <div className="reachai-empty__mark" aria-hidden="true">✦</div>
+                <div className="reachai-empty__mark" aria-hidden="true">
+                  <ReachAIBug mood="idle" size={72} />
+                </div>
                 <h2 className="reachai-empty__title">ReachAI</h2>
                 <p className="reachai-empty__sub">
                   Your AI assistant for ReachCT. Search companies, manage your databases, and get insights — just by asking.
@@ -181,7 +197,17 @@ export default function ReachAIPage() {
           )}
 
           {/* Messages */}
-          {display.map((msg, i) => <MessageBubble key={i} msg={msg} />)}
+          {display.map((msg, i) => (
+            <MessageBubble
+              key={i}
+              msg={msg}
+              bugMood={
+                msg.role === "assistant" && i === lastAssistantIdx && celebrate
+                  ? "happy"
+                  : "idle"
+              }
+            />
+          ))}
           {loading && <TypingIndicator />}
           {error && (
             <div style={{ background:"#FFF1F2", border:"1px solid #FECDD3", borderRadius:10,
@@ -240,9 +266,6 @@ export default function ReachAIPage() {
         }
       `}</style>
     </div>
-  
-
     </PageTransition>
-
   );
 }

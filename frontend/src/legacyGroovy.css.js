@@ -846,15 +846,16 @@ export const legacyGroovyCss = `
     z-index: 1;
   }
   .reachai-empty__mark {
-    width: 64px; height: 64px;
     margin: 0 auto 16px;
-    border-radius: 18px;
-    border: var(--border-chunky);
-    background: var(--coral);
-    color: var(--ink);
-    display: flex; align-items: center; justify-content: center;
-    font-size: 26px;
-    box-shadow: 4px 4px 0 var(--ink);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: auto;
+    height: auto;
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    padding: 8px 0 4px;
   }
   .reachai-empty__title {
     font-family: var(--font-display);
@@ -907,6 +908,112 @@ export const legacyGroovyCss = `
     .reachai-suggest--wide { grid-column: auto; }
   }
 
+  /* ── ReachAI pixel bug mascot ── */
+  .reachai-bug {
+    --bug-size: 40px;
+    position: relative;
+    width: var(--bug-size);
+    height: var(--bug-size);
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: flex-end;
+    justify-content: center;
+  }
+  .reachai-bug__body {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    transform-origin: 50% 100%;
+    animation: reachaiBugIdle 2.4s ease-in-out infinite;
+  }
+  .reachai-bug__sprite {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    display: block;
+    user-select: none;
+    filter: drop-shadow(2px 2px 0 rgba(45,43,44,0.35));
+  }
+  .reachai-bug__smile {
+    position: absolute;
+    left: 50%;
+    bottom: 18%;
+    width: 34%;
+    height: 10%;
+    transform: translateX(-50%);
+    border: 2.5px solid #3a1a4a;
+    border-top: none;
+    border-radius: 0 0 12px 12px;
+    background: transparent;
+    pointer-events: none;
+    animation: reachaiSmilePop 0.35s var(--ease-bounce) both;
+  }
+  .reachai-bug__thoughts {
+    position: absolute;
+    left: 50%;
+    bottom: 88%;
+    width: 48px;
+    height: 56px;
+    transform: translateX(-50%);
+    pointer-events: none;
+  }
+  .reachai-bug__cloud {
+    position: absolute;
+    border-radius: 50%;
+    background: var(--cream-light);
+    border: 1.5px solid var(--ink);
+    box-shadow: 1.5px 1.5px 0 rgba(45,43,44,0.35);
+    animation: reachaiThoughtUp 1.6s ease-out infinite;
+  }
+  .reachai-bug__cloud--a { width: 10px; height: 10px; left: 18px; bottom: 4px; animation-delay: 0s; }
+  .reachai-bug__cloud--b { width: 16px; height: 14px; left: 12px; bottom: 14px; animation-delay: 0.25s; }
+  .reachai-bug__cloud--c { width: 22px; height: 18px; left: 8px; bottom: 28px; animation-delay: 0.5s; }
+  .reachai-bug__thought {
+    position: absolute;
+    font-size: 10px;
+    font-weight: 800;
+    color: var(--ink);
+    animation: reachaiThoughtUp 1.8s ease-out infinite;
+    text-shadow: 1px 1px 0 var(--cream);
+  }
+  .reachai-bug__thought--1 { left: 8px; bottom: 8px; animation-delay: 0.1s; color: var(--periwinkle); }
+  .reachai-bug__thought--2 { left: 22px; bottom: 20px; animation-delay: 0.45s; color: var(--coral); font-size: 11px; }
+  .reachai-bug__thought--3 { left: 14px; bottom: 34px; animation-delay: 0.75s; color: var(--violet); }
+  .reachai-bug__thought--4 { left: 28px; bottom: 42px; animation-delay: 1.05s; color: var(--marigold); }
+
+  .reachai-bug--thinking .reachai-bug__body {
+    animation: reachaiBugThink 0.9s ease-in-out infinite;
+  }
+  .reachai-bug--happy .reachai-bug__body {
+    animation: reachaiBugJump 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
+  }
+
+  @keyframes reachaiBugIdle {
+    0%, 100% { transform: translateY(0) scale(1, 1); }
+    50% { transform: translateY(-2px) scale(1.02, 0.98); }
+  }
+  @keyframes reachaiBugThink {
+    0%, 100% { transform: translateY(0) rotate(-2deg); }
+    50% { transform: translateY(1px) rotate(2deg); }
+  }
+  @keyframes reachaiBugJump {
+    0%, 100% { transform: translateY(0) scale(1, 1) rotate(0deg); }
+    30% { transform: translateY(-14px) scale(0.96, 1.06) rotate(-4deg); }
+    50% { transform: translateY(-10px) scale(1.04, 0.96) rotate(3deg); }
+    70% { transform: translateY(-2px) scale(1.02, 0.98) rotate(-2deg); }
+  }
+  @keyframes reachaiThoughtUp {
+    0% { opacity: 0; transform: translateY(6px) scale(0.6); }
+    25% { opacity: 1; }
+    100% { opacity: 0; transform: translateY(-28px) scale(1.1); }
+  }
+  @keyframes reachaiSmilePop {
+    from { opacity: 0; transform: translateX(-50%) scaleX(0.4); }
+    to { opacity: 1; transform: translateX(-50%) scaleX(1); }
+  }
+
   @keyframes fadeUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
   @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
   @keyframes spin { to { transform: rotate(360deg); } }
@@ -929,7 +1036,11 @@ export const legacyGroovyCss = `
     .landing-waves__grain,
     .paper-heat__blob,
     .paper-heat__wash,
-    .paper-heat__ridge {
+    .paper-heat__ridge,
+    .reachai-bug__body,
+    .reachai-bug__cloud,
+    .reachai-bug__thought,
+    .reachai-bug__smile {
       animation: none !important;
     }
     .landing::before { transform: translate(-50%, -42%); opacity: 0.72; }
