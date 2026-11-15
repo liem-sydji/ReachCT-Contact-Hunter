@@ -716,6 +716,79 @@ export const legacyGroovyCss = `
     background: var(--coral);
     transform: translate(-1px, -1px);
   }
+  .dash-db-card__subject {
+    margin: 6px 0 0;
+    font-size: 12px;
+    line-height: 1.35;
+    color: #5a524c;
+    font-family: var(--font-body);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .dash-db-card__actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+  .dash-db-card__open {
+    font-size: 11px;
+    font-weight: 700;
+    font-family: var(--font-body);
+    color: var(--ink);
+    text-decoration: none;
+    background: var(--lavender);
+    border: 1.5px solid var(--ink);
+    border-radius: 8px;
+    padding: 4px 10px;
+    box-shadow: 2px 2px 0 var(--ink);
+    transition: background var(--dur-fast) ease, transform var(--dur-fast) var(--ease-bounce);
+  }
+  .dash-db-card__open:hover {
+    background: var(--periwinkle);
+    color: var(--cream);
+    transform: translate(-1px, -1px);
+  }
+  .dash-db-card__kind--draft { background: var(--marigold); }
+  .dash-db-card__kind--sent { background: var(--lavender); }
+  .dash-db-card__kind--scheduled { background: var(--periwinkle); color: var(--cream); }
+
+  .dash-connect-card {
+    background: var(--cream-light);
+    border: var(--border-chunky);
+    border-radius: var(--radius-card);
+    padding: 40px 48px;
+    max-width: 460px;
+    width: 100%;
+    text-align: center;
+    box-shadow: var(--shadow-hard);
+  }
+  .dash-connect-card__mark {
+    width: 72px;
+    height: 72px;
+    margin: 0 auto 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .dash-connect-card__title {
+    font-family: var(--font-display);
+    font-weight: 900;
+    font-variation-settings: "SOFT" 100, "WONK" 1;
+    font-size: 22px;
+    letter-spacing: -0.03em;
+    color: var(--ink);
+    margin: 0 0 8px;
+  }
+  .dash-connect-card__sub {
+    font-size: 14px;
+    color: #5a524c;
+    margin: 0 0 28px;
+    line-height: 1.6;
+    font-family: var(--font-body);
+  }
 
   /* ── Light paper heatmap (ReachAI empty state) ── */
   .paper-heat {

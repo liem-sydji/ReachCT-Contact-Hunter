@@ -2,8 +2,16 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext.jsx";
 import { API } from "../styles.js";
+import { MailIcon } from "../components/icons.jsx";
 import DashboardLeftPanel from "../components/DashboardLeftPanel.jsx";
 import { PageTransition } from "../components/ui/index.js";
+
+function statusMeta(status) {
+  const raw = String(status || "draft").toLowerCase();
+  if (raw.includes("sent")) return { label: "Sent", cls: "sent" };
+  if (raw.includes("schedul")) return { label: "Scheduled", cls: "scheduled" };
+  return { label: "Draft", cls: "draft" };
+}
 
 // ─── Shared styles ────────────────────────────────────────────────────────────
 const labelStyle = {
@@ -50,13 +58,12 @@ function ConnectCard({ onConnected, token }) {
 
   return (
     <div style={{ display:"flex", alignItems:"center", justifyContent:"center", flex:1, padding:40 }}>
-      <div style={{ background:"var(--cream-light)", border:"1px solid var(--sand)", borderRadius:20,
-        padding:"40px 48px", maxWidth:460, width:"100%", textAlign:"center",
-        boxShadow:"0 4px 24px rgba(0,0,0,0.06)" }}>
-        <div style={{ fontSize:48, marginBottom:16 }}>📧</div>
-        <h2 style={{ fontFamily:"var(--font-display)", fontSize:22, fontWeight:800,
-          color:"var(--ink)", marginBottom:8 }}>Link Mailrelay Account</h2>
-        <p style={{ fontSize:14, color:"#888", marginBottom:28, lineHeight:1.6 }}>
+      <div className="dash-connect-card">
+        <div className="dash-connect-card__mark" aria-hidden="true">
+          <MailIcon size={64} />
+        </div>
+        <h2 className="dash-connect-card__title">Link Mailrelay Account</h2>
+        <p className="dash-connect-card__sub">
           Connect your Mailrelay account to create email campaigns from your ReachCT contacts.
           Find your API key in <strong>Mailrelay → Settings → API Keys</strong>.
         </p>
@@ -67,8 +74,13 @@ function ConnectCard({ onConnected, token }) {
           onBlur={e=>e.target.style.borderColor="#e8e8e8"}
           onKeyDown={e=>e.key==="Enter"&&handleConnect()} />
         {error && <div style={{ fontSize:13, color:"var(--coral)", marginBottom:12 }}>{error}</div>}
-        <button onClick={handleConnect} disabled={!apiKey.trim()||loading}
-          style={{ ...primaryBtnStyle, width:"100%", padding:"12px 0", opacity:apiKey.trim()?1:0.5 }}>
+        <button
+          type="button"
+          className="btn-primary"
+          onClick={handleConnect}
+          disabled={!apiKey.trim()||loading}
+          style={{ width:"100%", padding:"12px 0", opacity:apiKey.trim()?1:0.5 }}
+        >
           {loading?"Connecting…":"Connect Mailrelay"}
         </button>
       </div>
@@ -705,9 +717,14 @@ export default function MailCampaignsPage() {
             </p>
           </div>
           {connected && (
-            <button onClick={()=>setShowCreate(true)} style={{
-              ...primaryBtnStyle, display:"flex", alignItems:"center", gap:6 }}>
-              + Create Campaign
+            <button
+              type="button"
+              className="btn-primary"
+              onClick={() => setShowCreate(true)}
+              style={{ display:"flex", alignItems:"center", gap:8 }}
+            >
+              <MailIcon size={18} />
+              Create Campaign
             </button>
           )}
         </div>
@@ -715,51 +732,62 @@ export default function MailCampaignsPage() {
         {!connected ? (
           <ConnectCard onConnected={()=>setConnected(true)} token={token} />
         ) : (
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(240px,1fr))", gap:14 }}>
-            <div onClick={()=>setShowCreate(true)} style={{ border:"1.5px dashed rgba(246,235,217,0.22)",
-              borderRadius:12, padding:"24px 20px", cursor:"pointer",
-              display:"flex", flexDirection:"column", alignItems:"center",
-              justifyContent:"center", gap:10, minHeight:150, transition:"all 0.2s" }}
-              onMouseEnter={e=>{ e.currentTarget.style.borderColor="var(--coral)"; e.currentTarget.style.background="rgba(238,104,94,0.04)"; }}
-              onMouseLeave={e=>{ e.currentTarget.style.borderColor="rgba(246,235,217,0.14)"; e.currentTarget.style.background="none"; }}>
-              <div style={{ width:34, height:34, borderRadius:"50%", background:"rgba(238,104,94,0.1)",
-                border:"1px solid rgba(238,104,94,0.2)", display:"flex", alignItems:"center",
-                justifyContent:"center", fontSize:20, color:"var(--coral)" }}>+</div>
-              <span style={{ fontSize:12, fontWeight:600, color:"#555", fontFamily:"var(--font-body)" }}>
-                Create Campaign</span>
-            </div>
-
-            {campaigns.map(c=>(
-              <div key={c.id} style={{ background:"var(--ink)", border:"1px solid rgba(246,235,217,0.08)",
-                borderRadius:12, padding:20, transition:"all 0.2s",
-                display:"flex", flexDirection:"column", justifyContent:"space-between", minHeight:150 }}
-                onMouseEnter={e=>e.currentTarget.style.borderColor="rgba(246,235,217,0.14)"}
-                onMouseLeave={e=>e.currentTarget.style.borderColor="#1e1e1e"}>
-                <div>
-                  <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8 }}>
-                    <span style={{ fontSize:10, fontWeight:600, color:"var(--coral)",
-                      textTransform:"uppercase", letterSpacing:"0.06em" }}>{c.status||"draft"}</span>
-                    <span style={{ fontSize:11, color:"#555" }}>{c.contact_count} contacts</span>
-                  </div>
-                  <div style={{ fontFamily:"var(--font-display)", fontSize:15, fontWeight:700,
-                    color:"var(--cream)", marginBottom:6 }}>{c.name}</div>
-                  <div style={{ fontSize:12, color:"#555", overflow:"hidden",
-                    textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{c.subject}</div>
-                </div>
-                <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginTop:14 }}>
-                  <span style={{ fontSize:11, color:"#444" }}>{new Date(c.created_at).toLocaleDateString()}</span>
-                  <div style={{ display:"flex", gap:8 }}>
-                    <a href="https://app.mailrelay.com/campaigns" target="_blank" rel="noreferrer"
-                      style={{ fontSize:12, color:"var(--coral)", textDecoration:"none",
-                        fontFamily:"var(--font-body)" }}>Open in Mailrelay →</a>
-                    <button onClick={()=>handleDelete(c.id)} style={{ background:"none", border:"none",
-                      color:"#444", fontSize:12, cursor:"pointer", fontFamily:"var(--font-body)" }}
-                      onMouseEnter={e=>e.target.style.color="var(--coral)"} onMouseLeave={e=>e.target.style.color="#444"}>
-                      Delete</button>
-                  </div>
-                </div>
+          <div className="dash-db-grid">
+            <button
+              type="button"
+              className="dash-db-card dash-db-card--create"
+              onClick={() => setShowCreate(true)}
+            >
+              <div className="dash-db-card__plus" aria-hidden="true">
+                <MailIcon size={26} />
               </div>
-            ))}
+              <span className="dash-db-card__create-label">Create Campaign</span>
+            </button>
+
+            {campaigns.map((c) => {
+              const status = statusMeta(c.status);
+              return (
+                <div key={c.id} className="dash-db-card" style={{ cursor: "default" }}>
+                  <div>
+                    <div className="dash-db-card__meta">
+                      <span className={`dash-db-card__kind dash-db-card__kind--${status.cls}`}>
+                        <MailIcon size={16} />
+                        {status.label}
+                      </span>
+                      <span className="dash-db-card__role">
+                        {c.contact_count} contact{c.contact_count === 1 ? "" : "s"}
+                      </span>
+                    </div>
+                    <h3 className="dash-db-card__title">{c.name}</h3>
+                    {c.subject ? (
+                      <p className="dash-db-card__subject">{c.subject}</p>
+                    ) : null}
+                  </div>
+                  <div className="dash-db-card__footer">
+                    <span className="dash-db-card__date">
+                      {new Date(c.created_at).toLocaleDateString()}
+                    </span>
+                    <div className="dash-db-card__actions">
+                      <a
+                        href="https://app.mailrelay.com/campaigns"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="dash-db-card__open"
+                      >
+                        Open in Mailrelay →
+                      </a>
+                      <button
+                        type="button"
+                        className="dash-db-card__delete"
+                        onClick={() => handleDelete(c.id)}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </main>
