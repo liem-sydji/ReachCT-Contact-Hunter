@@ -32,6 +32,15 @@ def init_db():
             last_login  TIMESTAMP DEFAULT NOW()
         )
     """)
+    # Per-user API keys (hashed). Plaintext is shown once at mint/regenerate only.
+    c.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS api_key_hash TEXT")
+    c.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS api_key_prefix TEXT")
+    c.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS api_key_created_at TIMESTAMP")
+    c.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS api_key_last_used_at TIMESTAMP")
+    c.execute("""
+        CREATE UNIQUE INDEX IF NOT EXISTS users_api_key_hash_uidx
+        ON users (api_key_hash) WHERE api_key_hash IS NOT NULL
+    """)
 
     # Shared companies
     c.execute("""
@@ -137,6 +146,75 @@ def get_user_by_email(email: str) -> dict | None:
     conn = get_conn()
     c    = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     c.execute("SELECT * FROM users WHERE email = %s", (email,))
+    row = c.fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+
+def get_user_by_id(user_id: int) -> dict | None:
+    conn = get_conn()
+    c    = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    c.execute("SELECT * FROM users WHERE id = %s", (user_id,))
+    row = c.fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+
+def get_user_by_api_key_hash(key_hash: str) -> dict | None:
+    conn = get_conn()
+    c    = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    c.execute("SELECT * FROM users WHERE api_key_hash = %s", (key_hash,))
+    row = c.fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+
+def set_user_api_key(user_id: int, key_hash: str, key_prefix: str) -> dict:
+    conn = get_conn()
+    c    = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    try:
+        c.execute("""
+            UPDATE users
+            SET api_key_hash = %s,
+                api_key_prefix = %s,
+                api_key_created_at = NOW(),
+                api_key_last_used_at = NULL
+            WHERE id = %s
+            RETURNING id, email, name, picture, api_key_prefix, api_key_created_at, api_key_last_used_at
+        """, (key_hash, key_prefix, user_id))
+        row = c.fetchone()
+        conn.commit()
+        return dict(row) if row else {}
+    except Exception as e:
+        conn.rollback()
+        raise e
+    finally:
+        conn.close()
+
+
+def touch_api_key_last_used(user_id: int) -> None:
+    conn = get_conn()
+    c    = conn.cursor()
+    try:
+        c.execute(
+            "UPDATE users SET api_key_last_used_at = NOW() WHERE id = %s",
+            (user_id,),
+        )
+        conn.commit()
+    except Exception:
+        conn.rollback()
+    finally:
+        conn.close()
+
+
+def get_user_api_key_meta(user_id: int) -> dict | None:
+    conn = get_conn()
+    c    = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    c.execute("""
+        SELECT id, email, name, picture, api_key_prefix, api_key_created_at, api_key_last_used_at,
+               (api_key_hash IS NOT NULL) AS has_key
+        FROM users WHERE id = %s
+    """, (user_id,))
     row = c.fetchone()
     conn.close()
     return dict(row) if row else None
@@ -301,18 +379,22 @@ def create_user_database(user_id: int, name: str, kind: str = "maps", columns: l
 
 
 def get_user_databases(user_id: int) -> list:
-    """Get all databases owned by or shared with user."""
+    """Get all databases owned by or shared with user, including entry counts."""
     conn = get_conn()
     c    = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     c.execute("""
-        SELECT ud.*, 'owner' as role
-        FROM user_databases ud
-        WHERE ud.user_id = %s
-        UNION
-        SELECT ud.*, udc.role
-        FROM user_databases ud
-        JOIN user_database_collaborators udc ON ud.id = udc.database_id
-        WHERE udc.user_id = %s
+        SELECT * FROM (
+            SELECT ud.*, 'owner' as role,
+                   (SELECT COUNT(*) FROM user_database_entries e WHERE e.database_id = ud.id) AS entry_count
+            FROM user_databases ud
+            WHERE ud.user_id = %s
+            UNION
+            SELECT ud.*, udc.role,
+                   (SELECT COUNT(*) FROM user_database_entries e WHERE e.database_id = ud.id) AS entry_count
+            FROM user_databases ud
+            JOIN user_database_collaborators udc ON ud.id = udc.database_id
+            WHERE udc.user_id = %s
+        ) dbs
         ORDER BY created_at DESC
     """, (user_id, user_id))
     rows = c.fetchall()
