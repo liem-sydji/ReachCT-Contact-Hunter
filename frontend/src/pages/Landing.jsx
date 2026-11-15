@@ -1,14 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
-import { ReachCTLogo, SearchIcon, DatabaseIcon } from "../components/icons.jsx";
+import { ReachCTLogo, SearchIcon, DatabaseIcon, DashboardIcon } from "../components/icons.jsx";
 import { useAuth } from "../context/AuthContext.jsx";
-
-const DashboardIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
-    <rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
-  </svg>
-);
 
 export default function Landing() {
   const navigate         = useNavigate();

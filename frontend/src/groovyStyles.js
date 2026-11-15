@@ -599,6 +599,36 @@ export const groovyCss = `
   .sg-pair {
     display: grid; grid-template-columns: 1fr 1fr; gap: 20px;
   }
+  .sg-icon-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
+    gap: 14px;
+  }
+  .sg-icon-tile {
+    background: var(--cream-light);
+    border: var(--border-chunky);
+    border-radius: 18px;
+    box-shadow: 3px 3px 0 var(--ink);
+    padding: 16px 10px 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    min-height: 120px;
+  }
+  .sg-icon-tile__art {
+    display: grid;
+    place-items: center;
+    min-height: 56px;
+  }
+  .sg-icon-tile__label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--ink);
+  }
+  .gh-icon { display: block; flex-shrink: 0; overflow: visible; }
   @media (max-width: 768px) {
     .sg-pair { grid-template-columns: 1fr; }
     .gh-nav__links { display: none; }

@@ -25,6 +25,24 @@ import {
   PageTransition,
   ParallaxDriver,
 } from "../components/ui/index.js";
+import {
+  SearchIcon,
+  DatabaseIcon,
+  DownloadIcon,
+  CopyIcon,
+  ArrowLeftIcon,
+  StopIcon,
+  ReachCTLogo,
+  DashboardIcon,
+  FloppyIcon,
+  FolderIcon,
+  DocsIcon,
+  GlobeIcon,
+  MusicTileIcon,
+  HeartExeIcon,
+  CursorIcon,
+  PaperclipBuddyIcon,
+} from "../components/icons.jsx";
 
 const SWATCHES = [
   ["ink", tokens.ink],
@@ -139,8 +157,44 @@ export default function StyleGuidePage() {
 
         <SectionDivider variant="night-to-paper" />
 
-        {/* Components on paper */}
+        {/* Sticker icons */}
         <section className="sg-section">
+          <Reveal>
+            <h2 className="sg-h2">Sticker icons</h2>
+            <p className="sg-lead">
+              Retro desktop stickers: thick ink outline, hard offset shadow, flat palette fills.
+              Shared app icons keep the same export names; extras mirror the reference set.
+            </p>
+            <div className="sg-icon-grid">
+              {[
+                ["Search", <SearchIcon size={40} />],
+                ["Database", <DatabaseIcon size={40} />],
+                ["Download", <DownloadIcon size={40} />],
+                ["Copy", <CopyIcon size={40} />],
+                ["Back", <ArrowLeftIcon size={40} />],
+                ["Stop", <StopIcon size={40} />],
+                ["Dashboard", <DashboardIcon size={40} />],
+                ["Logo", <ReachCTLogo size={40} />],
+                ["Floppy", <FloppyIcon size={48} />],
+                ["Folder", <FolderIcon size={48} />],
+                ["Docs", <DocsIcon size={48} />],
+                ["Globe", <GlobeIcon size={48} />],
+                ["Music", <MusicTileIcon size={48} />],
+                ["Heart .EXE", <HeartExeIcon size={56} />],
+                ["Cursor", <CursorIcon size={44} />],
+                ["Clip buddy", <PaperclipBuddyIcon size={48} />],
+              ].map(([label, node]) => (
+                <div key={label} className="sg-icon-tile">
+                  <div className="sg-icon-tile__art">{node}</div>
+                  <span className="sg-icon-tile__label">{label}</span>
+                </div>
+              ))}
+            </div>
+          </Reveal>
+        </section>
+
+        {/* Components on paper */}
+        <section className="sg-section" style={{ paddingTop: 0 }}>
           <Reveal>
             <h2 className="sg-h2">Buttons</h2>
             <p className="sg-lead">Pill shape, 2.5px ink border, hard offset shadow. Hover lifts; press sinks.</p>
