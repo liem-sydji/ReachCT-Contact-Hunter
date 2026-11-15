@@ -2,67 +2,19 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext.jsx";
 import { API } from "../styles.js";
-import { ReachCTLogo } from "../components/icons.jsx";
+import {
+  FolderIcon,
+  MapsKindIcon,
+  LinkedInKindIcon,
+  InternshipKindIcon,
+} from "../components/icons.jsx";
+import DashboardLeftPanel from "../components/DashboardLeftPanel.jsx";
 import { PageTransition } from "../components/ui/index.js";
 
-function LeftPanel({ user, onNav }) {
-  return (
-    <aside style={{ width:200, minHeight:"100vh", background:"var(--ink)", borderRight:"1px solid rgba(246,235,217,0.08)",
-      display:"flex", flexDirection:"column", padding:"20px 0", flexShrink:0 }}>
-      <div style={{ padding:"0 16px 20px", borderBottom:"1px solid rgba(246,235,217,0.08)", cursor:"pointer" }}
-        onClick={()=>onNav("/")}>
-        <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-          <ReachCTLogo size={20} />
-          <span style={{ fontFamily:"var(--font-display)", fontSize:15, fontWeight:800, color:"var(--cream)" }}>
-            Reach<span style={{ color:"var(--coral)" }}>CT</span>
-          </span>
-        </div>
-      </div>
-      <div style={{ padding:"16px" }}>
-        <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:16 }}>
-          {user?.picture
-            ? <img src={user.picture} alt="" referrerPolicy="no-referrer"
-                style={{ width:32, height:32, borderRadius:"50%", objectFit:"cover", border:"2px solid rgba(246,235,217,0.2)" }} />
-            : <div style={{ width:32, height:32, borderRadius:"50%", background:"var(--coral)",
-                display:"flex", alignItems:"center", justifyContent:"center",
-                fontSize:13, fontWeight:700, color:"var(--cream)", fontFamily:"var(--font-display)" }}>
-                {(user?.name||"?")[0].toUpperCase()}
-              </div>
-          }
-          <div style={{ overflow:"hidden" }}>
-            <div style={{ fontSize:12, fontWeight:600, color:"var(--cream)", overflow:"hidden",
-              textOverflow:"ellipsis", whiteSpace:"nowrap", maxWidth:120 }}>{user?.name||"User"}</div>
-            <div style={{ fontSize:10, color:"#555", overflow:"hidden",
-              textOverflow:"ellipsis", whiteSpace:"nowrap", maxWidth:120 }}>{user?.email}</div>
-          </div>
-        </div>
-        <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
-          <button onClick={()=>onNav("databases")} style={{ display:"flex", alignItems:"center", gap:8,
-            background:"rgba(238,104,94,0.12)", border:"1px solid rgba(238,104,94,0.2)", borderRadius:8,
-            padding:"8px 12px", cursor:"pointer", color:"var(--coral)", fontSize:12, fontWeight:600,
-            fontFamily:"var(--font-body)", width:"100%", textAlign:"left" }}>
-            🗄️ Databases
-          </button>
-          <button onClick={()=>onNav("campaigns")} style={{ display:"flex", alignItems:"center", gap:8,
-            background:"none", border:"1px solid transparent", borderRadius:8,
-            padding:"8px 12px", cursor:"pointer", color:"#888", fontSize:12, fontWeight:400,
-            fontFamily:"var(--font-body)", width:"100%", textAlign:"left", transition:"all 0.15s" }}
-            onMouseEnter={e=>{ e.currentTarget.style.color="#fff"; e.currentTarget.style.background="rgba(255,255,255,0.05)"; }}
-            onMouseLeave={e=>{ e.currentTarget.style.color="#888"; e.currentTarget.style.background="none"; }}>
-            📧 Mail Campaigns
-          </button>
-          <button onClick={()=>onNav("templates")} style={{ display:"flex", alignItems:"center", gap:8,
-            background:"none", border:"1px solid transparent", borderRadius:8,
-            padding:"8px 12px", cursor:"pointer", color:"#888", fontSize:12, fontWeight:400,
-            fontFamily:"var(--font-body)", width:"100%", textAlign:"left", transition:"all 0.15s" }}
-            onMouseEnter={e=>{ e.currentTarget.style.color="#fff"; e.currentTarget.style.background="rgba(255,255,255,0.05)"; }}
-            onMouseLeave={e=>{ e.currentTarget.style.color="#888"; e.currentTarget.style.background="none"; }}>
-            📝 Email Templates
-          </button>
-        </div>
-      </div>
-    </aside>
-  );
+function kindMeta(kind) {
+  if (kind === "linkedin") return { label: "LinkedIn", Icon: LinkedInKindIcon, cls: "linkedin" };
+  if (kind === "internships") return { label: "Internships", Icon: InternshipKindIcon, cls: "internships" };
+  return { label: "Maps", Icon: MapsKindIcon, cls: "maps" };
 }
 
 function CreateDBModal({ onClose, onCreate }) {
@@ -135,6 +87,7 @@ export default function DashboardPage() {
 
   const handleNav = (p) => {
     if (p === "/") navigate("/");
+    else if (p === "databases") navigate("/dashboard");
     else if (p === "campaigns") navigate("/campaigns");
     else if (p === "templates") navigate("/templates");
   };
@@ -173,7 +126,7 @@ export default function DashboardPage() {
 
     <PageTransition>
     <div style={{ display:"flex", minHeight:"100vh", background:"var(--bg-night)" }}>
-      <LeftPanel user={user} onNav={handleNav} />
+      <DashboardLeftPanel user={user} activePage="databases" onNav={handleNav} />
 
       <main style={{ flex:1, padding:"36px 40px", overflowY:"auto" }}>
         {/* Header */}
@@ -204,58 +157,54 @@ export default function DashboardPage() {
               borderTopColor:"var(--coral)", animation:"spin 0.8s linear infinite" }} />
           </div>
         ) : (
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(220px, 1fr))",
-            gap:14, overflowY:"auto" }}>
-            {/* Create card */}
-            <div onClick={()=>setShowCreate(true)} style={{ border:"1.5px dashed rgba(246,235,217,0.22)", borderRadius:12,
-              padding:"24px 20px", cursor:"pointer", display:"flex", flexDirection:"column",
-              alignItems:"center", justifyContent:"center", gap:10, minHeight:130, transition:"all 0.2s" }}
-              onMouseEnter={e=>{ e.currentTarget.style.borderColor="var(--coral)"; e.currentTarget.style.background="rgba(238,104,94,0.04)"; }}
-              onMouseLeave={e=>{ e.currentTarget.style.borderColor="rgba(246,235,217,0.14)"; e.currentTarget.style.background="none"; }}>
-              <div style={{ width:34, height:34, borderRadius:"50%", background:"rgba(238,104,94,0.1)",
-                border:"1px solid rgba(238,104,94,0.2)", display:"flex", alignItems:"center",
-                justifyContent:"center", fontSize:20, color:"var(--coral)" }}>+</div>
-              <span style={{ fontSize:12, fontWeight:600, color:"#555", fontFamily:"var(--font-body)" }}>
-                Create Database</span>
-            </div>
-
-            {/* Database cards */}
-            {filtered.map(db => (
-              <div key={db.id} style={{ background:"var(--ink)", border:"1px solid rgba(246,235,217,0.08)", borderRadius:12,
-                padding:"20px", cursor:"pointer", transition:"all 0.2s", position:"relative",
-                minHeight:130, display:"flex", flexDirection:"column", justifyContent:"space-between" }}
-                onMouseEnter={e=>{ e.currentTarget.style.borderColor="rgba(246,235,217,0.14)"; e.currentTarget.style.background="#161616"; }}
-                onMouseLeave={e=>{ e.currentTarget.style.borderColor="#1e1e1e"; e.currentTarget.style.background="#111"; }}
-                onClick={()=>navigate(`/dashboard/db/${db.id}`)}>
-                <div>
-                  <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:6 }}>
-                    <span style={{ fontSize:10, color:"var(--coral)", fontWeight:600,
-                      textTransform:"uppercase", letterSpacing:"0.06em" }}>
-                      {db.role==="owner"?"Owner":db.role}</span>
-                    <span style={{ fontSize:10, fontWeight:600, padding:"1px 7px", borderRadius:5,
-                      background: db.kind==="linkedin" ? "rgba(10,102,194,0.15)" : db.kind==="internships" ? "rgba(168,85,247,0.15)" : "rgba(238,104,94,0.12)",
-                      color: db.kind==="linkedin" ? "#4a9eff" : db.kind==="internships" ? "#c084fc" : "var(--coral)" }}>
-                      {db.kind==="linkedin" ? "🔗 LinkedIn" : db.kind==="internships" ? "🎓 Internships" : "🗺️ Maps"}</span>
-                  </div>
-                  <div style={{ fontFamily:"var(--font-display)", fontSize:15, fontWeight:700,
-                    color:"var(--cream)", letterSpacing:"-0.3px", lineHeight:1.3 }}>{db.name}</div>
-                </div>
-                <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginTop:14 }}>
-                  <span style={{ fontSize:11, color:"#444" }}>
-                    {new Date(db.created_at).toLocaleDateString()}</span>
-                  {db.role==="owner" && (
-                    <button onClick={e=>{ e.stopPropagation(); handleDelete(db.id); }} style={{
-                      background:"none", border:"none", color:"#444", fontSize:12, cursor:"pointer",
-                      fontFamily:"var(--font-body)", padding:"2px 6px", borderRadius:4 }}
-                      onMouseEnter={e=>e.target.style.color="var(--coral)"} onMouseLeave={e=>e.target.style.color="#444"}>
-                      Delete</button>
-                  )}
-                </div>
+          <div className="dash-db-grid">
+            <button type="button" className="dash-db-card dash-db-card--create" onClick={() => setShowCreate(true)}>
+              <div className="dash-db-card__plus" aria-hidden="true">
+                <FolderIcon size={26} />
               </div>
-            ))}
+              <span className="dash-db-card__create-label">Create Database</span>
+            </button>
+
+            {filtered.map(db => {
+              const kind = kindMeta(db.kind);
+              const KindIcon = kind.Icon;
+              return (
+                <div
+                  key={db.id}
+                  className="dash-db-card"
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => navigate(`/dashboard/db/${db.id}`)}
+                  onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); navigate(`/dashboard/db/${db.id}`); } }}
+                >
+                  <div>
+                    <div className="dash-db-card__meta">
+                      <span className="dash-db-card__role">{db.role === "owner" ? "Owner" : db.role}</span>
+                      <span className={`dash-db-card__kind dash-db-card__kind--${kind.cls}`}>
+                        <KindIcon size={16} />
+                        {kind.label}
+                      </span>
+                    </div>
+                    <h3 className="dash-db-card__title">{db.name}</h3>
+                  </div>
+                  <div className="dash-db-card__footer">
+                    <span className="dash-db-card__date">{new Date(db.created_at).toLocaleDateString()}</span>
+                    {db.role === "owner" && (
+                      <button
+                        type="button"
+                        className="dash-db-card__delete"
+                        onClick={e => { e.stopPropagation(); handleDelete(db.id); }}
+                      >
+                        Delete
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
 
             {filtered.length === 0 && search && (
-              <div style={{ gridColumn:"1/-1", textAlign:"center", color:"#444", fontSize:14,
+              <div style={{ gridColumn:"1/-1", textAlign:"center", color:"#888", fontSize:14,
                 padding:"40px 0", fontStyle:"italic" }}>
                 No databases matching "{search}"</div>
             )}

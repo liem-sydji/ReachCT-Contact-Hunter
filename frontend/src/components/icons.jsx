@@ -301,3 +301,84 @@ export const DashboardIcon = ({ size = 18 }) => (
     <rect x="20" y="20" width="12" height="12" rx="2.5" fill={lavender} stroke={ink} strokeWidth="2.5" />
   </StickerShell>
 );
+
+/** Envelope sticker — mail campaigns nav. */
+export const MailIcon = ({ size = 18 }) => (
+  <StickerShell size={size} viewBox="0 0 40 40">
+    <rect x="6" y="11" width="26" height="18" rx="3" fill={ink} transform="translate(2.5 2.5)" />
+    <rect x="6" y="11" width="26" height="18" rx="3" fill={creamLight} stroke={ink} strokeWidth="2.5" />
+    <path
+      d="M7.5 13.5 L19 22 L30.5 13.5"
+      fill="none"
+      stroke={ink}
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M7.5 27.5 L15.5 20.5M30.5 27.5 L22.5 20.5"
+      fill="none"
+      stroke={coral}
+      strokeWidth="2.25"
+      strokeLinecap="round"
+    />
+    <circle cx="30" cy="12" r="5" fill={ink} transform="translate(1.5 1.5)" />
+    <circle cx="30" cy="12" r="5" fill={hotPink} stroke={ink} strokeWidth="2.25" />
+  </StickerShell>
+);
+
+/** Lined notepad sticker — email templates nav. */
+export const TemplateIcon = ({ size = 18 }) => (
+  <StickerShell size={size} viewBox="0 0 40 40">
+    <rect x="9" y="5" width="20" height="28" rx="2.5" fill={ink} transform="translate(2.5 2.5)" />
+    <rect x="9" y="5" width="20" height="28" rx="2.5" fill={creamLight} stroke={ink} strokeWidth="2.5" />
+    <path d="M23 5v7h7" fill={cream} stroke={ink} strokeWidth="2.5" strokeLinejoin="round" />
+    <rect x="13" y="10" width="8" height="3" rx="1" fill={periwinkle} stroke={ink} strokeWidth="1.75" />
+    <path d="M14 18h12M14 22h12M14 26h8" stroke={ink} strokeWidth="2.1" strokeLinecap="round" />
+    <rect x="26" y="24" width="8" height="8" rx="1.5" fill={marigold} stroke={ink} strokeWidth="2.25" />
+  </StickerShell>
+);
+
+/** Compact kind badges for database cards. */
+export const MapsKindIcon = ({ size = 18 }) => (
+  <StickerShell size={size} viewBox="0 0 40 40">
+    <circle cx="19" cy="18" r="12" fill={ink} transform="translate(2 2)" />
+    <circle cx="19" cy="18" r="12" fill={lavender} stroke={ink} strokeWidth="2.5" />
+    <ellipse cx="19" cy="18" rx="5.5" ry="12" fill="none" stroke={ink} strokeWidth="2" />
+    <path d="M7 18h24M9 12h20M9 24h20" stroke={ink} strokeWidth="2" strokeLinecap="round" />
+  </StickerShell>
+);
+
+export const LinkedInKindIcon = ({ size = 18 }) => (
+  <StickerShell size={size} viewBox="0 0 40 40">
+    <rect x="7" y="7" width="24" height="24" rx="5" fill={ink} transform="translate(2.5 2.5)" />
+    <rect x="7" y="7" width="24" height="24" rx="5" fill={periwinkle} stroke={ink} strokeWidth="2.5" />
+    <circle cx="15" cy="16" r="3.2" fill={creamLight} stroke={ink} strokeWidth="2" />
+    <path
+      d="M10 28c0-4 2.8-6.5 6.5-6.5h5c3.7 0 6.5 2.5 6.5 6.5"
+      fill={cream}
+      stroke={ink}
+      strokeWidth="2"
+      strokeLinejoin="round"
+    />
+  </StickerShell>
+);
+
+export const InternshipKindIcon = ({ size = 18 }) => (
+  <StickerShell size={size} viewBox="0 0 40 40">
+    <path
+      d="M8 16 L20 10 L32 16 L20 22 Z"
+      fill={ink}
+      transform="translate(2 2)"
+    />
+    <path
+      d="M8 16 L20 10 L32 16 L20 22 Z"
+      fill={marigold}
+      stroke={ink}
+      strokeWidth="2.5"
+      strokeLinejoin="round"
+    />
+    <path d="M12 18v8c4 3 12 3 16 0v-8" fill="none" stroke={ink} strokeWidth="2.5" strokeLinejoin="round" />
+    <path d="M32 16v10" stroke={coral} strokeWidth="2.5" strokeLinecap="round" />
+  </StickerShell>
+);

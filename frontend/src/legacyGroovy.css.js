@@ -488,6 +488,235 @@ export const legacyGroovyCss = `
   .info-body li { margin-bottom: 8px; }
   .info-divider { height: 0; border-bottom: 2.5px solid var(--sand); margin-top: 40px; }
 
+  /* ── Dashboard left panel ── */
+  .dash-panel {
+    width: 212px;
+    min-height: 100vh;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    padding: 18px 0;
+    background: var(--ink);
+    color: var(--cream);
+    border-right: var(--border-chunky);
+    border-color: rgba(246,235,217,0.18);
+    box-shadow: 4px 0 0 rgba(246,235,217,0.08);
+  }
+  .dash-panel__brand {
+    display: flex; align-items: center; gap: 10px;
+    margin: 0 14px 16px;
+    padding: 10px 12px;
+    background: var(--ink-soft);
+    border: var(--border-chunky);
+    border-color: rgba(246,235,217,0.22);
+    border-radius: 14px;
+    box-shadow: 3px 3px 0 rgba(246,235,217,0.12);
+    cursor: pointer;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    transition: transform var(--dur-fast) var(--ease-bounce), box-shadow var(--dur-fast) var(--ease-bounce);
+  }
+  .dash-panel__brand:hover {
+    transform: translate(-1px, -2px);
+    box-shadow: 4px 5px 0 rgba(246,235,217,0.18);
+  }
+  .dash-panel__brand-title {
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-variation-settings: "SOFT" 100, "WONK" 1;
+    font-size: 15px;
+    letter-spacing: -0.02em;
+    color: var(--cream);
+  }
+  .dash-panel__brand-title span {
+    font-family: var(--font-accent);
+    color: var(--coral);
+  }
+  .dash-panel__body { padding: 4px 14px 16px; }
+  .dash-panel__user {
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 16px;
+    padding: 10px;
+    border-radius: 14px;
+    background: rgba(246,235,217,0.04);
+    border: 1.5px solid rgba(246,235,217,0.12);
+  }
+  .dash-panel__avatar {
+    width: 34px; height: 34px; border-radius: 50%;
+    object-fit: cover; flex-shrink: 0;
+    border: 2.5px solid var(--cream);
+    box-shadow: 2px 2px 0 var(--coral);
+  }
+  .dash-panel__avatar--fallback {
+    background: var(--coral);
+    color: var(--ink);
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--font-display);
+    font-size: 13px; font-weight: 800;
+  }
+  .dash-panel__user-text { overflow: hidden; min-width: 0; }
+  .dash-panel__user-name {
+    font-size: 12px; font-weight: 600; color: var(--cream);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .dash-panel__user-email {
+    font-size: 10px; color: var(--sand);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .dash-panel__nav {
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .dash-panel__nav-btn {
+    display: flex; align-items: center; gap: 10px;
+    width: 100%; text-align: left;
+    padding: 9px 10px;
+    border-radius: 12px;
+    border: 1.5px solid transparent;
+    background: transparent;
+    color: var(--sand);
+    font-family: var(--font-body);
+    font-size: 12px; font-weight: 500;
+    cursor: pointer;
+    transition: background var(--dur-fast) ease, color var(--dur-fast) ease,
+      border-color var(--dur-fast) ease, transform var(--dur-fast) var(--ease-bounce),
+      box-shadow var(--dur-fast) var(--ease-bounce);
+  }
+  .dash-panel__nav-btn:hover {
+    color: var(--cream);
+    background: rgba(246,235,217,0.06);
+    border-color: rgba(246,235,217,0.14);
+  }
+  .dash-panel__nav-btn.is-active {
+    color: var(--ink);
+    background: var(--coral);
+    border-color: var(--ink);
+    font-weight: 700;
+    box-shadow: 3px 3px 0 rgba(246,235,217,0.2);
+  }
+  .dash-panel__nav-icon {
+    width: 28px; height: 28px;
+    display: inline-flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+
+  /* ── Dashboard database cards ── */
+  .dash-db-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+    gap: 16px;
+  }
+  .dash-db-card {
+    position: relative;
+    min-height: 148px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 18px;
+    border-radius: var(--radius-card);
+    border: var(--border-chunky);
+    background: var(--cream-light);
+    color: var(--ink);
+    box-shadow: var(--shadow-hard);
+    cursor: pointer;
+    text-align: left;
+    font: inherit;
+    transition: transform var(--dur-ui) var(--ease-bounce), box-shadow var(--dur-ui) var(--ease-bounce);
+  }
+  .dash-db-card:hover {
+    transform: translate(-2px, -3px) rotate(-0.6deg);
+    box-shadow: 7px 8px 0 var(--ink);
+  }
+  .dash-db-card--create {
+    align-items: center;
+    justify-content: center;
+    background: var(--cream);
+    border-style: dashed;
+    box-shadow: 4px 4px 0 rgba(246,235,217,0.25);
+  }
+  .dash-db-card--create:hover {
+    background: var(--marigold);
+    border-style: solid;
+    rotate: 0.4deg;
+  }
+  .dash-db-card__plus {
+    width: 44px; height: 44px;
+    border-radius: 14px;
+    border: var(--border-chunky);
+    background: var(--coral);
+    color: var(--ink);
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 3px 3px 0 var(--ink);
+    margin-bottom: 4px;
+  }
+  .dash-db-card__create-label {
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-variation-settings: "SOFT" 100, "WONK" 1;
+    font-size: 14px;
+    letter-spacing: -0.02em;
+  }
+  .dash-db-card__meta {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  }
+  .dash-db-card__role {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--coral);
+  }
+  .dash-db-card__kind {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 8px 3px 4px;
+    border-radius: 999px;
+    border: 1.5px solid var(--ink);
+    background: var(--cream);
+    font-size: 10px;
+    font-weight: 700;
+    font-family: var(--font-body);
+    color: var(--ink);
+  }
+  .dash-db-card__kind--maps { background: var(--lavender); }
+  .dash-db-card__kind--linkedin { background: var(--periwinkle); color: var(--cream); }
+  .dash-db-card__kind--internships { background: var(--marigold); }
+  .dash-db-card__title {
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-variation-settings: "SOFT" 100, "WONK" 1;
+    font-size: 16px;
+    letter-spacing: -0.02em;
+    line-height: 1.25;
+    color: var(--ink);
+    margin: 0;
+  }
+  .dash-db-card__footer {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  }
+  .dash-db-card__date {
+    font-size: 11px;
+    color: #5a524c;
+    font-family: var(--font-body);
+  }
+  .dash-db-card__delete {
+    background: var(--cream);
+    border: 1.5px solid var(--ink);
+    border-radius: 8px;
+    padding: 4px 10px;
+    font-size: 11px;
+    font-weight: 600;
+    font-family: var(--font-body);
+    color: var(--ink);
+    cursor: pointer;
+    box-shadow: 2px 2px 0 var(--ink);
+    transition: background var(--dur-fast) ease, color var(--dur-fast) ease, transform var(--dur-fast) var(--ease-bounce);
+  }
+  .dash-db-card__delete:hover {
+    background: var(--coral);
+    transform: translate(-1px, -1px);
+  }
+
   @keyframes fadeUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
   @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
   @keyframes spin { to { transform: rotate(360deg); } }

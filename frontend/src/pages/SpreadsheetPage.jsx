@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../context/AuthContext.jsx";
 import { API, COMPANY_TYPES_GROUPED } from "../styles.js";
-import { ReachCTLogo } from "../components/icons.jsx";
+import DashboardLeftPanel from "../components/DashboardLeftPanel.jsx";
 import { PageTransition } from "../components/ui/index.js";
 
 // Canonical column priority — unknown cols appended after
@@ -24,49 +24,6 @@ function toHref(val) {
   if (/^www\./i.test(v)) return `https://${v}`;
   if (/^[^\s]+\.[a-z]{2,}(\/[^\s]*)?$/i.test(v)) return `https://${v}`;
   return null;
-}
-
-// ─── Left Panel ───────────────────────────────────────────────────────────────
-function LeftPanel({ user, onNav }) {
-  return (
-    <aside style={{ width:200, minHeight:"100vh", background:"var(--ink)", borderRight:"1px solid rgba(246,235,217,0.08)",
-      display:"flex", flexDirection:"column", padding:"20px 0", flexShrink:0 }}>
-      <div style={{ padding:"0 16px 20px", borderBottom:"1px solid rgba(246,235,217,0.08)", cursor:"pointer" }}
-        onClick={() => onNav("/")}>
-        <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-          <ReachCTLogo size={20} />
-          <span style={{ fontFamily:"var(--font-display)", fontSize:15, fontWeight:800, color:"var(--cream)" }}>
-            Reach<span style={{ color:"var(--coral)" }}>CT</span>
-          </span>
-        </div>
-      </div>
-      <div style={{ padding:"16px" }}>
-        <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:16 }}>
-          {user?.picture
-            ? <img src={user.picture} alt="" referrerPolicy="no-referrer"
-                style={{ width:32, height:32, borderRadius:"50%", objectFit:"cover", border:"2px solid rgba(246,235,217,0.2)" }} />
-            : <div style={{ width:32, height:32, borderRadius:"50%", background:"var(--coral)",
-                display:"flex", alignItems:"center", justifyContent:"center",
-                fontSize:13, fontWeight:700, color:"var(--cream)", fontFamily:"var(--font-display)" }}>
-                {(user?.name||"?")[0].toUpperCase()}
-              </div>
-          }
-          <div style={{ overflow:"hidden" }}>
-            <div style={{ fontSize:12, fontWeight:600, color:"var(--cream)", overflow:"hidden",
-              textOverflow:"ellipsis", whiteSpace:"nowrap", maxWidth:120 }}>{user?.name||"User"}</div>
-            <div style={{ fontSize:10, color:"#555", overflow:"hidden",
-              textOverflow:"ellipsis", whiteSpace:"nowrap", maxWidth:120 }}>{user?.email}</div>
-          </div>
-        </div>
-        <button onClick={() => onNav("/dashboard")} style={{ display:"flex", alignItems:"center", gap:8,
-          background:"rgba(238,104,94,0.12)", border:"1px solid rgba(238,104,94,0.2)", borderRadius:8,
-          padding:"8px 12px", cursor:"pointer", color:"var(--coral)", fontSize:12, fontWeight:600,
-          fontFamily:"var(--font-body)", width:"100%", textAlign:"left" }}>
-          🗄️ Databases
-        </button>
-      </div>
-    </aside>
-  );
 }
 
 // ─── Tag Input ────────────────────────────────────────────────────────────────
@@ -1639,7 +1596,16 @@ export default function SpreadsheetPage() {
   return (
     <PageTransition>
     <div style={{ display:"flex", height:"100vh", background:"var(--cream)", overflow:"hidden" }}>
-      <LeftPanel user={user} onNav={navigate} />
+      <DashboardLeftPanel
+        user={user}
+        activePage="databases"
+        onNav={(p) => {
+          if (p === "/") navigate("/");
+          else if (p === "databases") navigate("/dashboard");
+          else if (p === "campaigns") navigate("/campaigns");
+          else if (p === "templates") navigate("/templates");
+        }}
+      />
 
       <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden" }}>
         {/* Top bar */}

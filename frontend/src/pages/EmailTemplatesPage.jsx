@@ -2,61 +2,8 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext.jsx";
 import { API } from "../styles.js";
-import { ReachCTLogo } from "../components/icons.jsx";
+import DashboardLeftPanel from "../components/DashboardLeftPanel.jsx";
 import { PageTransition } from "../components/ui/index.js";
-
-// ─── Left Panel ───────────────────────────────────────────────────────────────
-function LeftPanel({ user, activePage, onNav }) {
-  const navItem = (label, page, icon) => (
-    <button onClick={() => onNav(page)} style={{
-      display:"flex", alignItems:"center", gap:8, width:"100%", textAlign:"left",
-      background: activePage===page ? "rgba(238,104,94,0.12)" : "none",
-      border: activePage===page ? "1px solid rgba(238,104,94,0.2)" : "1px solid transparent",
-      borderRadius:8, padding:"8px 12px", cursor:"pointer",
-      color: activePage===page ? "var(--coral)" : "#888", fontSize:12,
-      fontWeight: activePage===page ? 600 : 400,
-      fontFamily:"var(--font-body)", transition:"all 0.15s",
-    }}>{icon} {label}</button>
-  );
-  return (
-    <aside style={{ width:200, minHeight:"100vh", background:"var(--ink)", borderRight:"1px solid rgba(246,235,217,0.08)",
-      display:"flex", flexDirection:"column", padding:"20px 0", flexShrink:0 }}>
-      <div style={{ padding:"0 16px 20px", borderBottom:"1px solid rgba(246,235,217,0.08)", cursor:"pointer" }}
-        onClick={() => onNav("/")}>
-        <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-          <ReachCTLogo size={20} />
-          <span style={{ fontFamily:"var(--font-display)", fontSize:15, fontWeight:800, color:"var(--cream)" }}>
-            Reach<span style={{ color:"var(--coral)" }}>CT</span>
-          </span>
-        </div>
-      </div>
-      <div style={{ padding:"16px" }}>
-        <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:16 }}>
-          {user?.picture
-            ? <img src={user.picture} alt="" referrerPolicy="no-referrer"
-                style={{ width:32, height:32, borderRadius:"50%", objectFit:"cover", border:"2px solid rgba(246,235,217,0.2)" }} />
-            : <div style={{ width:32, height:32, borderRadius:"50%", background:"var(--coral)",
-                display:"flex", alignItems:"center", justifyContent:"center",
-                fontSize:13, fontWeight:700, color:"var(--cream)" }}>
-                {(user?.name||"?")[0].toUpperCase()}
-              </div>
-          }
-          <div style={{ overflow:"hidden" }}>
-            <div style={{ fontSize:12, fontWeight:600, color:"var(--cream)", overflow:"hidden",
-              textOverflow:"ellipsis", whiteSpace:"nowrap", maxWidth:120 }}>{user?.name||"User"}</div>
-            <div style={{ fontSize:10, color:"#555", overflow:"hidden",
-              textOverflow:"ellipsis", whiteSpace:"nowrap", maxWidth:120 }}>{user?.email}</div>
-          </div>
-        </div>
-        <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
-          {navItem("Databases",       "databases",  "🗄️")}
-          {navItem("Mail Campaigns",  "campaigns",  "📧")}
-          {navItem("Email Templates", "templates",  "📝")}
-        </div>
-      </div>
-    </aside>
-  );
-}
 
 // ─── Quill Editor ─────────────────────────────────────────────────────────────
 function RichEditor({ value, onChange, height = 300 }) {
@@ -269,7 +216,7 @@ export default function EmailTemplatesPage() {
 
     <PageTransition>
     <div style={{ display:"flex", minHeight:"100vh", background:"var(--bg-night)" }}>
-      <LeftPanel user={user} activePage="templates" onNav={handleNav} />
+      <DashboardLeftPanel user={user} activePage="templates" onNav={handleNav} />
 
       <main style={{ flex:1, padding:"36px 40px", overflowY:"auto" }}>
         <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:24 }}>
