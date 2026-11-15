@@ -717,6 +717,145 @@ export const legacyGroovyCss = `
     transform: translate(-1px, -1px);
   }
 
+  /* ── Light paper heatmap (ReachAI empty state) ── */
+  .paper-heat {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+    z-index: 0;
+    background: var(--cream);
+  }
+  .paper-heat__blob {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(42px);
+    opacity: 0.72;
+    will-change: transform;
+  }
+  .paper-heat__blob--a {
+    width: min(520px, 80vw); height: min(420px, 55vh);
+    left: 8%; top: 6%;
+    background: radial-gradient(circle, rgba(252,197,109,0.85) 0%, transparent 68%);
+    animation: paperHeatDrift 14s ease-in-out infinite alternate;
+  }
+  .paper-heat__blob--b {
+    width: min(480px, 75vw); height: min(400px, 52vh);
+    right: 0; top: 18%;
+    background: radial-gradient(circle, rgba(247,167,124,0.7) 0%, transparent 70%);
+    animation: paperHeatDrift 11s ease-in-out infinite alternate-reverse;
+    animation-delay: 0.4s;
+  }
+  .paper-heat__blob--c {
+    width: min(560px, 85vw); height: min(460px, 58vh);
+    left: 18%; bottom: -8%;
+    background: radial-gradient(circle, rgba(183,166,232,0.55) 0%, transparent 68%);
+    animation: paperHeatDrift 13s ease-in-out infinite alternate;
+    animation-delay: 0.9s;
+  }
+  .paper-heat__blob--d {
+    width: min(360px, 55vw); height: min(300px, 40vh);
+    left: 42%; top: 36%;
+    background: radial-gradient(circle, rgba(246,235,217,0.95) 0%, rgba(238,104,94,0.22) 45%, transparent 72%);
+    animation: paperHeatDrift 10s ease-in-out infinite alternate-reverse;
+    animation-delay: 1.2s;
+  }
+  .paper-heat__noise {
+    position: absolute; inset: 0;
+    mix-blend-mode: multiply;
+    opacity: 0.45;
+  }
+  .paper-heat__dots {
+    position: absolute; inset: 0;
+    background-image:
+      radial-gradient(circle, rgba(45,43,44,0.22) 0.55px, transparent 0.7px),
+      radial-gradient(circle, rgba(45,43,44,0.12) 0.4px, transparent 0.55px);
+    background-size: 4px 4px, 6px 6px;
+    background-position: 0 0, 2px 3px;
+    opacity: 0.35;
+    mix-blend-mode: multiply;
+  }
+  @keyframes paperHeatDrift {
+    from { transform: translate3d(0, 0, 0) scale(1); }
+    to   { transform: translate3d(12px, -16px, 0) scale(1.06); }
+  }
+
+  .reachai-empty {
+    position: relative;
+    text-align: center;
+    padding: 48px 20px 32px;
+    border-radius: var(--radius-card);
+    border: var(--border-chunky);
+    overflow: hidden;
+    background: var(--cream);
+    box-shadow: var(--shadow-hard);
+    isolation: isolate;
+  }
+  .reachai-empty__content {
+    position: relative;
+    z-index: 1;
+  }
+  .reachai-empty__mark {
+    width: 64px; height: 64px;
+    margin: 0 auto 16px;
+    border-radius: 18px;
+    border: var(--border-chunky);
+    background: var(--coral);
+    color: var(--ink);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 26px;
+    box-shadow: 4px 4px 0 var(--ink);
+  }
+  .reachai-empty__title {
+    font-family: var(--font-display);
+    font-weight: 900;
+    font-variation-settings: "SOFT" 100, "WONK" 1;
+    font-size: 26px;
+    letter-spacing: -0.03em;
+    color: var(--ink);
+    margin: 0 0 8px;
+  }
+  .reachai-empty__sub {
+    color: #5a524c;
+    font-size: 14px;
+    line-height: 1.5;
+    max-width: 420px;
+    margin: 0 auto 28px;
+    font-family: var(--font-body);
+  }
+  .reachai-empty__grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    max-width: 620px;
+    margin: 0 auto;
+    text-align: left;
+  }
+  .reachai-suggest {
+    background: rgba(250,244,231,0.92);
+    border: var(--border-chunky);
+    border-radius: 14px;
+    padding: 14px 16px;
+    cursor: pointer;
+    font-size: 13px;
+    font-family: var(--font-body);
+    color: var(--ink);
+    line-height: 1.45;
+    box-shadow: 3px 3px 0 rgba(45,43,44,0.55);
+    transition: transform var(--dur-ui) var(--ease-bounce), box-shadow var(--dur-ui) var(--ease-bounce),
+      background var(--dur-fast) ease;
+  }
+  .reachai-suggest:hover {
+    transform: translate(-2px, -2px);
+    box-shadow: 5px 5px 0 var(--ink);
+    background: var(--cream-light);
+  }
+  .reachai-suggest--wide { grid-column: 1 / -1; }
+  @media (max-width: 640px) {
+    .reachai-empty__grid { grid-template-columns: 1fr; }
+    .reachai-suggest--wide { grid-column: auto; }
+  }
+
   @keyframes fadeUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
   @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
   @keyframes spin { to { transform: rotate(360deg); } }
@@ -736,7 +875,8 @@ export const legacyGroovyCss = `
     .landing::before,
     .landing-waves__heat,
     .landing-waves__ridge,
-    .landing-waves__grain {
+    .landing-waves__grain,
+    .paper-heat__blob {
       animation: none !important;
     }
     .landing::before { transform: translate(-50%, -42%); opacity: 0.72; }

@@ -3,8 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext.jsx";
 import { API } from "../styles.js";
 import { InnerHeader } from "../components/shared.jsx";
-import { PageTransition } from "../components/ui/index.js";
-import { ReachCTLogo } from "../components/icons.jsx";
+import { PageTransition, PaperHeatmapField } from "../components/ui/index.js";
 
 const AIIcon = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -157,29 +156,26 @@ export default function ReachAIPage() {
 
           {/* Empty state */}
           {display.length === 0 && (
-            <div style={{ textAlign:"center", paddingTop:40 }}>
-              <div style={{ width:60, height:60, borderRadius:"50%",
-                background:"linear-gradient(135deg,var(--coral),#ff6b9d)",
-                display:"flex", alignItems:"center", justifyContent:"center",
-                margin:"0 auto 16px", fontSize:26 }}>✦</div>
-              <h2 style={{ fontFamily:"var(--font-display)", fontSize:22, fontWeight:800,
-                color:"var(--ink)", margin:"0 0 8px" }}>ReachAI</h2>
-              <p style={{ color:"#999", fontSize:14, marginBottom:32, maxWidth:400, margin:"0 auto 32px" }}>
-                Your AI assistant for ReachCT. Search companies, manage your databases, and get insights — just by asking.
-              </p>
-              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, maxWidth:600, margin:"0 auto" }}>
-                {SUGGESTIONS.map((s, i) => (
-                  <div key={i} onClick={()=>handleSuggestion(s)} style={{
-                    background:"#f8f8f8", border:"1px solid var(--sand)", borderRadius:12,
-                    padding:"12px 16px", cursor:"pointer", fontSize:13, color:"#444",
-                    textAlign:"left", lineHeight:1.4, transition:"all 0.15s",
-                    gridColumn: i===4?"1/-1":undefined,
-                  }}
-                    onMouseEnter={e=>{ e.currentTarget.style.borderColor="var(--coral)"; e.currentTarget.style.background="rgba(238,104,94,0.02)"; }}
-                    onMouseLeave={e=>{ e.currentTarget.style.borderColor="var(--sand)"; e.currentTarget.style.background="#f8f8f8"; }}>
-                    {s}
-                  </div>
-                ))}
+            <div className="reachai-empty">
+              <PaperHeatmapField />
+              <div className="reachai-empty__content">
+                <div className="reachai-empty__mark" aria-hidden="true">✦</div>
+                <h2 className="reachai-empty__title">ReachAI</h2>
+                <p className="reachai-empty__sub">
+                  Your AI assistant for ReachCT. Search companies, manage your databases, and get insights — just by asking.
+                </p>
+                <div className="reachai-empty__grid">
+                  {SUGGESTIONS.map((s, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      className={`reachai-suggest${i === 4 ? " reachai-suggest--wide" : ""}`}
+                      onClick={() => handleSuggestion(s)}
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           )}

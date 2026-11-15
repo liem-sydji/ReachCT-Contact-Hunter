@@ -203,6 +203,44 @@ export function LandingWaveField({ className = "" }) {
   );
 }
 
+/**
+ * Light paper heatmap — cream / marigold / peach / lavender blobs + grain.
+ * For empty/home surfaces that must stay readable (not night).
+ */
+export function PaperHeatmapField({ className = "" }) {
+  return (
+    <div className={`paper-heat ${className}`} aria-hidden="true">
+      <div className="paper-heat__blob paper-heat__blob--a" />
+      <div className="paper-heat__blob paper-heat__blob--b" />
+      <div className="paper-heat__blob paper-heat__blob--c" />
+      <div className="paper-heat__blob paper-heat__blob--d" />
+      <svg className="paper-heat__noise" width="100%" height="100%" preserveAspectRatio="none">
+        <defs>
+          <filter id="paperHeatNoise" x="0%" y="0%" width="100%" height="100%">
+            <feTurbulence
+              type="fractalNoise"
+              baseFrequency="0.85"
+              numOctaves="4"
+              stitchTiles="stitch"
+              result="noise"
+            />
+            <feColorMatrix
+              in="noise"
+              type="matrix"
+              values="0 0 0 0 0.18
+                      0 0 0 0 0.14
+                      0 0 0 0 0.1
+                      0 0 0 0.28 0"
+            />
+          </filter>
+        </defs>
+        <rect width="100%" height="100%" filter="url(#paperHeatNoise)" opacity="0.55" />
+      </svg>
+      <div className="paper-heat__dots" />
+    </div>
+  );
+}
+
 /** Twinkling field for night heroes — fewer on mobile via CSS. */
 export function SparkleField({ count = 12, className = "" }) {
   const items = Array.from({ length: count }, (_, i) => {

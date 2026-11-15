@@ -27,5 +27,6 @@ export {
   PipeLink,
   SparkleField,
   LandingWaveField,
+  PaperHeatmapField,
 } from "./Decorations.jsx";
 export { PageTransition, Reveal, ParallaxDriver, useParallax } from "./Motion.jsx";
