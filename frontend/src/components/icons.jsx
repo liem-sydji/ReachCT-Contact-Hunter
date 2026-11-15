@@ -126,13 +126,28 @@ export const StopIcon = ({ size = 15 }) => (
   </StickerShell>
 );
 
+/**
+ * Brand target: coral reticle (center + ring + cardinal ticks),
+ * with scalloped cloud-outline strokes instead of hard circles.
+ */
 export const ReachCTLogo = ({ size = 36 }) => (
-  <StickerShell size={size} viewBox="0 0 40 40" title="ReachCT">
-    <circle cx="18" cy="18" r="14" fill={ink} transform="translate(2.5 2.5)" />
-    <circle cx="18" cy="18" r="14" fill={coral} stroke={ink} strokeWidth="2.5" />
-    <circle cx="18" cy="18" r="8" fill="none" stroke={ink} strokeWidth="2.5" />
-    <circle cx="18" cy="18" r="3" fill={ink} />
-    <path d="M18 4v5M18 27v5M4 18h5M27 18h5" stroke={ink} strokeWidth="2.5" strokeLinecap="round" />
+  <StickerShell size={size} viewBox="0 0 48 48" title="ReachCT">
+    <g
+      fill="none"
+      stroke={coral}
+      strokeWidth="3.1"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      {/* Cloud-scalloped ring — puffy outline in place of a hard circle */}
+      <path d="M24 11c2.4-2.2 5.8-1.8 7.6.4 2.8-.2 5.2 1.8 5.6 4.6 2.4 1.4 2.8 4.6 1.2 6.8 1.6 2.2 1.2 5.4-1.2 6.8-.4 2.8-2.8 4.8-5.6 4.6-1.8 2.2-5.2 2.6-7.6.4-2.4 2.2-5.8 1.8-7.6-.4-2.8.2-5.2-1.8-5.6-4.6-2.4-1.4-2.8-4.6-1.2-6.8C8.6 17.8 9 14.6 11.4 13.2c.4-2.8 2.8-4.8 5.6-4.6C18.8 9.2 21.6 8.8 24 11z" />
+      {/* Cardinal ticks as tiny cloud outlines crossing the ring */}
+      <path d="M24 5.2c-1.1.2-1.8 1-1.7 2 .8.4 1.2 1.2 1.7 1.2s.9-.8 1.7-1.2c.1-1-.6-1.8-1.7-2z M22.6 9.2c.4.9.9 1.5 1.4 1.5s1-.6 1.4-1.5" />
+      <path d="M42.8 24c-.2 1.1-1 1.8-2 1.7-.4-.8-1.2-1.2-1.2-1.7s.8-.9 1.2-1.7c1 .1 1.8.6 2 1.7z M38.8 22.6c-.9.4-1.5.9-1.5 1.4s.6 1 1.5 1.4" />
+      <path d="M24 42.8c1.1-.2 1.8-1 1.7-2-.8-.4-1.2-1.2-1.7-1.2s-.9.8-1.7 1.2c-.1 1 .6 1.8 1.7 2z M25.4 38.8c-.4-.9-.9-1.5-1.4-1.5s-1 .6-1.4 1.5" />
+      <path d="M5.2 24c.2-1.1 1-1.8 2-1.7.4.8 1.2 1.2 1.2 1.7s-.8.9-1.2 1.7c-1-.1-1.8-.6-2-1.7z M9.2 25.4c.9-.4 1.5-.9 1.5-1.4s-.6-1-1.5-1.4" />
+    </g>
+    <circle cx="24" cy="24" r="4.35" fill={coral} />
   </StickerShell>
 );
 

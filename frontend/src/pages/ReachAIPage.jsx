@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext.jsx";
 import { API } from "../styles.js";
 import { InnerHeader } from "../components/shared.jsx";
+import { PageTransition } from "../components/ui/index.js";
 import { ReachCTLogo } from "../components/icons.jsx";
 
 const AIIcon = () => (
@@ -32,7 +33,7 @@ function MessageBubble({ msg }) {
   return (
     <div style={{ display:"flex", justifyContent: isUser?"flex-end":"flex-start", marginBottom:16 }}>
       {!isUser && (
-        <div style={{ width:32, height:32, borderRadius:"50%", background:"linear-gradient(135deg,#E8005A,#ff6b9d)",
+        <div style={{ width:32, height:32, borderRadius:"50%", background:"linear-gradient(135deg,var(--coral),#ff6b9d)",
           display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0,
           marginRight:10, marginTop:2 }}>
           <span style={{ fontSize:14 }}>✦</span>
@@ -40,16 +41,16 @@ function MessageBubble({ msg }) {
       )}
       <div style={{
         maxWidth:"70%", padding:"12px 16px", borderRadius: isUser?"16px 16px 4px 16px":"16px 16px 16px 4px",
-        background: isUser?"#E8005A":"#f0f0f0",
+        background: isUser?"var(--coral)":"var(--cream)",
         color: isUser?"#fff":"#111",
-        fontSize:14, lineHeight:1.6, fontFamily:"'DM Sans',sans-serif",
+        fontSize:14, lineHeight:1.6, fontFamily:"var(--font-body)",
         whiteSpace:"pre-wrap", wordBreak:"break-word",
       }}>
         {parts.map((part, i) => {
           if (part.match(/\/?dashboard\/db\/\d+/)) {
             const href = part.startsWith("/") ? part : "/" + part;
             return (
-              <a key={i} href={href} style={{ color: isUser?"#ffe0ec":"#E8005A",
+              <a key={i} href={href} style={{ color: isUser?"#ffe0ec":"var(--coral)",
                 textDecoration:"underline", fontWeight:600 }}>
                 {href}
               </a>
@@ -61,7 +62,7 @@ function MessageBubble({ msg }) {
       {isUser && (
         <div style={{ width:32, height:32, borderRadius:"50%", background:"#333",
           display:"flex", alignItems:"center", justifyContent:"center",
-          flexShrink:0, marginLeft:10, marginTop:2, fontSize:14, color:"#fff" }}>
+          flexShrink:0, marginLeft:10, marginTop:2, fontSize:14, color:"var(--cream)" }}>
           👤
         </div>
       )}
@@ -72,11 +73,11 @@ function MessageBubble({ msg }) {
 function TypingIndicator() {
   return (
     <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:16 }}>
-      <div style={{ width:32, height:32, borderRadius:"50%", background:"linear-gradient(135deg,#E8005A,#ff6b9d)",
+      <div style={{ width:32, height:32, borderRadius:"50%", background:"linear-gradient(135deg,var(--coral),#ff6b9d)",
         display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
         <span style={{ fontSize:14 }}>✦</span>
       </div>
-      <div style={{ background:"#f0f0f0", borderRadius:"16px 16px 16px 4px", padding:"12px 16px",
+      <div style={{ background:"var(--cream)", borderRadius:"16px 16px 16px 4px", padding:"12px 16px",
         display:"flex", gap:4, alignItems:"center" }}>
         {[0,1,2].map(i => (
           <div key={i} style={{ width:7, height:7, borderRadius:"50%", background:"#aaa",
@@ -144,6 +145,9 @@ export default function ReachAIPage() {
   const clearChat = () => { setMessages([]); setDisplay([]); setError(""); };
 
   return (
+
+    <PageTransition>
+    
     <div className="inner-page" style={{ display:"flex", flexDirection:"column", height:"100vh" }}>
       <InnerHeader title="ReachAI" />
 
@@ -155,24 +159,24 @@ export default function ReachAIPage() {
           {display.length === 0 && (
             <div style={{ textAlign:"center", paddingTop:40 }}>
               <div style={{ width:60, height:60, borderRadius:"50%",
-                background:"linear-gradient(135deg,#E8005A,#ff6b9d)",
+                background:"linear-gradient(135deg,var(--coral),#ff6b9d)",
                 display:"flex", alignItems:"center", justifyContent:"center",
                 margin:"0 auto 16px", fontSize:26 }}>✦</div>
-              <h2 style={{ fontFamily:"'Syne',sans-serif", fontSize:22, fontWeight:800,
-                color:"#111", margin:"0 0 8px" }}>ReachAI</h2>
+              <h2 style={{ fontFamily:"var(--font-display)", fontSize:22, fontWeight:800,
+                color:"var(--ink)", margin:"0 0 8px" }}>ReachAI</h2>
               <p style={{ color:"#999", fontSize:14, marginBottom:32, maxWidth:400, margin:"0 auto 32px" }}>
                 Your AI assistant for ReachCT. Search companies, manage your databases, and get insights — just by asking.
               </p>
               <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, maxWidth:600, margin:"0 auto" }}>
                 {SUGGESTIONS.map((s, i) => (
                   <div key={i} onClick={()=>handleSuggestion(s)} style={{
-                    background:"#f8f8f8", border:"1px solid #eee", borderRadius:12,
+                    background:"#f8f8f8", border:"1px solid var(--sand)", borderRadius:12,
                     padding:"12px 16px", cursor:"pointer", fontSize:13, color:"#444",
                     textAlign:"left", lineHeight:1.4, transition:"all 0.15s",
                     gridColumn: i===4?"1/-1":undefined,
                   }}
-                    onMouseEnter={e=>{ e.currentTarget.style.borderColor="#E8005A"; e.currentTarget.style.background="rgba(232,0,90,0.02)"; }}
-                    onMouseLeave={e=>{ e.currentTarget.style.borderColor="#eee"; e.currentTarget.style.background="#f8f8f8"; }}>
+                    onMouseEnter={e=>{ e.currentTarget.style.borderColor="var(--coral)"; e.currentTarget.style.background="rgba(238,104,94,0.02)"; }}
+                    onMouseLeave={e=>{ e.currentTarget.style.borderColor="var(--sand)"; e.currentTarget.style.background="#f8f8f8"; }}>
                     {s}
                   </div>
                 ))}
@@ -194,11 +198,11 @@ export default function ReachAIPage() {
       </div>
 
       {/* Input area */}
-      <div style={{ background:"#fff", borderTop:"1px solid #eee", padding:"16px 24px" }}>
+      <div style={{ background:"var(--cream-light)", borderTop:"1px solid var(--sand)", padding:"16px 24px" }}>
         <div style={{ maxWidth:760, margin:"0 auto" }}>
           {display.length > 0 && (
             <button onClick={clearChat} style={{ fontSize:12, color:"#bbb", background:"none",
-              border:"none", cursor:"pointer", fontFamily:"'DM Sans',sans-serif",
+              border:"none", cursor:"pointer", fontFamily:"var(--font-body)",
               marginBottom:8, padding:0 }}
               onMouseEnter={e=>e.target.style.color="#666"} onMouseLeave={e=>e.target.style.color="#bbb"}>
               Clear conversation
@@ -207,20 +211,20 @@ export default function ReachAIPage() {
           <div style={{ display:"flex", gap:10, alignItems:"flex-end" }}>
             <textarea ref={textareaRef} value={input} onChange={e=>setInput(e.target.value)}
               onKeyDown={handleKeyDown} placeholder="Ask ReachAI anything… e.g. 'Search 25 IT companies in Berlin and save to my Tech Leads database'"
-              rows={2} style={{ flex:1, padding:"12px 16px", border:"1.5px solid #e8e8e8",
-                borderRadius:12, fontSize:14, fontFamily:"'DM Sans',sans-serif",
-                color:"#111", outline:"none", resize:"none", lineHeight:1.5,
+              rows={2} style={{ flex:1, padding:"12px 16px", border:"1.5px solid var(--sand)",
+                borderRadius:12, fontSize:14, fontFamily:"var(--font-body)",
+                color:"var(--ink)", outline:"none", resize:"none", lineHeight:1.5,
                 transition:"border-color 0.15s" }}
-              onFocus={e=>e.target.style.borderColor="#E8005A"}
+              onFocus={e=>e.target.style.borderColor="var(--coral)"}
               onBlur={e=>e.target.style.borderColor="#e8e8e8"} />
             <button onClick={handleSend} disabled={!input.trim()||loading} style={{
-              background:"#E8005A", border:"none", borderRadius:10, width:44, height:44,
+              background:"var(--coral)", border:"none", borderRadius:10, width:44, height:44,
               display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer",
               transition:"all 0.15s", flexShrink:0,
               opacity:input.trim()&&!loading?1:0.4,
             }}
-              onMouseEnter={e=>e.currentTarget.style.background="#cc004f"}
-              onMouseLeave={e=>e.currentTarget.style.background="#E8005A"}>
+              onMouseEnter={e=>e.currentTarget.style.background="var(--hot-pink)"}
+              onMouseLeave={e=>e.currentTarget.style.background="var(--coral)"}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5"
                 strokeLinecap="round" strokeLinejoin="round">
                 <path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/>
@@ -240,5 +244,9 @@ export default function ReachAIPage() {
         }
       `}</style>
     </div>
+  
+
+    </PageTransition>
+
   );
 }

@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../context/AuthContext.jsx";
 import { API, COMPANY_TYPES_GROUPED } from "../styles.js";
 import { ReachCTLogo } from "../components/icons.jsx";
+import { PageTransition } from "../components/ui/index.js";
 
 // Canonical column priority — unknown cols appended after
 const MAPS_PRIORITY         = ["name","email","phone","website","city","country","company_type"];
@@ -28,14 +29,14 @@ function toHref(val) {
 // ─── Left Panel ───────────────────────────────────────────────────────────────
 function LeftPanel({ user, onNav }) {
   return (
-    <aside style={{ width:200, minHeight:"100vh", background:"#111", borderRight:"1px solid #1e1e1e",
+    <aside style={{ width:200, minHeight:"100vh", background:"var(--ink)", borderRight:"1px solid rgba(246,235,217,0.08)",
       display:"flex", flexDirection:"column", padding:"20px 0", flexShrink:0 }}>
-      <div style={{ padding:"0 16px 20px", borderBottom:"1px solid #1e1e1e", cursor:"pointer" }}
+      <div style={{ padding:"0 16px 20px", borderBottom:"1px solid rgba(246,235,217,0.08)", cursor:"pointer" }}
         onClick={() => onNav("/")}>
         <div style={{ display:"flex", alignItems:"center", gap:8 }}>
           <ReachCTLogo size={20} />
-          <span style={{ fontFamily:"'Syne',sans-serif", fontSize:15, fontWeight:800, color:"#fff" }}>
-            Reach<span style={{ color:"#E8005A" }}>CT</span>
+          <span style={{ fontFamily:"var(--font-display)", fontSize:15, fontWeight:800, color:"var(--cream)" }}>
+            Reach<span style={{ color:"var(--coral)" }}>CT</span>
           </span>
         </div>
       </div>
@@ -43,24 +44,24 @@ function LeftPanel({ user, onNav }) {
         <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:16 }}>
           {user?.picture
             ? <img src={user.picture} alt="" referrerPolicy="no-referrer"
-                style={{ width:32, height:32, borderRadius:"50%", objectFit:"cover", border:"2px solid #333" }} />
-            : <div style={{ width:32, height:32, borderRadius:"50%", background:"#E8005A",
+                style={{ width:32, height:32, borderRadius:"50%", objectFit:"cover", border:"2px solid rgba(246,235,217,0.2)" }} />
+            : <div style={{ width:32, height:32, borderRadius:"50%", background:"var(--coral)",
                 display:"flex", alignItems:"center", justifyContent:"center",
-                fontSize:13, fontWeight:700, color:"#fff", fontFamily:"'Syne',sans-serif" }}>
+                fontSize:13, fontWeight:700, color:"var(--cream)", fontFamily:"var(--font-display)" }}>
                 {(user?.name||"?")[0].toUpperCase()}
               </div>
           }
           <div style={{ overflow:"hidden" }}>
-            <div style={{ fontSize:12, fontWeight:600, color:"#fff", overflow:"hidden",
+            <div style={{ fontSize:12, fontWeight:600, color:"var(--cream)", overflow:"hidden",
               textOverflow:"ellipsis", whiteSpace:"nowrap", maxWidth:120 }}>{user?.name||"User"}</div>
             <div style={{ fontSize:10, color:"#555", overflow:"hidden",
               textOverflow:"ellipsis", whiteSpace:"nowrap", maxWidth:120 }}>{user?.email}</div>
           </div>
         </div>
         <button onClick={() => onNav("/dashboard")} style={{ display:"flex", alignItems:"center", gap:8,
-          background:"rgba(232,0,90,0.12)", border:"1px solid rgba(232,0,90,0.2)", borderRadius:8,
-          padding:"8px 12px", cursor:"pointer", color:"#E8005A", fontSize:12, fontWeight:600,
-          fontFamily:"'DM Sans',sans-serif", width:"100%", textAlign:"left" }}>
+          background:"rgba(238,104,94,0.12)", border:"1px solid rgba(238,104,94,0.2)", borderRadius:8,
+          padding:"8px 12px", cursor:"pointer", color:"var(--coral)", fontSize:12, fontWeight:600,
+          fontFamily:"var(--font-body)", width:"100%", textAlign:"left" }}>
           🗄️ Databases
         </button>
       </div>
@@ -77,33 +78,33 @@ function TagInput({ placeholder, options, value, onChange }) {
   const remove = (item) => onChange(value.filter(v => v !== item));
   return (
     <div style={{ position:"relative" }}>
-      <div style={{ minHeight:40, padding:"6px 10px", border:"1.5px solid #e8e8e8", borderRadius:10,
-        background:"#fff", display:"flex", flexWrap:"wrap", gap:6, alignItems:"center", cursor:"text" }}
+      <div style={{ minHeight:40, padding:"6px 10px", border:"1.5px solid var(--sand)", borderRadius:10,
+        background:"var(--cream-light)", display:"flex", flexWrap:"wrap", gap:6, alignItems:"center", cursor:"text" }}
         onClick={() => setOpen(true)}>
         {value.map(v => (
-          <span key={v} style={{ background:"rgba(232,0,90,0.08)", border:"1px solid rgba(232,0,90,0.2)",
-            borderRadius:6, padding:"2px 8px", fontSize:12, color:"#E8005A",
+          <span key={v} style={{ background:"rgba(238,104,94,0.08)", border:"1px solid rgba(238,104,94,0.2)",
+            borderRadius:6, padding:"2px 8px", fontSize:12, color:"var(--coral)",
             display:"flex", alignItems:"center", gap:4 }}>
             {v}
             <button onClick={e => { e.stopPropagation(); remove(v); }} style={{
-              background:"none", border:"none", cursor:"pointer", color:"#E8005A", fontSize:14, padding:0, lineHeight:1 }}>×</button>
+              background:"none", border:"none", cursor:"pointer", color:"var(--coral)", fontSize:14, padding:0, lineHeight:1 }}>×</button>
           </span>
         ))}
         <input value={inputVal} onChange={e => { setInputVal(e.target.value); setOpen(true); }}
           onFocus={() => setOpen(true)} onBlur={() => setTimeout(() => setOpen(false), 150)}
           placeholder={value.length === 0 ? placeholder : ""}
           style={{ border:"none", outline:"none", fontSize:13, flex:1, minWidth:80,
-            fontFamily:"'DM Sans',sans-serif", background:"transparent" }} />
+            fontFamily:"var(--font-body)", background:"transparent" }} />
       </div>
       {open && filtered.length > 0 && (
-        <div style={{ position:"absolute", top:"100%", left:0, right:0, zIndex:100, background:"#fff",
-          border:"1px solid #eee", borderRadius:10, boxShadow:"0 4px 20px rgba(0,0,0,0.1)",
+        <div style={{ position:"absolute", top:"100%", left:0, right:0, zIndex:100, background:"var(--cream-light)",
+          border:"1px solid var(--sand)", borderRadius:10, boxShadow:"0 4px 20px rgba(0,0,0,0.1)",
           maxHeight:260, overflowY:"auto", marginTop:4 }}>
           {filtered.map(o => (
             <div key={o} onMouseDown={() => add(o)} style={{ padding:"9px 14px", fontSize:13,
-              cursor:"pointer", fontFamily:"'DM Sans',sans-serif", color:"#111", background:"#fff" }}
+              cursor:"pointer", fontFamily:"var(--font-body)", color:"var(--ink)", background:"var(--cream-light)" }}
               onMouseEnter={e => e.target.style.background="#f9f9f9"}
-              onMouseLeave={e => e.target.style.background="#fff"}>{o}</div>
+              onMouseLeave={e => e.target.style.background="var(--cream-light)"}>{o}</div>
           ))}
         </div>
       )}
@@ -113,19 +114,19 @@ function TagInput({ placeholder, options, value, onChange }) {
 
 // ─── Modal primitives ─────────────────────────────────────────────────────────
 const labelStyle = { display:"block", fontSize:11, fontWeight:600, color:"#999",
-  letterSpacing:"0.07em", textTransform:"uppercase", marginBottom:6, fontFamily:"'DM Sans',sans-serif" };
-const inputStyle = { width:"100%", padding:"10px 14px", border:"1.5px solid #e8e8e8",
-  borderRadius:10, fontSize:14, fontFamily:"'DM Sans',sans-serif", color:"#111",
-  background:"#fff", outline:"none", boxSizing:"border-box" };
+  letterSpacing:"0.07em", textTransform:"uppercase", marginBottom:6, fontFamily:"var(--font-body)" };
+const inputStyle = { width:"100%", padding:"10px 14px", border:"1.5px solid var(--sand)",
+  borderRadius:10, fontSize:14, fontFamily:"var(--font-body)", color:"var(--ink)",
+  background:"var(--cream-light)", outline:"none", boxSizing:"border-box" };
 
 function ModalWrap({ onClose, title, subtitle, children, width=480 }) {
   return (
     <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.5)", zIndex:1000,
       display:"flex", alignItems:"center", justifyContent:"center", padding:20 }} onClick={onClose}>
-      <div style={{ background:"#fff", borderRadius:16, padding:32, width:"100%", maxWidth:width,
+      <div style={{ background:"var(--cream-light)", borderRadius:16, padding:32, width:"100%", maxWidth:width,
         maxHeight:"90vh", overflowY:"auto", boxShadow:"0 20px 60px rgba(0,0,0,0.15)" }}
         onClick={e => e.stopPropagation()}>
-        <h2 style={{ fontFamily:"'Syne',sans-serif", fontSize:20, fontWeight:800, color:"#111",
+        <h2 style={{ fontFamily:"var(--font-display)", fontSize:20, fontWeight:800, color:"var(--ink)",
           margin:"0 0 4px", letterSpacing:"-0.4px" }}>{title}</h2>
         {subtitle && <p style={{ fontSize:13, color:"#999", marginBottom:24 }}>{subtitle}</p>}
         {children}
@@ -137,12 +138,12 @@ function ModalWrap({ onClose, title, subtitle, children, width=480 }) {
 function ModalFooter({ onClose, onConfirm, loading, label, disabled }) {
   return (
     <div style={{ display:"flex", justifyContent:"flex-end", gap:10, marginTop:24 }}>
-      <button onClick={onClose} style={{ background:"none", border:"1px solid #e8e8e8", borderRadius:8,
-        padding:"9px 18px", color:"#666", fontSize:13, cursor:"pointer", fontFamily:"'DM Sans',sans-serif" }}>
+      <button onClick={onClose} style={{ background:"none", border:"1.5px solid var(--sand)", borderRadius:8,
+        padding:"9px 18px", color:"#666", fontSize:13, cursor:"pointer", fontFamily:"var(--font-body)" }}>
         Cancel</button>
-      <button onClick={onConfirm} disabled={disabled||loading} style={{ background:"#E8005A", border:"none",
-        borderRadius:8, padding:"9px 20px", color:"#fff", fontSize:13, fontWeight:600, cursor:"pointer",
-        fontFamily:"'DM Sans',sans-serif", opacity:(disabled||loading)?0.5:1 }}>
+      <button onClick={onConfirm} disabled={disabled||loading} style={{ background:"var(--coral)", border:"none",
+        borderRadius:8, padding:"9px 20px", color:"var(--cream)", fontSize:13, fontWeight:600, cursor:"pointer",
+        fontFamily:"var(--font-body)", opacity:(disabled||loading)?0.5:1 }}>
         {loading?"Loading…":label}</button>
     </div>
   );
@@ -247,11 +248,11 @@ function UploadModal({ onClose, onUpload }) {
       </div>
       <div style={{ border:"2px dashed #e8e8e8", borderRadius:12, padding:32, textAlign:"center",
         cursor:"pointer", marginBottom:16, transition:"all 0.2s" }}
-        onMouseEnter={e => { e.currentTarget.style.borderColor="#E8005A"; e.currentTarget.style.background="rgba(232,0,90,0.02)"; }}
+        onMouseEnter={e => { e.currentTarget.style.borderColor="var(--coral)"; e.currentTarget.style.background="rgba(238,104,94,0.02)"; }}
         onMouseLeave={e => { e.currentTarget.style.borderColor="#e8e8e8"; e.currentTarget.style.background="none"; }}
         onClick={() => document.getElementById("upload-file-input").click()}>
         <div style={{ fontSize:32, marginBottom:8 }}>📂</div>
-        <div style={{ fontSize:14, fontWeight:600, color:"#111", marginBottom:4 }}>
+        <div style={{ fontSize:14, fontWeight:600, color:"var(--ink)", marginBottom:4 }}>
           {file ? file.name : "Click to select file"}</div>
         <div style={{ fontSize:12, color:"#999" }}>.xlsx, .xls, .csv supported</div>
         <input id="upload-file-input" type="file" accept=".xlsx,.xls,.csv"
@@ -260,7 +261,7 @@ function UploadModal({ onClose, onUpload }) {
       {loading && (
         <div style={{ display:"flex", alignItems:"center", gap:12, padding:"12px 0", color:"#666", fontSize:13 }}>
           <div style={{ width:20, height:20, borderRadius:"50%", border:"2px solid #eee",
-            borderTopColor:"#E8005A", animation:"spin 0.8s linear infinite", flexShrink:0 }} />
+            borderTopColor:"var(--coral)", animation:"spin 0.8s linear infinite", flexShrink:0 }} />
           Claude is analyzing and cleaning your data…
         </div>
       )}
@@ -491,7 +492,7 @@ function SearchModal({ onClose, onSearch, token }) {
         {loading && (
           <div style={{ display:"flex", alignItems:"center", gap:12, color:"#666", fontSize:13 }}>
             <div style={{ width:20, height:20, borderRadius:"50%", border:"2px solid #eee",
-              borderTopColor:"#E8005A", animation:"spin 0.8s linear infinite", flexShrink:0 }} />
+              borderTopColor:"var(--coral)", animation:"spin 0.8s linear infinite", flexShrink:0 }} />
             {loadMsg}
           </div>
         )}
@@ -568,21 +569,21 @@ function CollaboratorModal({ onClose, dbId, token }) {
               onBlur={()=>setTimeout(()=>setShowSuggestions(false), 150)}
               placeholder="colleague@email.com" onKeyDown={e=>e.key==="Enter"&&handleAdd()} />
             {showSuggestions && suggestions.length > 0 && (
-              <div style={{ position:"absolute", top:"100%", left:0, right:0, zIndex:100, background:"#fff",
-                border:"1px solid #eee", borderRadius:10, boxShadow:"0 4px 20px rgba(0,0,0,0.1)",
+              <div style={{ position:"absolute", top:"100%", left:0, right:0, zIndex:100, background:"var(--cream-light)",
+                border:"1px solid var(--sand)", borderRadius:10, boxShadow:"0 4px 20px rgba(0,0,0,0.1)",
                 maxHeight:220, overflowY:"auto", marginTop:4 }}>
                 {suggestions.map(u => (
                   <div key={u.id} onMouseDown={()=>selectSuggestion(u)} style={{ display:"flex", alignItems:"center",
                     gap:10, padding:"8px 12px", cursor:"pointer" }}
                     onMouseEnter={e=>e.currentTarget.style.background="#f9f9f9"}
-                    onMouseLeave={e=>e.currentTarget.style.background="#fff"}>
+                    onMouseLeave={e=>e.currentTarget.style.background="var(--cream-light)"}>
                     {u.picture ? <img src={u.picture} alt="" referrerPolicy="no-referrer"
                       style={{ width:24, height:24, borderRadius:"50%", objectFit:"cover" }} />
-                    : <div style={{ width:24, height:24, borderRadius:"50%", background:"#E8005A",
+                    : <div style={{ width:24, height:24, borderRadius:"50%", background:"var(--coral)",
                         display:"flex", alignItems:"center", justifyContent:"center",
-                        fontSize:11, color:"#fff", fontWeight:700, flexShrink:0 }}>{(u.name||u.email||"?")[0].toUpperCase()}</div>}
+                        fontSize:11, color:"var(--cream)", fontWeight:700, flexShrink:0 }}>{(u.name||u.email||"?")[0].toUpperCase()}</div>}
                     <div style={{ overflow:"hidden" }}>
-                      <div style={{ fontSize:13, fontWeight:500, color:"#111", whiteSpace:"nowrap",
+                      <div style={{ fontSize:13, fontWeight:500, color:"var(--ink)", whiteSpace:"nowrap",
                         overflow:"hidden", textOverflow:"ellipsis" }}>{u.name||u.email}</div>
                       {u.name && <div style={{ fontSize:11, color:"#999", whiteSpace:"nowrap",
                         overflow:"hidden", textOverflow:"ellipsis" }}>{u.email}</div>}
@@ -593,18 +594,18 @@ function CollaboratorModal({ onClose, dbId, token }) {
             )}
           </div>
           <select value={role} onChange={e=>setRole(e.target.value)} style={{ padding:"10px 12px",
-            border:"1.5px solid #e8e8e8", borderRadius:10, fontSize:13, fontFamily:"'DM Sans',sans-serif",
-            color:"#111", background:"#fff", outline:"none", cursor:"pointer" }}>
+            border:"1.5px solid var(--sand)", borderRadius:10, fontSize:13, fontFamily:"var(--font-body)",
+            color:"var(--ink)", background:"var(--cream-light)", outline:"none", cursor:"pointer" }}>
             <option value="viewer">Viewer</option>
             <option value="editor">Editor</option>
           </select>
-          <button onClick={handleAdd} disabled={loading||!email.trim()} style={{ background:"#E8005A",
-            border:"none", borderRadius:10, padding:"10px 16px", color:"#fff", fontSize:13,
-            fontWeight:600, cursor:"pointer", fontFamily:"'DM Sans',sans-serif", opacity:email.trim()?1:0.5 }}>Add</button>
+          <button onClick={handleAdd} disabled={loading||!email.trim()} style={{ background:"var(--coral)",
+            border:"none", borderRadius:10, padding:"10px 16px", color:"var(--cream)", fontSize:13,
+            fontWeight:600, cursor:"pointer", fontFamily:"var(--font-body)", opacity:email.trim()?1:0.5 }}>Add</button>
         </div>
-        {msg && <div style={{ fontSize:12, color:"#E8005A" }}>{msg}</div>}
+        {msg && <div style={{ fontSize:12, color:"var(--coral)" }}>{msg}</div>}
         {collabs.length > 0 && (
-          <div style={{ borderTop:"1px solid #eee", paddingTop:16 }}>
+          <div style={{ borderTop:"1px solid var(--sand)", paddingTop:16 }}>
             <div style={{ fontSize:11, fontWeight:600, color:"#999", letterSpacing:"0.06em",
               textTransform:"uppercase", marginBottom:10 }}>Current collaborators</div>
             {collabs.map(c => (
@@ -613,17 +614,17 @@ function CollaboratorModal({ onClose, dbId, token }) {
                 <div style={{ display:"flex", alignItems:"center", gap:10 }}>
                   {c.picture ? <img src={c.picture} alt="" referrerPolicy="no-referrer"
                     style={{ width:28, height:28, borderRadius:"50%", objectFit:"cover" }} />
-                  : <div style={{ width:28, height:28, borderRadius:"50%", background:"#E8005A",
+                  : <div style={{ width:28, height:28, borderRadius:"50%", background:"var(--coral)",
                       display:"flex", alignItems:"center", justifyContent:"center",
-                      fontSize:12, color:"#fff", fontWeight:700 }}>{(c.name||c.email||"?")[0].toUpperCase()}</div>}
+                      fontSize:12, color:"var(--cream)", fontWeight:700 }}>{(c.name||c.email||"?")[0].toUpperCase()}</div>}
                   <div>
-                    <div style={{ fontSize:13, fontWeight:500, color:"#111" }}>{c.name||c.email}</div>
+                    <div style={{ fontSize:13, fontWeight:500, color:"var(--ink)" }}>{c.name||c.email}</div>
                     <div style={{ fontSize:11, color:"#999" }}>{c.role}</div>
                   </div>
                 </div>
                 <button onClick={()=>handleRemove(c.user_id)} style={{ background:"none", border:"none",
-                  color:"#ccc", fontSize:12, cursor:"pointer", fontFamily:"'DM Sans',sans-serif" }}
-                  onMouseEnter={e=>e.target.style.color="#E8005A"} onMouseLeave={e=>e.target.style.color="#ccc"}>
+                  color:"#ccc", fontSize:12, cursor:"pointer", fontFamily:"var(--font-body)" }}
+                  onMouseEnter={e=>e.target.style.color="var(--coral)"} onMouseLeave={e=>e.target.style.color="#ccc"}>
                   Remove</button>
               </div>
             ))}
@@ -631,8 +632,8 @@ function CollaboratorModal({ onClose, dbId, token }) {
         )}
       </div>
       <div style={{ display:"flex", justifyContent:"flex-end", marginTop:24 }}>
-        <button onClick={onClose} style={{ background:"none", border:"1px solid #e8e8e8", borderRadius:8,
-          padding:"9px 20px", color:"#111", fontSize:13, cursor:"pointer", fontFamily:"'DM Sans',sans-serif" }}>
+        <button onClick={onClose} style={{ background:"none", border:"1.5px solid var(--sand)", borderRadius:8,
+          padding:"9px 20px", color:"var(--ink)", fontSize:13, cursor:"pointer", fontFamily:"var(--font-body)" }}>
           Done</button>
       </div>
     </ModalWrap>
@@ -660,22 +661,22 @@ function ThreeDotsMenu({ onPull, onSearch, onLinkedInSearch, onCompaniesSearch, 
   ];
   return (
     <div ref={ref} style={{ position:"relative" }}>
-      <button onClick={()=>setOpen(!open)} style={{ background:"none", border:"1px solid #e8e8e8",
+      <button onClick={()=>setOpen(!open)} style={{ background:"none", border:"1.5px solid var(--sand)",
         borderRadius:8, width:36, height:36, display:"flex", alignItems:"center", justifyContent:"center",
         cursor:"pointer", fontSize:18, color:"#666", transition:"all 0.15s" }}
-        onMouseEnter={e=>{ e.currentTarget.style.background="#f5f5f5"; e.currentTarget.style.borderColor="#ccc"; }}
+        onMouseEnter={e=>{ e.currentTarget.style.background="var(--cream)"; e.currentTarget.style.borderColor="#ccc"; }}
         onMouseLeave={e=>{ e.currentTarget.style.background="none"; e.currentTarget.style.borderColor="#e8e8e8"; }}>
         ⋯
       </button>
       {open && (
-        <div style={{ position:"absolute", top:"100%", right:0, zIndex:200, background:"#fff",
-          border:"1px solid #eee", borderRadius:12, boxShadow:"0 8px 30px rgba(0,0,0,0.12)",
+        <div style={{ position:"absolute", top:"100%", right:0, zIndex:200, background:"var(--cream-light)",
+          border:"1px solid var(--sand)", borderRadius:12, boxShadow:"0 8px 30px rgba(0,0,0,0.12)",
           minWidth:200, marginTop:6, overflow:"hidden" }}>
           {options.map(opt => (
             <button key={opt.label} onClick={()=>{ opt.onClick(); setOpen(false); }} style={{
               display:"flex", alignItems:"center", gap:10, width:"100%", padding:"11px 16px",
               background:"none", border:"none", cursor:"pointer", fontSize:13, color:"#333",
-              fontFamily:"'DM Sans',sans-serif", transition:"background 0.1s", textAlign:"left" }}
+              fontFamily:"var(--font-body)", transition:"background 0.1s", textAlign:"left" }}
               onMouseEnter={e=>e.currentTarget.style.background="#f9f9f9"}
               onMouseLeave={e=>e.currentTarget.style.background="none"}>
               <span>{opt.icon}</span>{opt.label}
@@ -694,16 +695,16 @@ function AddColInline({ onAddCol }) {
   if (!show) return (
     <button onClick={()=>setShow(true)} style={{ background:"none", border:"1.5px dashed #d0d0d0",
       borderRadius:5, padding:"2px 10px", color:"#aaa", fontSize:11, cursor:"pointer",
-      fontFamily:"'DM Sans',sans-serif", whiteSpace:"nowrap" }}>+ Col</button>
+      fontFamily:"var(--font-body)", whiteSpace:"nowrap" }}>+ Col</button>
   );
   return (
     <div style={{ display:"flex", gap:4, alignItems:"center" }}>
       <input autoFocus value={name} onChange={e=>setName(e.target.value)}
         onKeyDown={e=>{ if(e.key==="Enter"){ onAddCol(name.trim()); setName(""); setShow(false); } if(e.key==="Escape") setShow(false); }}
         placeholder="Column name"
-        style={{ width:90, padding:"3px 7px", border:"1.5px solid #E8005A", borderRadius:5, fontSize:11, outline:"none" }} />
+        style={{ width:90, padding:"3px 7px", border:"1.5px solid var(--coral)", borderRadius:5, fontSize:11, outline:"none" }} />
       <button onClick={()=>{ onAddCol(name.trim()); setName(""); setShow(false); }}
-        style={{ background:"#E8005A", border:"none", borderRadius:5, padding:"3px 7px", color:"#fff", fontSize:11, cursor:"pointer" }}>+</button>
+        style={{ background:"var(--coral)", border:"none", borderRadius:5, padding:"3px 7px", color:"var(--cream)", fontSize:11, cursor:"pointer" }}>+</button>
     </div>
   );
 }
@@ -762,7 +763,7 @@ function SpreadsheetGrid({
 
   return (
     <div ref={gridRef} tabIndex={0} onKeyDown={onKeyDown} style={{ flex:1, overflow:"auto", outline:"none" }}>
-      <table style={{ borderCollapse:"collapse", fontSize:13, fontFamily:"'DM Sans',sans-serif",
+      <table style={{ borderCollapse:"collapse", fontSize:13, fontFamily:"var(--font-body)",
         minWidth:"100%", tableLayout:"fixed" }}>
         <colgroup>
           <col style={{ width:ROW_NUM_W }} />
@@ -772,7 +773,7 @@ function SpreadsheetGrid({
         <thead>
           <tr>
             {/* Corner */}
-            <th style={{ background:"#efefef", borderRight:"2px solid #d0d0d0",
+            <th style={{ background:"var(--cream)", borderRight:"2px solid #d0d0d0",
               borderBottom:"2px solid #c8c8c8", position:"sticky", top:0, left:0,
               zIndex:20, width:ROW_NUM_W, boxSizing:"border-box" }} />
             {columns.map((col, ci) => (
@@ -783,7 +784,7 @@ function SpreadsheetGrid({
                 onDrop={() => handleDrop(col)}
                 style={{
                   padding:`0 ${ROW_NUM_W === 52 ? 10 : 12}px 0 10px`, height:ROW_H,
-                  background: dragOverCol===col ? "rgba(232,0,90,0.1)" : "#efefef",
+                  background: dragOverCol===col ? "rgba(238,104,94,0.1)" : "var(--cream)",
                   borderRight: ci === 0 ? "2px solid #d0d0d0" : "1px solid #d8d8d8",
                   borderBottom:"2px solid #c8c8c8",
                   textAlign:"left", fontWeight:700, color:"#555", fontSize:11,
@@ -799,7 +800,7 @@ function SpreadsheetGrid({
                     onBlur={confirmRenameCol}
                     onKeyDown={e=>{ if(e.key==="Enter") confirmRenameCol(); if(e.key==="Escape") setEditColHeader(null); }}
                     style={{ border:"none", outline:"none", fontSize:11, fontWeight:700, textTransform:"uppercase",
-                      letterSpacing:"0.05em", background:"transparent", width:"100%", fontFamily:"'DM Sans',sans-serif" }} />
+                      letterSpacing:"0.05em", background:"transparent", width:"100%", fontFamily:"var(--font-body)" }} />
                 ) : (
                   <div style={{ display:"flex", alignItems:"center", height:"100%", position:"relative", gap:4 }}>
                     <span style={{ overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", flex:1 }}
@@ -812,7 +813,7 @@ function SpreadsheetGrid({
                     {!isViewer && (
                       <div onMouseDown={(e) => handleResizeMouseDown(e, col)}
                         style={{ position:"absolute", right:0, top:0, bottom:0, width:5, cursor:"col-resize", zIndex:3 }}
-                        onMouseEnter={e => e.currentTarget.style.background="rgba(232,0,90,0.4)"}
+                        onMouseEnter={e => e.currentTarget.style.background="rgba(238,104,94,0.4)"}
                         onMouseLeave={e => e.currentTarget.style.background="transparent"} />
                     )}
                   </div>
@@ -820,7 +821,7 @@ function SpreadsheetGrid({
               </th>
             ))}
             {!isViewer && (
-              <th style={{ background:"#efefef", borderBottom:"2px solid #c8c8c8",
+              <th style={{ background:"var(--cream)", borderBottom:"2px solid #c8c8c8",
                 position:"sticky", top:0, zIndex:9, padding:"0 8px", height:ROW_H }}>
                 <AddColInline onAddCol={onAddCol} />
               </th>
@@ -831,14 +832,14 @@ function SpreadsheetGrid({
           {entries.map((entry, rowIdx) => {
             const rowSel = selectedRows.has(entry.id);
             return (
-              <tr key={entry.id} style={{ borderBottom:"1px solid #e8e8e8" }}>
+              <tr key={entry.id} style={{ borderBottom:"1.5px solid var(--sand)" }}>
                 {/* Row number gutter */}
                 <td onClick={() => !isViewer && onRowSelect(entry.id)}
                   className="row-num-cell"
                   style={{
-                    background: rowSel ? "rgba(232,0,90,0.12)" : "#f5f5f5",
+                    background: rowSel ? "rgba(238,104,94,0.12)" : "var(--cream)",
                     borderRight:"2px solid #d0d0d0",
-                    color: rowSel ? "#E8005A" : "#bbb",
+                    color: rowSel ? "var(--coral)" : "#bbb",
                     fontSize:11, textAlign:"right", padding:"0 6px 0 4px",
                     position:"sticky", left:0, height:ROW_H, verticalAlign:"middle",
                     cursor: isViewer ? "default" : "pointer",
@@ -846,7 +847,7 @@ function SpreadsheetGrid({
                   }}>
                   <div style={{ display:"flex", alignItems:"center", justifyContent:"flex-end", gap:3 }}>
                     {rowSel
-                      ? <span style={{ fontSize:13, color:"#E8005A", fontWeight:700 }}>✓</span>
+                      ? <span style={{ fontSize:13, color:"var(--coral)", fontWeight:700 }}>✓</span>
                       : <>
                           <span className="row-num-label">{rowIdx+1}</span>
                           {!isViewer && (
@@ -872,15 +873,15 @@ function SpreadsheetGrid({
                     isEditing  ? "#fffcfe" :
                     isSaved    ? "rgba(34,197,94,0.16)" :
                     isErr      ? "rgba(239,68,68,0.13)" :
-                    isFocused  ? "rgba(232,0,90,0.07)" :
-                    isRange    ? "rgba(232,0,90,0.05)" :
-                    rowSel     ? "rgba(232,0,90,0.04)" :
+                    isFocused  ? "rgba(238,104,94,0.07)" :
+                    isRange    ? "rgba(238,104,94,0.05)" :
+                    rowSel     ? "rgba(238,104,94,0.04)" :
                     "#fff";
 
                   const outlineVal =
-                    isEditing  ? "2px solid #E8005A" :
-                    isFocused  ? "2px solid rgba(232,0,90,0.55)" :
-                    isRange    ? "1px solid rgba(232,0,90,0.2)" : "none";
+                    isEditing  ? "2px solid var(--coral)" :
+                    isFocused  ? "2px solid rgba(238,104,94,0.55)" :
+                    isRange    ? "1px solid rgba(238,104,94,0.2)" : "none";
 
                   const href = toHref(val);
 
@@ -890,7 +891,7 @@ function SpreadsheetGrid({
                       data-col={col}
                       style={{
                         padding:0,
-                        borderRight: ci === 0 ? "2px solid #d0d0d0" : "1px solid #e8e8e8",
+                        borderRight: ci === 0 ? "2px solid #d0d0d0" : "1.5px solid var(--sand)",
                         background: bg,
                         outline: outlineVal, outlineOffset:"-1px",
                         cursor: isViewer ? "default" : "text",
@@ -914,16 +915,16 @@ function SpreadsheetGrid({
                             else if (e.key==="ArrowUp")   { e.preventDefault(); onCellCommit("up"); }
                           }}
                           style={{ width:"100%", height:ROW_H, padding:"0 10px", border:"none", outline:"none",
-                            fontSize:13, fontFamily:"'DM Sans',sans-serif", background:"transparent",
-                            boxSizing:"border-box", color: col==="email" ? "#E8005A" : "#111" }} />
+                            fontSize:13, fontFamily:"var(--font-body)", background:"transparent",
+                            boxSizing:"border-box", color: col==="email" ? "var(--coral)" : "#111" }} />
                       ) : (
                         <div style={{ padding:"0 10px", height:ROW_H, display:"flex", alignItems:"center",
                           overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap",
-                          color: col==="email" ? "#E8005A" : "#333", fontWeight: col==="email" ? 500 : 400 }}>
+                          color: col==="email" ? "var(--coral)" : "#333", fontWeight: col==="email" ? 500 : 400 }}>
                           {href ? (
                             <a href={href} target="_blank" rel="noreferrer"
                               onClick={e => e.stopPropagation()}
-                              style={{ color:"#E8005A", textDecoration:"underline",
+                              style={{ color:"var(--coral)", textDecoration:"underline",
                                 overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
                               {val}
                             </a>
@@ -942,9 +943,9 @@ function SpreadsheetGrid({
             <tr key={`e-${i}`}
               className={i === 0 && !isViewer ? "empty-row-add" : ""}
               onClick={() => i === 0 && !isViewer && onAddRow && onAddRow()}
-              style={{ borderBottom:"1px solid #e8e8e8", height:ROW_H,
+              style={{ borderBottom:"1.5px solid var(--sand)", height:ROW_H,
                 cursor: i === 0 && !isViewer ? "pointer" : "default" }}>
-              <td style={{ background:"#f5f5f5", borderRight:"2px solid #d0d0d0", color:"#ddd",
+              <td style={{ background:"var(--cream)", borderRight:"2px solid #d0d0d0", color:"#ddd",
                 fontSize:11, textAlign:"right", padding:"0 6px",
                 position:"sticky", left:0, height:ROW_H, zIndex:5 }}>
                 {i === 0 && !isViewer
@@ -953,8 +954,8 @@ function SpreadsheetGrid({
               </td>
               {columns.map((col, ci) => (
                 <td key={col} style={{
-                  borderRight: ci === 0 ? "2px solid #d0d0d0" : "1px solid #e8e8e8",
-                  height:ROW_H, background:"#fff",
+                  borderRight: ci === 0 ? "2px solid #d0d0d0" : "1.5px solid var(--sand)",
+                  height:ROW_H, background:"var(--cream-light)",
                 }}>
                   {i === 0 && ci === 0 && !isViewer && (
                     <span className="empty-row-hint" style={{ padding:"0 10px", color:"#ccc", fontSize:12, userSelect:"none" }}>
@@ -969,9 +970,9 @@ function SpreadsheetGrid({
         </tbody>
       </table>
       <style>{`
-        tbody .row-num-cell:hover { background: rgba(232,0,90,0.07) !important; }
+        tbody .row-num-cell:hover { background: rgba(238,104,94,0.07) !important; }
         tbody .row-num-cell:hover .row-del-btn { color: #ccc !important; }
-        tbody .row-num-cell:hover .row-del-btn:hover { color: #E8005A !important; }
+        tbody .row-num-cell:hover .row-del-btn:hover { color: var(--coral) !important; }
         thead th:hover .col-del-btn { opacity: 1 !important; }
         tbody tr.empty-row-add:hover td { background: #fafafa !important; }
         tbody tr.empty-row-add:hover .empty-row-hint { color: #bbb !important; }
@@ -1113,7 +1114,8 @@ export default function SpreadsheetPage() {
       if (skipPollRef.current) return;
       fetchAll({ silent: true });
     }, 8000);
-    return () => clearInterval(interval);
+    return (
+    ) => clearInterval(interval);
   }, [token, dbId, fetchAll]);
 
   // ── Save a cell value ──────────────────────────────────────────────────────
@@ -1621,11 +1623,13 @@ export default function SpreadsheetPage() {
 
   // ── Loading state ──────────────────────────────────────────────────────────
   if (loading) return (
-    <div style={{ display:"flex", minHeight:"100vh", background:"#0a0a0a",
-      alignItems:"center", justifyContent:"center" }}>
-      <div style={{ width:32, height:32, borderRadius:"50%", border:"3px solid #333",
-        borderTopColor:"#E8005A", animation:"spin 0.8s linear infinite" }} />
-    </div>
+    <PageTransition>
+      <div style={{ display:"flex", minHeight:"100vh", background:"var(--bg-night)",
+        alignItems:"center", justifyContent:"center" }}>
+        <div style={{ width:32, height:32, borderRadius:"50%", border:"3px solid rgba(246,235,217,0.2)",
+          borderTopColor:"var(--coral)", animation:"spin 0.8s linear infinite" }} />
+      </div>
+    </PageTransition>
   );
 
   const kindLabel = db?.kind === "linkedin" ? "LinkedIn" : db?.kind === "internships" ? "Internships" : "Maps";
@@ -1633,23 +1637,24 @@ export default function SpreadsheetPage() {
     (selection.startRow !== selection.endRow || selection.startCol !== selection.endCol);
 
   return (
-    <div style={{ display:"flex", height:"100vh", background:"#f4f4f4", overflow:"hidden" }}>
+    <PageTransition>
+    <div style={{ display:"flex", height:"100vh", background:"var(--cream)", overflow:"hidden" }}>
       <LeftPanel user={user} onNav={navigate} />
 
       <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden" }}>
         {/* Top bar */}
-        <div style={{ background:"#fff", borderBottom:"1px solid #e0e0e0", padding:"0 16px",
+        <div style={{ background:"var(--cream-light)", borderBottom:"1px solid #e0e0e0", padding:"0 16px",
           height:48, display:"flex", alignItems:"center", gap:10, flexShrink:0 }}>
           <button onClick={()=>navigate("/dashboard")} style={{ background:"none", border:"none",
-            color:"#999", cursor:"pointer", fontSize:13, fontFamily:"'DM Sans',sans-serif",
+            color:"#999", cursor:"pointer", fontSize:13, fontFamily:"var(--font-body)",
             display:"flex", alignItems:"center", gap:4, padding:"4px 8px", borderRadius:6 }}
-            onMouseEnter={e=>{ e.currentTarget.style.color="#333"; e.currentTarget.style.background="#f5f5f5"; }}
+            onMouseEnter={e=>{ e.currentTarget.style.color="#333"; e.currentTarget.style.background="var(--cream)"; }}
             onMouseLeave={e=>{ e.currentTarget.style.color="#999"; e.currentTarget.style.background="none"; }}>
             ← Databases
           </button>
           <div style={{ width:1, height:16, background:"#e8e8e8" }} />
-          <h1 style={{ fontFamily:"'Syne',sans-serif", fontSize:14, fontWeight:700,
-            color:"#111", margin:0, flex:1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+          <h1 style={{ fontFamily:"var(--font-display)", fontSize:14, fontWeight:700,
+            color:"var(--ink)", margin:0, flex:1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
             {db?.name||"Database"}
           </h1>
           {/* Kind badge */}
@@ -1657,7 +1662,7 @@ export default function SpreadsheetPage() {
             color: db?.kind==="linkedin" ? "#0a66c2" : db?.kind==="internships" ? "#9333ea" : "#16a34a",
             background: db?.kind==="linkedin" ? "rgba(10,102,194,0.09)" : db?.kind==="internships" ? "rgba(147,51,234,0.09)" : "rgba(22,163,74,0.09)",
             border: `1px solid ${db?.kind==="linkedin" ? "rgba(10,102,194,0.2)" : db?.kind==="internships" ? "rgba(147,51,234,0.2)" : "rgba(22,163,74,0.2)"}`,
-            borderRadius:5, padding:"2px 8px", fontFamily:"'DM Sans',sans-serif", flexShrink:0 }}>
+            borderRadius:5, padding:"2px 8px", fontFamily:"var(--font-body)", flexShrink:0 }}>
             {kindLabel}
           </span>
           <span style={{ fontSize:12, color:"#bbb", flexShrink:0 }}>{entries.length} rows</span>
@@ -1666,23 +1671,23 @@ export default function SpreadsheetPage() {
           {!isViewer && (
             <button onClick={handleAddRow} style={{ background:"none", border:"1px solid #e0e0e0",
               borderRadius:7, padding:"5px 12px", color:"#555", fontSize:12, fontWeight:600,
-              cursor:"pointer", fontFamily:"'DM Sans',sans-serif", flexShrink:0, display:"flex",
+              cursor:"pointer", fontFamily:"var(--font-body)", flexShrink:0, display:"flex",
               alignItems:"center", gap:5 }}
-              onMouseEnter={e=>{ e.currentTarget.style.borderColor="#E8005A"; e.currentTarget.style.color="#E8005A"; }}
-              onMouseLeave={e=>{ e.currentTarget.style.borderColor="#e0e0e0"; e.currentTarget.style.color="#555"; }}>
+              onMouseEnter={e=>{ e.currentTarget.style.borderColor="var(--coral)"; e.currentTarget.style.color="var(--coral)"; }}
+              onMouseLeave={e=>{ e.currentTarget.style.borderColor="var(--sand)"; e.currentTarget.style.color="#555"; }}>
               + Row
             </button>
           )}
           {/* Bulk delete */}
           {selectedRows.size > 0 && !isViewer && (
-            <button onClick={handleBulkDelete} style={{ background:"#E8005A", border:"none",
-              borderRadius:7, padding:"5px 12px", color:"#fff", fontSize:12, fontWeight:600,
-              cursor:"pointer", fontFamily:"'DM Sans',sans-serif", flexShrink:0 }}>
+            <button onClick={handleBulkDelete} style={{ background:"var(--coral)", border:"none",
+              borderRadius:7, padding:"5px 12px", color:"var(--cream)", fontSize:12, fontWeight:600,
+              cursor:"pointer", fontFamily:"var(--font-body)", flexShrink:0 }}>
               Delete {selectedRows.size} row{selectedRows.size>1?"s":""}
             </button>
           )}
           {rangeActive && (
-            <span style={{ fontSize:11, color:"#bbb", fontFamily:"'DM Sans',sans-serif", flexShrink:0 }}>
+            <span style={{ fontSize:11, color:"#bbb", fontFamily:"var(--font-body)", flexShrink:0 }}>
               Ctrl+C · Ctrl+V
             </span>
           )}
@@ -1731,5 +1736,6 @@ export default function SpreadsheetPage() {
       {modal==="linkedin-search"  && <LinkedInPeopleSearchModal   onClose={()=>setModal(null)} onDone={handleLinkedInSearch}  token={token} />}
       {modal==="companies-search" && <LinkedInCompaniesSearchModal onClose={()=>setModal(null)} onDone={handleCompaniesSearch} token={token} />}
     </div>
+  </PageTransition>
   );
 }

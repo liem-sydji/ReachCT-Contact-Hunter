@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext.jsx";
 import { API } from "../styles.js";
 
@@ -45,13 +45,13 @@ export default function AddToDBModal({ rows, onClose, dbKind = "maps" }) {
     <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.5)", zIndex:1000,
       display:"flex", alignItems:"center", justifyContent:"center", padding:20 }}
       onClick={onClose}>
-      <div style={{ background:"#fff", borderRadius:16, padding:28, width:"100%", maxWidth:560,
+      <div style={{ background:"var(--cream-light)", borderRadius:16, padding:28, width:"100%", maxWidth:560,
         maxHeight:"85vh", display:"flex", flexDirection:"column",
         boxShadow:"0 20px 60px rgba(0,0,0,0.15)" }}
         onClick={e=>e.stopPropagation()}>
 
-        <h2 style={{ fontFamily:"'Syne',sans-serif", fontSize:19, fontWeight:800,
-          color:"#111", margin:"0 0 4px", letterSpacing:"-0.4px" }}>
+        <h2 style={{ fontFamily:"var(--font-display)", fontSize:19, fontWeight:800,
+          color:"var(--ink)", margin:"0 0 4px", letterSpacing:"-0.4px" }}>
           {step===1?"Select Rows":"Choose Database"}
         </h2>
         <p style={{ fontSize:13, color:"#999", marginBottom:16 }}>
@@ -64,20 +64,20 @@ export default function AddToDBModal({ rows, onClose, dbKind = "maps" }) {
           <div style={{ display:"flex", alignItems:"center", justifyContent:"center",
             flex:1, flexDirection:"column", gap:12, padding:"40px 0" }}>
             <div style={{ fontSize:40 }}>✅</div>
-            <div style={{ fontSize:15, fontWeight:600, color:"#111" }}>
+            <div style={{ fontSize:15, fontWeight:600, color:"var(--ink)" }}>
               Added {selected.length} rows successfully!</div>
           </div>
         ) : step===1 ? (
           <>
             <div style={{ display:"flex", gap:8, marginBottom:12 }}>
-              <button onClick={selectAll} style={{ fontSize:12, color:"#E8005A", background:"none",
-                border:"1px solid rgba(232,0,90,0.2)", borderRadius:6, padding:"4px 10px",
-                cursor:"pointer", fontFamily:"'DM Sans',sans-serif" }}>Select all</button>
+              <button onClick={selectAll} style={{ fontSize:12, color:"var(--coral)", background:"none",
+                border:"1px solid rgba(238,104,94,0.2)", borderRadius:6, padding:"4px 10px",
+                cursor:"pointer", fontFamily:"var(--font-body)" }}>Select all</button>
               <button onClick={clearAll} style={{ fontSize:12, color:"#666", background:"none",
-                border:"1px solid #e8e8e8", borderRadius:6, padding:"4px 10px",
-                cursor:"pointer", fontFamily:"'DM Sans',sans-serif" }}>Clear</button>
+                border:"1.5px solid var(--sand)", borderRadius:6, padding:"4px 10px",
+                cursor:"pointer", fontFamily:"var(--font-body)" }}>Clear</button>
             </div>
-            <div style={{ overflowY:"auto", flex:1, border:"1px solid #eee", borderRadius:10 }}>
+            <div style={{ overflowY:"auto", flex:1, border:"1px solid var(--sand)", borderRadius:10 }}>
               <table style={{ width:"100%", borderCollapse:"collapse", fontSize:13 }}>
                 <thead>
                   <tr>
@@ -99,15 +99,15 @@ export default function AddToDBModal({ rows, onClose, dbKind = "maps" }) {
                 <tbody>
                   {rows.map((row, i) => (
                     <tr key={i} style={{ borderBottom:"1px solid #f5f5f5",
-                      background: selected.includes(i) ? "rgba(232,0,90,0.03)" : "none",
+                      background: selected.includes(i) ? "rgba(238,104,94,0.03)" : "none",
                       cursor:"pointer" }} onClick={()=>toggleRow(i)}>
                       <td style={{ padding:"10px 12px", textAlign:"center" }}>
                         <input type="checkbox" checked={selected.includes(i)} onChange={()=>toggleRow(i)}
                           onClick={e=>e.stopPropagation()} /></td>
-                      <td style={{ padding:"10px 12px", fontWeight:500, color:"#111",
+                      <td style={{ padding:"10px 12px", fontWeight:500, color:"var(--ink)",
                         maxWidth:160, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
                         {row.name||row.full_name||row.company||"—"}</td>
-                      <td style={{ padding:"10px 12px", color:"#E8005A", fontSize:12,
+                      <td style={{ padding:"10px 12px", color:"var(--coral)", fontSize:12,
                         maxWidth:160, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
                         {row.email||"—"}</td>
                       <td style={{ padding:"10px 12px", color:"#888", fontSize:12 }}>
@@ -122,13 +122,13 @@ export default function AddToDBModal({ rows, onClose, dbKind = "maps" }) {
               </table>
             </div>
             <div style={{ display:"flex", justifyContent:"flex-end", gap:10, marginTop:16 }}>
-              <button onClick={onClose} style={{ background:"none", border:"1px solid #e8e8e8",
+              <button onClick={onClose} style={{ background:"none", border:"1.5px solid var(--sand)",
                 borderRadius:8, padding:"9px 18px", color:"#666", fontSize:13, cursor:"pointer",
-                fontFamily:"'DM Sans',sans-serif" }}>Cancel</button>
+                fontFamily:"var(--font-body)" }}>Cancel</button>
               <button onClick={()=>setStep(2)} disabled={selected.length===0} style={{
-                background:"#E8005A", border:"none", borderRadius:8, padding:"9px 20px",
-                color:"#fff", fontSize:13, fontWeight:600, cursor:"pointer",
-                fontFamily:"'DM Sans',sans-serif", opacity:selected.length>0?1:0.5 }}>
+                background:"var(--coral)", border:"none", borderRadius:8, padding:"9px 20px",
+                color:"var(--cream)", fontSize:13, fontWeight:600, cursor:"pointer",
+                fontFamily:"var(--font-body)", opacity:selected.length>0?1:0.5 }}>
                 Next → Choose Database</button>
             </div>
           </>
@@ -141,29 +141,29 @@ export default function AddToDBModal({ rows, onClose, dbKind = "maps" }) {
               )}
               {databases.map(db => (
                 <div key={db.id} onClick={()=>setChosenDb(db.id)} style={{
-                  border: chosenDb===db.id ? "2px solid #E8005A" : "1.5px solid #eee",
+                  border: chosenDb===db.id ? "2px solid var(--coral)" : "1.5px solid #eee",
                   borderRadius:12, padding:"16px 20px", cursor:"pointer", transition:"all 0.15s",
-                  background: chosenDb===db.id ? "rgba(232,0,90,0.03)" : "#fff",
+                  background: chosenDb===db.id ? "rgba(238,104,94,0.03)" : "#fff",
                 }}>
-                  <div style={{ fontFamily:"'Syne',sans-serif", fontSize:14, fontWeight:700,
-                    color:"#111" }}>{db.name}</div>
+                  <div style={{ fontFamily:"var(--font-display)", fontSize:14, fontWeight:700,
+                    color:"var(--ink)" }}>{db.name}</div>
                   <div style={{ fontSize:11, color:"#999", marginTop:3 }}>
                     {db.role==="owner"?"Owner":db.role} · {new Date(db.created_at).toLocaleDateString()}</div>
                 </div>
               ))}
             </div>
             <div style={{ display:"flex", justifyContent:"space-between", gap:10, marginTop:16 }}>
-              <button onClick={()=>setStep(1)} style={{ background:"none", border:"1px solid #e8e8e8",
+              <button onClick={()=>setStep(1)} style={{ background:"none", border:"1.5px solid var(--sand)",
                 borderRadius:8, padding:"9px 18px", color:"#666", fontSize:13, cursor:"pointer",
-                fontFamily:"'DM Sans',sans-serif" }}>← Back</button>
+                fontFamily:"var(--font-body)" }}>← Back</button>
               <div style={{ display:"flex", gap:10 }}>
-                <button onClick={onClose} style={{ background:"none", border:"1px solid #e8e8e8",
+                <button onClick={onClose} style={{ background:"none", border:"1.5px solid var(--sand)",
                   borderRadius:8, padding:"9px 18px", color:"#666", fontSize:13, cursor:"pointer",
-                  fontFamily:"'DM Sans',sans-serif" }}>Cancel</button>
+                  fontFamily:"var(--font-body)" }}>Cancel</button>
                 <button onClick={handleAdd} disabled={!chosenDb||loading} style={{
-                  background:"#E8005A", border:"none", borderRadius:8, padding:"9px 20px",
-                  color:"#fff", fontSize:13, fontWeight:600, cursor:"pointer",
-                  fontFamily:"'DM Sans',sans-serif", opacity:chosenDb?1:0.5 }}>
+                  background:"var(--coral)", border:"none", borderRadius:8, padding:"9px 20px",
+                  color:"var(--cream)", fontSize:13, fontWeight:600, cursor:"pointer",
+                  fontFamily:"var(--font-body)", opacity:chosenDb?1:0.5 }}>
                   {loading?"Adding…":`Add ${selected.length} rows`}</button>
               </div>
             </div>

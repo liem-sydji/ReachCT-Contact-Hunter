@@ -3,6 +3,7 @@ import { useAuth } from "../context/AuthContext.jsx";
 import { API } from "../styles.js";
 import { DatabaseIcon, DownloadIcon, CopyIcon } from "../components/icons.jsx";
 import { InnerHeader, ResultsTable } from "../components/shared.jsx";
+import { PageTransition } from "../components/ui/index.js";
 import AddToDBModal from "../components/AddToDBModal.jsx";
 
 // ─── Tag Input ────────────────────────────────────────────────────────────────
@@ -14,33 +15,33 @@ function TagInput({ placeholder, options, value, onChange }) {
   const remove = (item)=>onChange(value.filter(v=>v!==item));
   return (
     <div style={{ position:"relative" }}>
-      <div style={{ minHeight:42, padding:"6px 10px", border:"1.5px solid #e8e8e8", borderRadius:10,
-        background:"#fff", display:"flex", flexWrap:"wrap", gap:6, alignItems:"center", cursor:"text" }}
+      <div style={{ minHeight:42, padding:"6px 10px", border:"1.5px solid var(--sand)", borderRadius:10,
+        background:"var(--cream-light)", display:"flex", flexWrap:"wrap", gap:6, alignItems:"center", cursor:"text" }}
         onClick={()=>setOpen(true)}>
         {value.map(v=>(
-          <span key={v} style={{ background:"rgba(232,0,90,0.08)", border:"1px solid rgba(232,0,90,0.2)",
-            borderRadius:6, padding:"2px 8px", fontSize:12, color:"#E8005A",
+          <span key={v} style={{ background:"rgba(238,104,94,0.08)", border:"1px solid rgba(238,104,94,0.2)",
+            borderRadius:6, padding:"2px 8px", fontSize:12, color:"var(--coral)",
             display:"flex", alignItems:"center", gap:4 }}>
             {v}
             <button onClick={e=>{e.stopPropagation();remove(v);}} style={{
-              background:"none",border:"none",cursor:"pointer",color:"#E8005A",fontSize:14,padding:0,lineHeight:1}}>×</button>
+              background:"none",border:"none",cursor:"pointer",color:"var(--coral)",fontSize:14,padding:0,lineHeight:1}}>×</button>
           </span>
         ))}
         <input value={inputVal} onChange={e=>{setInputVal(e.target.value);setOpen(true);}}
           onFocus={()=>setOpen(true)} onBlur={()=>setTimeout(()=>setOpen(false),150)}
           placeholder={value.length===0?placeholder:""}
           style={{border:"none",outline:"none",fontSize:13,flex:1,minWidth:80,
-            fontFamily:"'DM Sans',sans-serif",background:"transparent"}} />
+            fontFamily:"var(--font-body)",background:"transparent"}} />
       </div>
       {open&&filtered.length>0&&(
-        <div style={{position:"absolute",top:"100%",left:0,right:0,zIndex:100,background:"#fff",
-          border:"1px solid #eee",borderRadius:10,boxShadow:"0 4px 20px rgba(0,0,0,0.1)",
+        <div style={{position:"absolute",top:"100%",left:0,right:0,zIndex:100,background:"var(--cream-light)",
+          border:"1px solid var(--sand)",borderRadius:10,boxShadow:"0 4px 20px rgba(0,0,0,0.1)",
           maxHeight:260,overflowY:"auto",marginTop:4}}>
           {filtered.map(o=>(
             <div key={o} onMouseDown={()=>add(o)} style={{padding:"9px 14px",fontSize:13,
-              cursor:"pointer",fontFamily:"'DM Sans',sans-serif",color:"#111",background:"#fff"}}
+              cursor:"pointer",fontFamily:"var(--font-body)",color:"var(--ink)",background:"var(--cream-light)"}}
               onMouseEnter={e=>e.target.style.background="#f9f9f9"}
-              onMouseLeave={e=>e.target.style.background="#fff"}>{o}</div>
+              onMouseLeave={e=>e.target.style.background="var(--cream-light)"}>{o}</div>
           ))}
         </div>
       )}
@@ -86,11 +87,11 @@ function PushTab() {
       </div>
       <div style={{ border:"2px dashed #e8e8e8", borderRadius:12, padding:40,
         textAlign:"center", cursor:"pointer", marginBottom:20, transition:"all 0.2s" }}
-        onMouseEnter={e=>{e.currentTarget.style.borderColor="#E8005A";e.currentTarget.style.background="rgba(232,0,90,0.02)";}}
+        onMouseEnter={e=>{e.currentTarget.style.borderColor="var(--coral)";e.currentTarget.style.background="rgba(238,104,94,0.02)";}}
         onMouseLeave={e=>{e.currentTarget.style.borderColor="#e8e8e8";e.currentTarget.style.background="none";}}
         onClick={()=>document.getElementById("push-file-input").click()}>
         <div style={{fontSize:36,marginBottom:8}}>📂</div>
-        <div style={{fontSize:15,fontWeight:600,color:"#111",marginBottom:4}}>
+        <div style={{fontSize:15,fontWeight:600,color:"var(--ink)",marginBottom:4}}>
           {file?file.name:"Click to select file"}</div>
         <div style={{fontSize:13,color:"#999"}}>.xlsx, .xls, .csv supported</div>
         <input id="push-file-input" type="file" accept=".xlsx,.xls,.csv"
@@ -99,7 +100,7 @@ function PushTab() {
       {loading&&(
         <div style={{display:"flex",alignItems:"center",gap:12,padding:"12px 0",color:"#666",fontSize:14}}>
           <div style={{width:20,height:20,borderRadius:"50%",border:"2px solid #eee",
-            borderTopColor:"#E8005A",animation:"spin 0.8s linear infinite",flexShrink:0}}/>
+            borderTopColor:"var(--coral)",animation:"spin 0.8s linear infinite",flexShrink:0}}/>
           Claude is analyzing and cleaning your data…
         </div>
       )}
@@ -218,7 +219,7 @@ function MapsPullTab() {
           <div className="results-header">
             <div className="results-count">
               <span>{results.length}</span> companies found &nbsp;·&nbsp;
-              <span style={{color:"#E8005A"}}>{results.filter(r=>r.email).length}</span> emails found
+              <span style={{color:"var(--coral)"}}>{results.filter(r=>r.email).length}</span> emails found
             </div>
             <div className="btn-row">
               {user&&<button className="btn-primary" onClick={()=>setShowAddDB(true)}>+ Add to Database</button>}
@@ -344,7 +345,7 @@ function LinkedInPullTab() {
           <div className="results-header">
             <div className="results-count">
               <span>{results.length}</span> contacts found &nbsp;·&nbsp;
-              <span style={{color:"#E8005A"}}>{results.filter(r=>r.email).length}</span> with email
+              <span style={{color:"var(--coral)"}}>{results.filter(r=>r.email).length}</span> with email
             </div>
             <div className="btn-row">
               {user&&<button className="btn-primary" onClick={()=>setShowAddDB(true)}>+ Add to Database</button>}
@@ -370,12 +371,12 @@ function LinkedInPullTab() {
                 {results.map((r,i)=>(
                   <tr key={i}>
                     <td style={{fontWeight:500}}>{r.full_name||"—"}</td>
-                    <td><span style={{ background:"rgba(232,0,90,0.08)", border:"1px solid rgba(232,0,90,0.15)",
-                      borderRadius:6, padding:"2px 8px", fontSize:11, color:"#E8005A", fontWeight:600,
+                    <td><span style={{ background:"rgba(238,104,94,0.08)", border:"1px solid rgba(238,104,94,0.15)",
+                      borderRadius:6, padding:"2px 8px", fontSize:11, color:"var(--coral)", fontWeight:600,
                       whiteSpace:"nowrap" }}>{r.job_title||"—"}</span></td>
                     <td style={{color:"#666",fontSize:12}}>{r.profile_title||"—"}</td>
                     <td>{r.company||"—"}</td>
-                    <td style={{color: r.email?"#E8005A":"#ccc"}}>{r.email||"—"}</td>
+                    <td style={{color: r.email?"var(--coral)":"#ccc"}}>{r.email||"—"}</td>
                     <td>
                       {r.linkedin_url
                         ? <a href={r.linkedin_url} target="_blank" rel="noreferrer"
@@ -409,17 +410,20 @@ export default function DatabasePage() {
 
   const tabStyle = (active) => ({
     padding:"10px 24px", border:"none", cursor:"pointer",
-    fontFamily:"'DM Sans',sans-serif", fontSize:14, fontWeight:active?600:400,
-    color:active?"#E8005A":"#999", background:"none",
-    borderBottom: active?"2px solid #E8005A":"2px solid transparent",
+    fontFamily:"var(--font-body)", fontSize:14, fontWeight:active?600:400,
+    color:active?"var(--coral)":"#999", background:"none",
+    borderBottom: active?"2px solid var(--coral)":"2px solid transparent",
     transition:"all 0.15s", marginBottom:-1,
   });
 
   return (
+
+    <PageTransition>
+    
     <div className="inner-page">
       <InnerHeader title="Push / Pull Database" />
 
-      <div style={{ background:"#fff", borderBottom:"1px solid #eee", padding:"0 48px",
+      <div style={{ background:"var(--cream-light)", borderBottom:"1px solid var(--sand)", padding:"0 48px",
         display:"flex", gap:4 }}>
         <button style={tabStyle(activeTab==="maps")} onClick={()=>setActiveTab("maps")}>
           🗺️ Pull Maps Data
@@ -438,5 +442,9 @@ export default function DatabasePage() {
         {activeTab==="push"     && <PushTab/>}
       </div>
     </div>
+  
+
+    </PageTransition>
+
   );
 }
