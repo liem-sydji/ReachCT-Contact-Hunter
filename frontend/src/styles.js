@@ -5,6 +5,9 @@ import { groovyCss } from "./groovyStyles.js";
 // Railway instance, set VITE_API_URL to that service's URL.
 export const API = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
+// Used by AdminPage gate (kept in sync with main).
+export const ADMIN_PASSWORD = "reachct2026";
+
 // Same client ID as GOOGLE_CLIENT_ID in backend/.env. The Google client must
 // allow the JavaScript origin http://localhost:5173.
 export const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || "";
