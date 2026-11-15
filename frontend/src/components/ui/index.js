@@ -26,5 +26,6 @@ export {
   CloudPuff,
   PipeLink,
   SparkleField,
+  LandingWaveField,
 } from "./Decorations.jsx";
 export { PageTransition, Reveal, ParallaxDriver, useParallax } from "./Motion.jsx";

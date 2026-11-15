@@ -30,7 +30,11 @@ export const legacyGroovyCss = `
   }
   .landing {
     min-height: 100vh;
-    background: var(--bg-night);
+    background:
+      radial-gradient(ellipse 90% 70% at 50% 110%, rgba(228,119,80,0.45), transparent 55%),
+      radial-gradient(ellipse 80% 55% at 50% 75%, rgba(214,51,145,0.28), transparent 60%),
+      radial-gradient(ellipse 70% 45% at 50% 35%, rgba(183,166,232,0.18), transparent 65%),
+      var(--bg-night);
     display: flex; flex-direction: column;
     align-items: center; justify-content: center;
     position: relative; overflow: hidden; padding: 24px;
@@ -38,24 +42,97 @@ export const legacyGroovyCss = `
   .landing::before {
     content: '';
     position: absolute;
-    width: min(560px, 90vw); height: min(560px, 90vw);
+    width: min(720px, 110vw); height: min(720px, 110vw);
     background:
-      radial-gradient(ellipse 55% 50% at 30% 30%, var(--violet), transparent 70%),
-      radial-gradient(ellipse 50% 50% at 70% 60%, var(--magenta), transparent 65%),
-      radial-gradient(ellipse 45% 40% at 50% 90%, var(--orange), transparent 70%);
-    opacity: 0.55;
-    top: 42%; left: 50%;
-    transform: translate(-50%, -55%);
+      radial-gradient(ellipse 50% 45% at 50% 85%, var(--marigold) 0%, transparent 55%),
+      radial-gradient(ellipse 55% 50% at 35% 55%, var(--orange) 0%, transparent 65%),
+      radial-gradient(ellipse 50% 50% at 65% 45%, var(--hot-pink) 0%, transparent 60%),
+      radial-gradient(ellipse 45% 40% at 50% 20%, rgba(246,235,217,0.55) 0%, transparent 70%),
+      radial-gradient(ellipse 40% 35% at 50% 10%, rgba(183,166,232,0.35) 0%, transparent 70%);
+    opacity: 0.72;
+    top: 48%; left: 50%;
+    transform: translate(-50%, -42%);
     pointer-events: none;
     border-radius: 50%;
-    filter: saturate(1.05);
+    filter: saturate(1.12);
+    animation: landingGlowWave 10s ease-in-out infinite alternate;
+    z-index: 0;
   }
   .landing::after {
     content: '';
     position: absolute; inset: 0; pointer-events: none;
-    background-image: radial-gradient(circle, rgba(246,235,217,0.35) 1px, transparent 1.2px);
-    background-size: 28px 28px;
-    opacity: 0.12;
+    background-image: radial-gradient(circle, rgba(246,235,217,0.4) 1px, transparent 1.2px);
+    background-size: 22px 22px;
+    opacity: 0.16;
+    z-index: 0;
+  }
+
+  /* Concentric orange→pink→cream wave field */
+  .landing-waves {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    overflow: hidden;
+  }
+  .landing-waves__wash {
+    position: absolute;
+    left: 50%;
+    bottom: -18%;
+    width: min(920px, 140vw);
+    height: min(720px, 95vh);
+    transform: translateX(-50%);
+    background:
+      linear-gradient(to top,
+        rgba(228,119,80,0.85) 0%,
+        rgba(238,104,94,0.55) 28%,
+        rgba(214,51,145,0.42) 55%,
+        rgba(183,166,232,0.22) 78%,
+        rgba(246,235,217,0.08) 100%);
+    filter: blur(28px);
+    opacity: 0.9;
+    animation: landingWashWave 11s ease-in-out infinite alternate;
+  }
+  .landing-waves__svg {
+    position: absolute;
+    left: 50%;
+    bottom: -8%;
+    width: min(980px, 150vw);
+    height: min(820px, 110vh);
+    transform: translateX(-50%);
+    overflow: visible;
+  }
+  .landing-waves__ridge {
+    transform-box: fill-box;
+    transform-origin: 50% 100%;
+    animation-name: landingRidgeWave;
+    animation-timing-function: ease-in-out;
+    animation-iteration-count: infinite;
+    animation-direction: alternate;
+    opacity: 0.78;
+  }
+  .landing-waves__ridge--1 { opacity: 0.55; }
+  .landing-waves__ridge--2 { opacity: 0.62; }
+  .landing-waves__ridge--3 { opacity: 0.7; }
+  .landing-waves__ridge--4 { opacity: 0.78; }
+  .landing-waves__ridge--5 { opacity: 0.85; }
+  .landing-waves__ridge--6 { opacity: 0.92; }
+  .landing-waves__dots {
+    pointer-events: none;
+  }
+
+  @keyframes landingRidgeWave {
+    0%   { transform: translateY(10px) scaleX(0.985) scaleY(0.98); }
+    50%  { transform: translateY(-16px) scaleX(1.025) scaleY(1.02); }
+    100% { transform: translateY(-4px) scaleX(1.01) scaleY(1.005); }
+  }
+  @keyframes landingWashWave {
+    from { transform: translateX(-50%) translateY(12px) scale(0.98); opacity: 0.78; }
+    to   { transform: translateX(-50%) translateY(-18px) scale(1.04); opacity: 0.95; }
+  }
+  @keyframes landingGlowWave {
+    from { transform: translate(-50%, -40%) scale(0.96); opacity: 0.62; }
+    to   { transform: translate(-50%, -46%) scale(1.06); opacity: 0.82; }
   }
   .landing-logo {
     display: flex; align-items: center; gap: 14px; margin-bottom: 16px;
@@ -386,5 +463,13 @@ export const legacyGroovyCss = `
     .landing-logo, .landing-tagline, .landing-cards, .inner-page {
       animation: none !important;
     }
+    .landing::before,
+    .landing-waves__wash,
+    .landing-waves__ridge {
+      animation: none !important;
+    }
+    .landing::before { transform: translate(-50%, -42%); opacity: 0.72; }
+    .landing-waves__wash { transform: translateX(-50%); opacity: 0.9; }
+    .landing-waves__ridge { transform: none; }
   }
 `;

@@ -88,6 +88,78 @@ export function PipeLink({ width = 160, height = 48, className = "" }) {
   );
 }
 
+/**
+ * Concentric halftone wave ridges for the landing hero —
+ * orange → pink → cream fade with a soft undulating hover.
+ */
+export function LandingWaveField({ className = "" }) {
+  const ridges = [
+    { rx: 780, ry: 560, cy: 1180, delay: "0s", dur: "9s" },
+    { rx: 640, ry: 460, cy: 1120, delay: "0.4s", dur: "8.2s" },
+    { rx: 510, ry: 370, cy: 1060, delay: "0.9s", dur: "7.6s" },
+    { rx: 390, ry: 290, cy: 1005, delay: "1.3s", dur: "8.8s" },
+    { rx: 280, ry: 210, cy: 960, delay: "1.7s", dur: "7.2s" },
+    { rx: 180, ry: 140, cy: 925, delay: "2.1s", dur: "9.4s" },
+  ];
+
+  return (
+    <div className={`landing-waves ${className}`} aria-hidden="true">
+      <div className="landing-waves__wash" />
+      <svg
+        className="landing-waves__svg"
+        viewBox="0 0 800 1000"
+        preserveAspectRatio="xMidYMax slice"
+        focusable="false"
+      >
+        <defs>
+          <linearGradient id="landingWaveGrad" x1="0" y1="1" x2="0" y2="0">
+            <stop offset="0%" stopColor="#E47750" />
+            <stop offset="28%" stopColor="#EE685E" />
+            <stop offset="52%" stopColor="#D63391" />
+            <stop offset="78%" stopColor="#B7A6E8" />
+            <stop offset="100%" stopColor="#F6EBD9" />
+          </linearGradient>
+          <radialGradient id="landingWaveCore" cx="50%" cy="92%" r="55%">
+            <stop offset="0%" stopColor="#FCC56D" stopOpacity="0.95" />
+            <stop offset="35%" stopColor="#E47750" stopOpacity="0.75" />
+            <stop offset="70%" stopColor="#D63391" stopOpacity="0.35" />
+            <stop offset="100%" stopColor="#391767" stopOpacity="0" />
+          </radialGradient>
+          <pattern id="landingWaveDots" width="7" height="7" patternUnits="userSpaceOnUse">
+            <circle cx="1.4" cy="1.4" r="1.15" fill="rgba(45,43,44,0.42)" />
+          </pattern>
+        </defs>
+
+        <rect width="800" height="1000" fill="url(#landingWaveCore)" opacity="0.9" />
+
+        {ridges.map((r, i) => (
+          <ellipse
+            key={i}
+            className={`landing-waves__ridge landing-waves__ridge--${i + 1}`}
+            cx="400"
+            cy={r.cy}
+            rx={r.rx}
+            ry={r.ry}
+            fill="none"
+            stroke="url(#landingWaveGrad)"
+            strokeWidth={72 - i * 6}
+            style={{ animationDelay: r.delay, animationDuration: r.dur }}
+          />
+        ))}
+
+        <rect
+          className="landing-waves__dots"
+          width="800"
+          height="1000"
+          fill="url(#landingWaveDots)"
+          opacity="0.55"
+          style={{ mixBlendMode: "multiply" }}
+        />
+      </svg>
+    </div>
+  );
+}
+
 /** Twinkling field for night heroes — fewer on mobile via CSS. */
 export function SparkleField({ count = 12, className = "" }) {
   const items = Array.from({ length: count }, (_, i) => {

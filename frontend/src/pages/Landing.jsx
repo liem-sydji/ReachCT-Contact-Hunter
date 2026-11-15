@@ -1,15 +1,35 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ReachCTLogo, SearchIcon, DatabaseIcon, DashboardIcon } from "../components/icons.jsx";
 import { useAuth } from "../context/AuthContext.jsx";
-import { PageTransition, SparkleField } from "../components/ui/index.js";
+import { PageTransition, SparkleField, LandingWaveField } from "../components/ui/index.js";
 
 export default function Landing() {
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const { user, logout, loginDev } = useAuth();
+  const [signingIn, setSigningIn] = useState(false);
+  const [error, setError] = useState(null);
+
+  async function signIn() {
+    if (!import.meta.env.DEV) {
+      navigate("/login");
+      return;
+    }
+    setError(null);
+    setSigningIn(true);
+    try {
+      await loginDev();
+    } catch (err) {
+      setError(err.message || "Login failed — please try again.");
+    } finally {
+      setSigningIn(false);
+    }
+  }
 
   return (
     <PageTransition>
       <div className="landing">
+        <LandingWaveField />
         <SparkleField count={8} className="gh-hero__stars" />
 
         {user ? (
@@ -24,8 +44,11 @@ export default function Landing() {
             <button type="button" className="landing-user-chip__out" onClick={logout}>Sign out</button>
           </div>
         ) : (
-          <button className="landing-signin-btn" onClick={() => navigate("/login")}>Sign in</button>
+          <button className="landing-signin-btn" onClick={signIn} disabled={signingIn}>
+            {signingIn ? "Signing in…" : "Sign in"}
+          </button>
         )}
+        {error && <div className="auth-error">{error}</div>}
 
         <div className="landing-logo">
           <ReachCTLogo size={44} />
