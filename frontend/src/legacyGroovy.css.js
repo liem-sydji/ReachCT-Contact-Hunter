@@ -61,13 +61,17 @@ export const legacyGroovyCss = `
   .landing::after {
     content: '';
     position: absolute; inset: 0; pointer-events: none;
-    background-image: radial-gradient(circle, rgba(246,235,217,0.4) 1px, transparent 1.2px);
-    background-size: 22px 22px;
-    opacity: 0.16;
+    background-image:
+      radial-gradient(circle, rgba(246,235,217,0.55) 0.7px, transparent 0.85px),
+      radial-gradient(circle, rgba(45,43,44,0.35) 0.55px, transparent 0.7px);
+    background-size: 5px 5px, 7px 7px;
+    background-position: 0 0, 2px 3px;
+    opacity: 0.28;
+    mix-blend-mode: soft-light;
     z-index: 0;
   }
 
-  /* Concentric orange→pink→cream wave field */
+  /* Grainy orange→pink→cream heatmap field */
   .landing-waves {
     position: absolute;
     inset: 0;
@@ -75,32 +79,60 @@ export const legacyGroovyCss = `
     pointer-events: none;
     overflow: hidden;
   }
-  .landing-waves__wash {
+  .landing-waves__heat {
     position: absolute;
     left: 50%;
-    bottom: -18%;
-    width: min(920px, 140vw);
-    height: min(720px, 95vh);
+    bottom: -22%;
     transform: translateX(-50%);
+    border-radius: 50%;
+    filter: blur(36px);
+    will-change: transform, opacity;
+  }
+  .landing-waves__heat--base {
+    width: min(1100px, 160vw);
+    height: min(820px, 105vh);
     background:
-      linear-gradient(to top,
-        rgba(228,119,80,0.85) 0%,
-        rgba(238,104,94,0.55) 28%,
-        rgba(214,51,145,0.42) 55%,
-        rgba(183,166,232,0.22) 78%,
-        rgba(246,235,217,0.08) 100%);
-    filter: blur(28px);
+      radial-gradient(ellipse 55% 50% at 50% 78%, rgba(228,119,80,0.95) 0%, transparent 62%),
+      radial-gradient(ellipse 50% 45% at 50% 55%, rgba(214,51,145,0.7) 0%, transparent 65%),
+      radial-gradient(ellipse 45% 40% at 50% 28%, rgba(183,166,232,0.45) 0%, transparent 70%),
+      radial-gradient(ellipse 40% 30% at 50% 8%, rgba(246,235,217,0.35) 0%, transparent 75%);
+    animation: landingWashWave 12s ease-in-out infinite alternate;
+    opacity: 0.95;
+  }
+  .landing-waves__heat--hot {
+    width: min(720px, 110vw);
+    height: min(560px, 75vh);
+    bottom: -8%;
+    background:
+      radial-gradient(ellipse 50% 48% at 50% 70%, rgba(252,197,109,0.9) 0%, transparent 55%),
+      radial-gradient(ellipse 48% 45% at 42% 48%, rgba(238,104,94,0.7) 0%, transparent 60%),
+      radial-gradient(ellipse 45% 42% at 60% 40%, rgba(214,51,145,0.55) 0%, transparent 62%);
+    animation: landingWashWave 9.5s ease-in-out infinite alternate-reverse;
+    animation-delay: 0.6s;
+    opacity: 0.88;
+  }
+  .landing-waves__heat--core {
+    width: min(420px, 70vw);
+    height: min(360px, 48vh);
+    bottom: 2%;
+    background: radial-gradient(ellipse 50% 50% at 50% 55%, rgba(252,197,109,0.95) 0%, rgba(228,119,80,0.5) 40%, transparent 70%);
+    animation: landingWashWave 8s ease-in-out infinite alternate;
+    animation-delay: 1.1s;
     opacity: 0.9;
-    animation: landingWashWave 11s ease-in-out infinite alternate;
+    filter: blur(22px);
   }
   .landing-waves__svg {
     position: absolute;
     left: 50%;
-    bottom: -8%;
-    width: min(980px, 150vw);
-    height: min(820px, 110vh);
+    bottom: -10%;
+    width: min(1000px, 155vw);
+    height: min(860px, 115vh);
     transform: translateX(-50%);
     overflow: visible;
+    opacity: 0.85;
+  }
+  .landing-waves__heatmap {
+    transform-origin: 50% 100%;
   }
   .landing-waves__ridge {
     transform-box: fill-box;
@@ -109,30 +141,39 @@ export const legacyGroovyCss = `
     animation-timing-function: ease-in-out;
     animation-iteration-count: infinite;
     animation-direction: alternate;
-    opacity: 0.78;
   }
-  .landing-waves__ridge--1 { opacity: 0.55; }
-  .landing-waves__ridge--2 { opacity: 0.62; }
-  .landing-waves__ridge--3 { opacity: 0.7; }
-  .landing-waves__ridge--4 { opacity: 0.78; }
-  .landing-waves__ridge--5 { opacity: 0.85; }
-  .landing-waves__ridge--6 { opacity: 0.92; }
-  .landing-waves__dots {
+  .landing-waves__dots { pointer-events: none; }
+  .landing-waves__grain {
+    position: absolute;
+    inset: -10%;
     pointer-events: none;
+    opacity: 0.42;
+    mix-blend-mode: multiply;
+    background-image:
+      radial-gradient(circle, rgba(45,43,44,0.65) 0.55px, transparent 0.7px),
+      radial-gradient(circle, rgba(45,43,44,0.4) 0.45px, transparent 0.6px),
+      radial-gradient(circle, rgba(246,235,217,0.25) 0.4px, transparent 0.55px);
+    background-size: 3px 3px, 5px 5px, 4px 4px;
+    background-position: 0 0, 1px 2px, 2px 1px;
+    animation: landingGrainDrift 14s linear infinite;
   }
 
   @keyframes landingRidgeWave {
-    0%   { transform: translateY(10px) scaleX(0.985) scaleY(0.98); }
-    50%  { transform: translateY(-16px) scaleX(1.025) scaleY(1.02); }
-    100% { transform: translateY(-4px) scaleX(1.01) scaleY(1.005); }
+    0%   { transform: translateY(8px) scaleX(0.99) scaleY(0.985); }
+    50%  { transform: translateY(-14px) scaleX(1.03) scaleY(1.02); }
+    100% { transform: translateY(-2px) scaleX(1.01) scaleY(1.005); }
   }
   @keyframes landingWashWave {
-    from { transform: translateX(-50%) translateY(12px) scale(0.98); opacity: 0.78; }
-    to   { transform: translateX(-50%) translateY(-18px) scale(1.04); opacity: 0.95; }
+    from { transform: translateX(-50%) translateY(14px) scale(0.97); opacity: 0.78; }
+    to   { transform: translateX(-50%) translateY(-20px) scale(1.05); opacity: 1; }
   }
   @keyframes landingGlowWave {
     from { transform: translate(-50%, -40%) scale(0.96); opacity: 0.62; }
     to   { transform: translate(-50%, -46%) scale(1.06); opacity: 0.82; }
+  }
+  @keyframes landingGrainDrift {
+    from { transform: translate3d(0, 0, 0); }
+    to   { transform: translate3d(-6px, 8px, 0); }
   }
   .landing-logo {
     display: flex; align-items: center; gap: 14px; margin-bottom: 16px;
@@ -464,12 +505,14 @@ export const legacyGroovyCss = `
       animation: none !important;
     }
     .landing::before,
-    .landing-waves__wash,
-    .landing-waves__ridge {
+    .landing-waves__heat,
+    .landing-waves__ridge,
+    .landing-waves__grain {
       animation: none !important;
     }
     .landing::before { transform: translate(-50%, -42%); opacity: 0.72; }
-    .landing-waves__wash { transform: translateX(-50%); opacity: 0.9; }
+    .landing-waves__heat { transform: translateX(-50%); }
     .landing-waves__ridge { transform: none; }
+    .landing-waves__grain { transform: none; }
   }
 `;

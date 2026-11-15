@@ -89,22 +89,24 @@ export function PipeLink({ width = 160, height = 48, className = "" }) {
 }
 
 /**
- * Concentric halftone wave ridges for the landing hero —
- * orange → pink → cream fade with a soft undulating hover.
+ * Grainy heatmap field for the landing hero —
+ * soft orange → pink → cream heat lobes with dense stipple grain and a slow wave hover.
  */
 export function LandingWaveField({ className = "" }) {
-  const ridges = [
-    { rx: 780, ry: 560, cy: 1180, delay: "0s", dur: "9s" },
-    { rx: 640, ry: 460, cy: 1120, delay: "0.4s", dur: "8.2s" },
-    { rx: 510, ry: 370, cy: 1060, delay: "0.9s", dur: "7.6s" },
-    { rx: 390, ry: 290, cy: 1005, delay: "1.3s", dur: "8.8s" },
-    { rx: 280, ry: 210, cy: 960, delay: "1.7s", dur: "7.2s" },
-    { rx: 180, ry: 140, cy: 925, delay: "2.1s", dur: "9.4s" },
+  const lobes = [
+    { rx: 760, ry: 540, cy: 1120, delay: "0s", dur: "11s", opacity: 0.42 },
+    { rx: 600, ry: 430, cy: 1060, delay: "0.6s", dur: "9.5s", opacity: 0.5 },
+    { rx: 460, ry: 340, cy: 1005, delay: "1.2s", dur: "10.2s", opacity: 0.58 },
+    { rx: 330, ry: 250, cy: 960, delay: "1.8s", dur: "8.8s", opacity: 0.66 },
+    { rx: 210, ry: 165, cy: 925, delay: "2.3s", dur: "9.8s", opacity: 0.75 },
   ];
 
   return (
     <div className={`landing-waves ${className}`} aria-hidden="true">
-      <div className="landing-waves__wash" />
+      <div className="landing-waves__heat landing-waves__heat--base" />
+      <div className="landing-waves__heat landing-waves__heat--hot" />
+      <div className="landing-waves__heat landing-waves__heat--core" />
+
       <svg
         className="landing-waves__svg"
         viewBox="0 0 800 1000"
@@ -112,50 +114,91 @@ export function LandingWaveField({ className = "" }) {
         focusable="false"
       >
         <defs>
-          <linearGradient id="landingWaveGrad" x1="0" y1="1" x2="0" y2="0">
-            <stop offset="0%" stopColor="#E47750" />
-            <stop offset="28%" stopColor="#EE685E" />
-            <stop offset="52%" stopColor="#D63391" />
-            <stop offset="78%" stopColor="#B7A6E8" />
-            <stop offset="100%" stopColor="#F6EBD9" />
-          </linearGradient>
-          <radialGradient id="landingWaveCore" cx="50%" cy="92%" r="55%">
+          <radialGradient id="landingHeatGrad" cx="50%" cy="88%" r="68%">
             <stop offset="0%" stopColor="#FCC56D" stopOpacity="0.95" />
-            <stop offset="35%" stopColor="#E47750" stopOpacity="0.75" />
-            <stop offset="70%" stopColor="#D63391" stopOpacity="0.35" />
-            <stop offset="100%" stopColor="#391767" stopOpacity="0" />
+            <stop offset="18%" stopColor="#E47750" stopOpacity="0.9" />
+            <stop offset="40%" stopColor="#EE685E" stopOpacity="0.75" />
+            <stop offset="62%" stopColor="#D63391" stopOpacity="0.55" />
+            <stop offset="82%" stopColor="#B7A6E8" stopOpacity="0.28" />
+            <stop offset="100%" stopColor="#F6EBD9" stopOpacity="0" />
           </radialGradient>
-          <pattern id="landingWaveDots" width="7" height="7" patternUnits="userSpaceOnUse">
-            <circle cx="1.4" cy="1.4" r="1.15" fill="rgba(45,43,44,0.42)" />
+          <radialGradient id="landingLobeFill" cx="50%" cy="55%" r="55%">
+            <stop offset="0%" stopColor="#F6EBD9" stopOpacity="0.55" />
+            <stop offset="35%" stopColor="#D63391" stopOpacity="0.35" />
+            <stop offset="70%" stopColor="#E47750" stopOpacity="0.2" />
+            <stop offset="100%" stopColor="#E47750" stopOpacity="0" />
+          </radialGradient>
+          <filter id="landingHeatGrain" x="-20%" y="-20%" width="140%" height="140%">
+            <feTurbulence
+              type="fractalNoise"
+              baseFrequency="0.9"
+              numOctaves="4"
+              stitchTiles="stitch"
+              result="noise"
+            />
+            <feColorMatrix
+              in="noise"
+              type="matrix"
+              values="0 0 0 0 0.12
+                      0 0 0 0 0.06
+                      0 0 0 0 0.1
+                      0 0 0 0.7 0"
+              result="grain"
+            />
+            <feBlend in="SourceGraphic" in2="grain" mode="multiply" />
+          </filter>
+          <pattern id="landingHeatDots" width="4" height="4" patternUnits="userSpaceOnUse">
+            <circle cx="0.9" cy="0.9" r="0.85" fill="rgba(45,43,44,0.55)" />
+          </pattern>
+          <pattern id="landingHeatDotsFine" width="3" height="3" patternUnits="userSpaceOnUse">
+            <circle cx="0.7" cy="0.7" r="0.55" fill="rgba(246,235,217,0.35)" />
           </pattern>
         </defs>
 
-        <rect width="800" height="1000" fill="url(#landingWaveCore)" opacity="0.9" />
-
-        {ridges.map((r, i) => (
+        <g className="landing-waves__heatmap" filter="url(#landingHeatGrain)">
           <ellipse
-            key={i}
-            className={`landing-waves__ridge landing-waves__ridge--${i + 1}`}
+            className="landing-waves__ridge landing-waves__ridge--core"
             cx="400"
-            cy={r.cy}
-            rx={r.rx}
-            ry={r.ry}
-            fill="none"
-            stroke="url(#landingWaveGrad)"
-            strokeWidth={72 - i * 6}
-            style={{ animationDelay: r.delay, animationDuration: r.dur }}
+            cy="980"
+            rx="520"
+            ry="420"
+            fill="url(#landingHeatGrad)"
+            style={{ animationDelay: "0.2s", animationDuration: "10s" }}
           />
-        ))}
+          {lobes.map((l, i) => (
+            <ellipse
+              key={i}
+              className={`landing-waves__ridge landing-waves__ridge--${i + 1}`}
+              cx="400"
+              cy={l.cy}
+              rx={l.rx}
+              ry={l.ry}
+              fill="url(#landingLobeFill)"
+              opacity={l.opacity}
+              style={{ animationDelay: l.delay, animationDuration: l.dur }}
+            />
+          ))}
+        </g>
 
         <rect
           className="landing-waves__dots"
           width="800"
           height="1000"
-          fill="url(#landingWaveDots)"
-          opacity="0.55"
+          fill="url(#landingHeatDots)"
+          opacity="0.72"
           style={{ mixBlendMode: "multiply" }}
         />
+        <rect
+          className="landing-waves__dots landing-waves__dots--fine"
+          width="800"
+          height="1000"
+          fill="url(#landingHeatDotsFine)"
+          opacity="0.45"
+          style={{ mixBlendMode: "soft-light" }}
+        />
       </svg>
+
+      <div className="landing-waves__grain" />
     </div>
   );
 }
