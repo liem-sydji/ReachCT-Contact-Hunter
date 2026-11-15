@@ -1,6 +1,6 @@
 /**
  * Card with hard offset shadow.
- * @param {string} [band] - ribbon palette key for optional header band
+ * @param {string} [band] - accent palette key for optional header band
  * @param {boolean} [featured] - halftone gradient + cream text
  */
 export default function Card({

@@ -498,26 +498,6 @@ export const groovyCss = `
     color: var(--sand); max-width: 420px; margin: 0 auto 28px; line-height: 1.55;
   }
   .gh-hero__cta { display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; }
-  .gh-hero__ribbon-wrap {
-    position: absolute; left: -5%; right: -5%; bottom: -8px; z-index: 1;
-    pointer-events: none; height: 120px;
-  }
-
-  /* ── Ribbon draw-in ── */
-  .gh-ribbon__stripe {
-    stroke-dasharray: 900;
-    stroke-dashoffset: 0;
-  }
-  .gh-ribbon:not(.gh-ribbon--drawn) .gh-ribbon__stripe {
-    stroke-dashoffset: 900;
-  }
-  .gh-ribbon--drawn .gh-ribbon__stripe {
-    animation: ghRibbonDraw 1.1s var(--ease-bounce) both;
-  }
-  @keyframes ghRibbonDraw {
-    from { stroke-dashoffset: 900; }
-    to   { stroke-dashoffset: 0; }
-  }
 
   /* ── Section divider ── */
   .gh-divider { line-height: 0; width: 100%; }
@@ -541,7 +521,6 @@ export const groovyCss = `
     text-decoration: underline; text-underline-offset: 4px;
   }
   .gh-footer__link:hover { color: var(--marigold); }
-  .gh-footer__ribbon { max-width: 520px; margin: 0 auto; }
 
   /* ── States ── */
   .gh-skeleton {
@@ -625,7 +604,6 @@ export const groovyCss = `
     .gh-nav__links { display: none; }
     .gh-hero { min-height: 60vh; padding: 56px 16px 80px; }
     .gh-hero__stars .gh-twinkle:nth-child(n+6) { display: none; }
-    .gh-hero__ribbon-wrap { height: 72px; }
     .gh-card:hover { transform: translate(-1px, -2px) rotate(0); }
   }
 
@@ -633,7 +611,6 @@ export const groovyCss = `
   @media (prefers-reduced-motion: reduce) {
     .gh-page-enter,
     .gh-hero .gh-reveal,
-    .gh-ribbon--drawn .gh-ribbon__stripe,
     .gh-twinkle,
     .gh-drift,
     .gh-spinner__sparkle,

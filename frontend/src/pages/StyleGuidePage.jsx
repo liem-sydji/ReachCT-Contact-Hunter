@@ -1,11 +1,10 @@
 import { useState } from "react";
-import { tokens, ribbonColors } from "../theme.js";
+import { tokens } from "../theme.js";
 import {
   Button,
   Badge,
   Card,
   HalftoneSurface,
-  Ribbon,
   SectionDivider,
   Marquee,
   Navbar,
@@ -81,7 +80,7 @@ export default function StyleGuidePage() {
           eyebrow="ReachCT visual system"
           title="Groovy"
           accentWord="Halftone"
-          subtitle="Night sky, cream paper, rainbow ribbons, and a printed gradient glow — playful, readable, motion-aware."
+          subtitle="Night sky, cream paper, and a printed gradient glow — playful, readable, motion-aware."
           ctaLabel="Primary CTA"
           onCta={() => window.scrollTo({ top: 600, behavior: "smooth" })}
         />
@@ -112,7 +111,7 @@ export default function StyleGuidePage() {
               Soft chunky headlines
             </p>
             <p className="gh-display-shadow" style={{ fontSize: 42, display: "inline-block", marginBottom: 16, background: "var(--ink)", padding: "12px 16px", borderRadius: 12 }}>
-              Ribbon <span className="gh-accent-word">shadow</span>
+              Stacked <span className="gh-accent-word">shadow</span>
             </p>
             <p style={{ fontSize: 16, maxWidth: 480, lineHeight: 1.6 }}>
               Body copy in Poppins at 400/500/600. Forms, nav, and buttons share this face so the UI stays clear next to the display serif.
@@ -133,9 +132,6 @@ export default function StyleGuidePage() {
                 <Button variant="halftone">Halftone CTA</Button>
                 <Badge tone="marigold">Marigold</Badge>
                 <CloudPuff className="gh-drift" width={90} />
-              </div>
-              <div className="gh-parallax" data-speed="0.18" style={{ marginTop: 24 }}>
-                <Ribbon preset="wave" animate colors={ribbonColors} height={90} thickness={9} />
               </div>
             </Reveal>
           </div>
@@ -231,17 +227,16 @@ export default function StyleGuidePage() {
           <Reveal>
             <h2 className="sg-h2">Motion patterns</h2>
             <p className="sg-lead">
-              Page enter on route change, scroll reveals, ribbon draw-in, soft parallax on decorations,
+              Page enter on route change, scroll reveals, soft parallax on decorations,
               button bounce. All non-essential motion respects <code>prefers-reduced-motion</code>.
             </p>
             <ul style={{ paddingLeft: 20, lineHeight: 1.7, fontSize: 14, color: "#5a524c", marginBottom: 20 }}>
               <li><strong>PageTransition</strong> — soft rise/fade when the route key changes</li>
               <li><strong>Reveal</strong> — sections pop in once when scrolled into view</li>
               <li><strong>ParallaxDriver</strong> — <code>.gh-parallax</code> layers drift against scroll</li>
-              <li><strong>Ribbon animate</strong> — stroke-dash draw once on intersect</li>
               <li><strong>Buttons</strong> — hover lift 2px, press sink to zero shadow</li>
             </ul>
-            <Ribbon preset="dive" animate height={100} thickness={10} />
+            <CloudPuff className="gh-drift gh-parallax" data-speed="0.12" width={100} />
           </Reveal>
         </section>
 

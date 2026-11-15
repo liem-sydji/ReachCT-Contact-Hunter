@@ -1,11 +1,10 @@
 import HalftoneSurface from "./HalftoneSurface.jsx";
-import Ribbon from "./Ribbon.jsx";
 import Button from "./Button.jsx";
 import { SparkleField } from "./Decorations.jsx";
 
 /**
  * Night hero with twinkling sparkles, stacked display shadow headline,
- * soft halftone glow, CTA, and a swooping ribbon into the next section.
+ * soft halftone glow, and CTA.
  */
 export default function Hero({
   eyebrow,
@@ -44,10 +43,6 @@ export default function Hero({
           </div>
         )}
         {children}
-      </div>
-
-      <div className="gh-hero__ribbon-wrap gh-parallax" data-speed="0.12" aria-hidden="true">
-        <Ribbon preset="swoop" animate height={110} thickness={11} />
       </div>
     </section>
   );

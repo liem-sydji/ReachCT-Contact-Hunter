@@ -2,7 +2,6 @@ export { default as Button } from "./Button.jsx";
 export { default as Badge } from "./Badge.jsx";
 export { default as Card } from "./Card.jsx";
 export { default as HalftoneSurface } from "./HalftoneSurface.jsx";
-export { default as Ribbon } from "./Ribbon.jsx";
 export { default as SectionDivider } from "./SectionDivider.jsx";
 export { default as Marquee } from "./Marquee.jsx";
 export { default as Navbar } from "./Navbar.jsx";

@@ -1,6 +1,5 @@
 import { Link } from "react-router-dom";
 import HalftoneSurface from "./HalftoneSurface.jsx";
-import Ribbon from "./Ribbon.jsx";
 import { Sparkle } from "./Decorations.jsx";
 
 export default function Footer({
@@ -26,9 +25,6 @@ export default function Footer({
               </Link>
             ))}
           </nav>
-          <div className="gh-footer__ribbon" aria-hidden="true">
-            <Ribbon preset="gentle" height={72} thickness={8} />
-          </div>
         </div>
       </HalftoneSurface>
     </footer>

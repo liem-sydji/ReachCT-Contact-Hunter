@@ -26,7 +26,8 @@ export const tokens = {
   focusRing: "#FCC56D",
 };
 
-export const ribbonColors = [
+/** Warm→cool accent sequence (badges, card bands). */
+export const accentColors = [
   tokens.marigold,
   tokens.peach,
   tokens.coral,
