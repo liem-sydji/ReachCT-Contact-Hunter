@@ -25,9 +25,14 @@ from database import (
     update_db_entry, delete_db_entry, rename_column_in_db, set_db_columns,
     delete_column_from_db,
     add_collaborator, get_collaborators, remove_collaborator,
+    get_user_by_api_key_hash, set_user_api_key, touch_api_key_last_used,
+    get_user_api_key_meta, get_user_by_id,
 )
 from reachct import scrape_google_maps, export_to_excel
-from auth    import verify_google_token, create_jwt, decode_jwt
+from auth import (
+    verify_google_token, create_jwt, decode_jwt,
+    generate_api_key, hash_api_key, looks_like_api_key,
+)
 
 # ── Inline AI helpers (Claude Haiku) ─────────────────────────────────────────
 import anthropic as _anthropic
@@ -45,6 +50,21 @@ def _generate_json(prompt: str, max_tokens: int = 2000) -> str:
 
 app = FastAPI(title="ReachCT API", version="2.1.0")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+
+
+@app.middleware("http")
+async def api_key_header_to_bearer(request, call_next):
+    """Allow x-api-key by normalizing it into Authorization: Bearer <key>."""
+    api_key = request.headers.get("x-api-key")
+    auth = request.headers.get("authorization")
+    if api_key and not auth:
+        # MutableHeaders supports assignment
+        request.scope.setdefault("headers", [])
+        # FastAPI/Starlette: rebuild headers list with Authorization injected
+        raw = [(k, v) for k, v in request.scope["headers"] if k.lower() != b"authorization"]
+        raw.append((b"authorization", f"Bearer {api_key.strip()}".encode("latin-1")))
+        request.scope["headers"] = raw
+    return await call_next(request)
 
 # ── Queue ─────────────────────────────────────────────────────────────────────
 import threading, queue as queue_module
@@ -87,14 +107,53 @@ def queue_worker():
 
 threading.Thread(target=queue_worker, daemon=True).start()
 
-# ── Auth helpers ──────────────────────────────────────────────────────────────
-def get_current_user(authorization: str = None) -> dict:
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Not authenticated")
-    payload = decode_jwt(authorization[7:])
-    if not payload:
-        raise HTTPException(status_code=401, detail="Invalid or expired token")
-    return payload
+# ── Auth helpers (JWT or per-user API key) ────────────────────────────────────
+def _user_payload_from_row(user: dict) -> dict:
+    return {
+        "sub":     str(user["id"]),
+        "email":   user.get("email") or "",
+        "name":    user.get("name") or "",
+        "picture": user.get("picture") or "",
+        "auth":    "api_key",
+    }
+
+
+def _resolve_api_key(raw_key: str) -> dict:
+    user = get_user_by_api_key_hash(hash_api_key(raw_key))
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid API key")
+    touch_api_key_last_used(user["id"])
+    return _user_payload_from_row(user)
+
+
+def get_current_user(authorization: str = None, x_api_key: str = None) -> dict:
+    """Accept JWT Bearer, API-key Bearer, or x-api-key header."""
+    if x_api_key and x_api_key.strip():
+        return _resolve_api_key(x_api_key.strip())
+
+    if authorization and authorization.startswith("Bearer "):
+        token = authorization[7:].strip()
+        if looks_like_api_key(token):
+            return _resolve_api_key(token)
+        payload = decode_jwt(token)
+        if not payload:
+            raise HTTPException(status_code=401, detail="Invalid or expired token")
+        payload = dict(payload)
+        payload["auth"] = "jwt"
+        return payload
+
+    raise HTTPException(status_code=401, detail="Not authenticated")
+
+
+def _ensure_api_key(user: dict) -> tuple[str | None, dict]:
+    """Mint a key if the user has none. Returns (plaintext_or_None, meta)."""
+    meta = get_user_api_key_meta(user["id"])
+    if meta and meta.get("has_key"):
+        return None, meta
+    raw, key_hash, prefix = generate_api_key()
+    meta = set_user_api_key(user["id"], key_hash, prefix)
+    return raw, meta
+
 
 # ── Startup ───────────────────────────────────────────────────────────────────
 @app.on_event("startup")
@@ -128,12 +187,85 @@ def auth_google(body: GoogleAuthRequest):
         raise HTTPException(status_code=401, detail="Invalid Google token")
     user  = upsert_user(info["sub"], info.get("email",""), info.get("name",""), info.get("picture",""))
     token = create_jwt(user["id"], info.get("email",""), info.get("name",""), info.get("picture",""))
-    return {"token": token, "user": {"id": user["id"], "email": info.get("email",""), "name": info.get("name",""), "picture": info.get("picture","")}}
+    plaintext_key, key_meta = _ensure_api_key(user)
+    resp = {
+        "token": token,
+        "user": {
+            "id": user["id"],
+            "email": info.get("email",""),
+            "name": info.get("name",""),
+            "picture": info.get("picture",""),
+            "api_key_prefix": key_meta.get("api_key_prefix"),
+        },
+    }
+    # Plaintext only when a brand-new key was minted on this login/signup.
+    if plaintext_key:
+        resp["api_key"] = plaintext_key
+        resp["api_key_once"] = True
+    return resp
 
 @app.get("/api/auth/me")
 def auth_me(authorization: str = Header(default=None)):
     payload = get_current_user(authorization)
-    return {"id": payload["sub"], "email": payload["email"], "name": payload["name"], "picture": payload["picture"]}
+    meta = get_user_api_key_meta(int(payload["sub"])) or {}
+    return {
+        "id": payload["sub"],
+        "email": payload["email"],
+        "name": payload["name"],
+        "picture": payload["picture"],
+        "api_key_prefix": meta.get("api_key_prefix"),
+        "has_api_key": bool(meta.get("has_key")),
+    }
+
+
+# ── API keys (Settings / MCP) ─────────────────────────────────────────────────
+@app.get("/api/auth/api-key")
+def get_api_key_meta(authorization: str = Header(default=None)):
+    user = get_current_user(authorization)
+    meta = get_user_api_key_meta(int(user["sub"]))
+    if not meta:
+        raise HTTPException(status_code=404, detail="User not found")
+    return {
+        "has_key": bool(meta.get("has_key")),
+        "prefix": meta.get("api_key_prefix"),
+        "created_at": meta.get("api_key_created_at"),
+        "last_used_at": meta.get("api_key_last_used_at"),
+        # Never return the plaintext hash; key is only shown once at mint/regenerate.
+        "api_key": None,
+    }
+
+
+@app.post("/api/auth/api-key")
+def mint_or_ensure_api_key(authorization: str = Header(default=None)):
+    """Ensure the user has a key; return plaintext only if newly created."""
+    user = get_current_user(authorization)
+    db_user = get_user_by_id(int(user["sub"]))
+    if not db_user:
+        raise HTTPException(status_code=404, detail="User not found")
+    plaintext, meta = _ensure_api_key(db_user)
+    return {
+        "has_key": True,
+        "prefix": meta.get("api_key_prefix"),
+        "created_at": meta.get("api_key_created_at"),
+        "last_used_at": meta.get("api_key_last_used_at"),
+        "api_key": plaintext,
+        "api_key_once": bool(plaintext),
+    }
+
+
+@app.post("/api/auth/api-key/regenerate")
+def regenerate_api_key(authorization: str = Header(default=None)):
+    user = get_current_user(authorization)
+    raw, key_hash, prefix = generate_api_key()
+    meta = set_user_api_key(int(user["sub"]), key_hash, prefix)
+    return {
+        "has_key": True,
+        "prefix": meta.get("api_key_prefix") or prefix,
+        "created_at": meta.get("api_key_created_at"),
+        "last_used_at": None,
+        "api_key": raw,
+        "api_key_once": True,
+    }
 
 # ── Scrape ────────────────────────────────────────────────────────────────────
 @app.get("/api/scrape")
@@ -254,6 +386,7 @@ def get_searches_endpoint():
 class CreateDBRequest(BaseModel):
     name: str
     kind: str = "maps"   # "maps" or "linkedin"
+    columns: Optional[List[str]] = None
 
 # Mirrors the frontend's *_PRIORITY column lists — seeds a new database's persisted
 # column list so it starts non-empty even before any row has data.
@@ -263,10 +396,31 @@ DEFAULT_DB_COLUMNS = {
     "internships": ["internship", "internship_type", "company", "email", "company_website", "linkedin_url", "city", "country"],
 }
 
+MAPS_TABLE_COLUMNS = DEFAULT_DB_COLUMNS["maps"]
+
+
+def _rows_to_table(rows: list, columns: list = None) -> dict:
+    """Shape scrape/DB results for MCP/tabular consumers."""
+    cols = columns or MAPS_TABLE_COLUMNS
+    structured = []
+    for row in rows or []:
+        src = row.get("data") if isinstance(row.get("data"), dict) else row
+        structured.append({c: (src.get(c) if isinstance(src, dict) else None) or "" for c in cols})
+    # Markdown table
+    header = "| " + " | ".join(cols) + " |"
+    sep = "| " + " | ".join("---" for _ in cols) + " |"
+    body_lines = []
+    for r in structured:
+        cells = [str(r.get(c, "")).replace("|", "\\|").replace("\n", " ") for c in cols]
+        body_lines.append("| " + " | ".join(cells) + " |")
+    markdown = "\n".join([header, sep, *body_lines]) if structured else header + "\n" + sep
+    return {"columns": cols, "rows": structured, "markdown": markdown, "total": len(structured)}
+
+
 @app.post("/api/databases")
 def create_db(body: CreateDBRequest, authorization: str = Header(default=None)):
     user = get_current_user(authorization)
-    columns = DEFAULT_DB_COLUMNS.get(body.kind, DEFAULT_DB_COLUMNS["maps"])
+    columns = body.columns or DEFAULT_DB_COLUMNS.get(body.kind, DEFAULT_DB_COLUMNS["maps"])
     return create_user_database(int(user["sub"]), body.name.strip(), body.kind, columns)
 
 @app.get("/api/databases")
@@ -1613,3 +1767,103 @@ def cancel_url_scrape(job_id: str, authorization: str = Header(default=None)):
         job["status"] = "cancelling"
         return {"message": "Cancellation requested"}
     return {"message": f"Job already {job['status']}"}
+
+
+# ── MCP convenience endpoints ─────────────────────────────────────────────────
+class McpReachctRequest(BaseModel):
+    urls: List[str]
+    company_type: str = "Company"
+    city: Optional[str] = None
+    country: Optional[str] = None
+    database_id: Optional[int] = None
+    database_name: Optional[str] = None
+    poll_timeout_s: int = 900
+
+
+@app.post("/api/mcp/reachct")
+def mcp_reachct(body: McpReachctRequest, authorization: str = Header(default=None)):
+    """Start URL scrape, poll to completion, return tabular rows; optionally save."""
+    import time
+    user = get_current_user(authorization)
+    start = start_url_scrape(
+        URLScrapeRequest(
+            urls=body.urls,
+            company_type=body.company_type,
+            city=body.city,
+            country=body.country,
+        ),
+        authorization=authorization,
+    )
+    job_id = start["job_id"]
+    deadline = time.time() + max(30, min(body.poll_timeout_s, 1800))
+    job = None
+    while time.time() < deadline:
+        job = url_scrape_jobs.get(job_id)
+        if not job:
+            raise HTTPException(status_code=404, detail="Job disappeared")
+        if job["status"] in ("done", "error", "cancelled"):
+            break
+        time.sleep(2)
+    else:
+        raise HTTPException(status_code=504, detail="Scrape timed out while polling")
+
+    if job["status"] == "error":
+        raise HTTPException(status_code=500, detail=job.get("error") or "Scrape failed")
+    if job["status"] == "cancelled":
+        raise HTTPException(status_code=409, detail="Scrape cancelled")
+
+    results = job.get("results") or []
+    table = _rows_to_table(results, MAPS_TABLE_COLUMNS)
+
+    saved = None
+    db_id = body.database_id
+    if body.database_name and not db_id:
+        db = create_user_database(
+            int(user["sub"]),
+            body.database_name.strip(),
+            "maps",
+            MAPS_TABLE_COLUMNS,
+        )
+        db_id = db["id"]
+        saved = {"created_database": db}
+    if db_id:
+        db = get_user_database(db_id, int(user["sub"]))
+        if not db:
+            raise HTTPException(status_code=403, detail="Access denied or database not found")
+        if db.get("role") == "viewer":
+            raise HTTPException(status_code=403, detail="Viewers cannot add entries")
+        rows = [{c: r.get(c, "") for c in MAPS_TABLE_COLUMNS} for r in table["rows"]]
+        entries = add_db_entries(db_id, rows)
+        saved = {**(saved or {}), "database_id": db_id, "inserted": len(entries)}
+
+    return {
+        "job_id": job_id,
+        "status": job["status"],
+        **table,
+        "skipped_urls": job.get("skipped_urls") or [],
+        "saved": saved,
+    }
+
+
+@app.get("/api/mcp/databases/{db_id}/table")
+def mcp_pull_database_table(db_id: int, authorization: str = Header(default=None)):
+    """Tabular pull of a user database the API key / JWT owns or collaborates on."""
+    user = get_current_user(authorization)
+    db = get_user_database(db_id, int(user["sub"]))
+    if not db:
+        raise HTTPException(status_code=403, detail="Access denied")
+    entries = get_db_entries(db_id)
+    cols = db.get("columns") or MAPS_TABLE_COLUMNS
+    if isinstance(cols, str):
+        try:
+            cols = json.loads(cols)
+        except Exception:
+            cols = MAPS_TABLE_COLUMNS
+    table = _rows_to_table(entries, cols)
+    return {
+        "database_id": db_id,
+        "name": db.get("name"),
+        "kind": db.get("kind"),
+        "role": db.get("role"),
+        **table,
+    }

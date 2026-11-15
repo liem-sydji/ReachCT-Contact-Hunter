@@ -12,6 +12,7 @@ import DashboardPage  from "./pages/DashboardPage.jsx";
 import SpreadsheetPage from "./pages/SpreadsheetPage.jsx";
 import MailCampaignsPage  from "./pages/MailCampaignsPage.jsx";
 import EmailTemplatesPage from "./pages/EmailTemplatesPage.jsx";
+import SettingsPage       from "./pages/SettingsPage.jsx";
 
 export default function App() {
   return (
@@ -29,6 +30,7 @@ export default function App() {
           <Route path="/dashboard/db/:dbId" element={<SpreadsheetPage />} />
           <Route path="/campaigns"             element={<MailCampaignsPage />} />
           <Route path="/templates"             element={<EmailTemplatesPage />} />
+          <Route path="/settings"              element={<SettingsPage />} />
           <Route path="*"                   element={<Landing />} />
         </Routes>
       </AuthProvider>
