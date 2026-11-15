@@ -1,4 +1,5 @@
 import { InnerHeader } from "../components/shared.jsx";
+import { PageTransition } from "../components/ui/index.js";
 
 const SECTIONS = [
   {
@@ -33,25 +34,27 @@ const SECTIONS = [
 
 export default function InfoPage() {
   return (
-    <div className="inner-page">
-      <InnerHeader title="How to use ReachCT" />
-      <div className="info-wrap">
-        {SECTIONS.map((s, i) => (
-          <div key={i} className="info-section">
-            <div className="info-head">
-              <div className="info-num">{i + 1}</div>
-              <h2 className="info-title">{s.title}</h2>
-            </div>
-            {s.content && <p className="info-body">{s.content}</p>}
-            {s.steps && (
-              <div className="info-body">
-                <ol>{s.steps.map((step, j) => <li key={j}>{step}</li>)}</ol>
+    <PageTransition>
+      <div className="inner-page">
+        <InnerHeader title="How to use ReachCT" />
+        <div className="info-wrap">
+          {SECTIONS.map((s, i) => (
+            <div key={i} className="info-section">
+              <div className="info-head">
+                <div className="info-num">{i + 1}</div>
+                <h2 className="info-title">{s.title}</h2>
               </div>
-            )}
-            {i < SECTIONS.length - 1 && <div className="info-divider" />}
-          </div>
-        ))}
+              {s.content && <p className="info-body">{s.content}</p>}
+              {s.steps && (
+                <div className="info-body">
+                  <ol>{s.steps.map((step, j) => <li key={j}>{step}</li>)}</ol>
+                </div>
+              )}
+              {i < SECTIONS.length - 1 && <div className="info-divider" />}
+            </div>
+          ))}
+        </div>
       </div>
-    </div>
+    </PageTransition>
   );
 }

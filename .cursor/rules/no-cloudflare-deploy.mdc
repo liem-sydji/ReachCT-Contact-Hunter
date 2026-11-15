@@ -1,0 +1,13 @@
+---
+description: Never deploy or push the live company ReachCT to Cloudflare
+alwaysApply: true
+---
+
+# No Cloudflare deploys
+
+Cloudflare hosts the live company ReachCT frontend. Do not deploy or push anything to it.
+
+- Do not run Wrangler or Cloudflare Pages/Workers publish commands (`wrangler deploy`, `wrangler pages deploy`, or equivalent API or dashboard publishes).
+- Do not git push, merge, or open a pull request whose target publishes the live Cloudflare site.
+- Local development and any separate lab environment stay local. Do not treat them as a path to the live site.
+- If a task would update the live Cloudflare ReachCT, stop. Leave that site unchanged.

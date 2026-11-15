@@ -1,0 +1,36 @@
+/** Groovy Halftone design tokens — use these instead of raw hex in JS. */
+export const tokens = {
+  ink: "#2D2B2C",
+  inkSoft: "#3A3638",
+  cream: "#F6EBD9",
+  creamLight: "#FAF4E7",
+  sand: "#D5C4AB",
+  marigold: "#FCC56D",
+  peach: "#F7A77C",
+  coral: "#EE685E",
+  lavender: "#B7A6E8",
+  periwinkle: "#7F7BD6",
+  indigo: "#391767",
+  violet: "#6F268B",
+  magenta: "#C51CBA",
+  hotPink: "#D63391",
+  orange: "#E47750",
+  success: "#2F6B4F",
+  warning: "#B86A1A",
+  error: "#9B2C3A",
+  bgNight: "#2D2B2C",
+  bgPaper: "#F6EBD9",
+  textOnPaper: "#2D2B2C",
+  textOnNight: "#F6EBD9",
+  primary: "#EE685E",
+  focusRing: "#FCC56D",
+};
+
+/** Warm→cool accent sequence (badges, card bands). */
+export const accentColors = [
+  tokens.marigold,
+  tokens.peach,
+  tokens.coral,
+  tokens.lavender,
+  tokens.periwinkle,
+];

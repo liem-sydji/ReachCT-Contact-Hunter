@@ -4,6 +4,7 @@ import { useAuth } from "../context/AuthContext.jsx";
 import { API, COMPANY_TYPES_GROUPED } from "../styles.js";
 import { SearchIcon, DownloadIcon, CopyIcon, StopIcon } from "../components/icons.jsx";
 import { InnerHeader, ResultsTable } from "../components/shared.jsx";
+import { PageTransition } from "../components/ui/index.js";
 import AddToDBModal from "../components/AddToDBModal.jsx";
 
 export default function SearchPage() {
@@ -18,6 +19,9 @@ export default function SearchPage() {
   }, []);
 
   return (
+
+    <PageTransition>
+    
     <div className="inner-page">
       <InnerHeader title="New Search" />
 
@@ -38,16 +42,20 @@ export default function SearchPage() {
       {tab === "linkedin" && <LinkedInSearch user={user} token={token} />}
       {tab === "urls"     && <URLScraper user={user} token={token} />}
     </div>
+  
+
+    </PageTransition>
+
   );
 }
 
 function tabStyle(active) {
   return {
     padding:"9px 18px", borderRadius:"10px 10px 0 0", border:"none", cursor:"pointer",
-    fontSize:13, fontWeight:600, fontFamily:"'DM Sans',sans-serif",
-    background: active ? "#fff" : "transparent",
-    color: active ? "#E8005A" : "#888",
-    borderBottom: active ? "2px solid #E8005A" : "2px solid transparent",
+    fontSize:13, fontWeight:600, fontFamily:"var(--font-body)",
+    background: active ? "var(--cream-light)" : "transparent",
+    color: active ? "var(--coral)" : "var(--sand)",
+    borderBottom: active ? "2px solid var(--coral)" : "2px solid transparent",
   };
 }
 
@@ -245,7 +253,7 @@ function MapsSearch({ user, token, navigate }) {
           <div className="results-header">
             <div className="results-count">
               <span>{results.length}</span> companies found &nbsp;·&nbsp;
-              <span style={{ color:"#E8005A" }}>{results.filter(r=>r.email).length}</span> emails found
+              <span style={{ color:"var(--coral)" }}>{results.filter(r=>r.email).length}</span> emails found
             </div>
             <div className="btn-row">
               {user && <button className="btn-primary" onClick={()=>setShowAddDB(true)}>+ Add to Database</button>}
@@ -442,8 +450,8 @@ function LinkedInSearch({ user, token }) {
   const btnTab = (active, color, label, onClick) => (
     <button onClick={onClick} style={{
       padding:"8px 20px", borderRadius:8, border:"none", cursor:"pointer",
-      fontFamily:"'DM Sans',sans-serif", fontSize:13, fontWeight:600,
-      background: active ? color : "#f0f0f0", color: active ? "#fff" : "#888",
+      fontFamily:"var(--font-body)", fontSize:13, fontWeight:600,
+      background: active ? color : "var(--cream)", color: active ? "#fff" : "#888",
       transition:"all 0.15s",
     }}>{label}</button>
   );
@@ -454,7 +462,7 @@ function LinkedInSearch({ user, token }) {
         <div className="form-card">
           {/* Mode tabs */}
           <div style={{ display:"flex", gap:8, marginBottom:24 }}>
-            {btnTab(mode==="people",      "#E8005A", "🔗 People Search",     ()=>switchMode("people"))}
+            {btnTab(mode==="people",      "var(--coral)", "🔗 People Search",     ()=>switchMode("people"))}
             {btnTab(mode==="internships", "#9333ea", "🎓 Internship Search", ()=>switchMode("internships"))}
           </div>
 
@@ -466,7 +474,7 @@ function LinkedInSearch({ user, token }) {
               </p>
               <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr 0.6fr", gap:16, marginBottom:16 }}>
                 <div>
-                  <label className="field-label">Company Type / Role <span style={{color:"#E8005A"}}>*</span></label>
+                  <label className="field-label">Company Type / Role <span style={{color:"var(--coral)"}}>*</span></label>
                   <input className="field-input" value={companyType} onChange={e=>setCompanyType(e.target.value)}
                     placeholder="e.g. Marketing Agency"/>
                 </div>
@@ -534,7 +542,7 @@ function LinkedInSearch({ user, token }) {
           {error && <div className="error-msg">{error}</div>}
           {loading && (
             <div className="loading-area">
-              <div className="spinner" style={{ borderTopColor: mode==="internships"?"#9333ea":"#E8005A" }}/>
+              <div className="spinner" style={{ borderTopColor: mode==="internships"?"#9333ea":"var(--coral)" }}/>
               <p className="loading-msg">{loadMsg}</p>
             </div>
           )}
@@ -547,7 +555,7 @@ function LinkedInSearch({ user, token }) {
           <div className="results-header">
             <div className="results-count">
               <span>{peopleResults.length}</span> people found &nbsp;·&nbsp;
-              <span style={{ color:"#E8005A" }}>{peopleResults.filter(r=>r.email).length}</span> with email
+              <span style={{ color:"var(--coral)" }}>{peopleResults.filter(r=>r.email).length}</span> with email
             </div>
             <div className="btn-row">
               {user && peopleResults.length > 0 && (
@@ -572,8 +580,8 @@ function LinkedInSearch({ user, token }) {
                 {peopleResults.map((r, i) => (
                   <tr key={i}>
                     <td style={{ fontWeight:500 }}>{r.full_name}</td>
-                    <td><span style={{ background:"rgba(232,0,90,0.08)", border:"1px solid rgba(232,0,90,0.15)",
-                      borderRadius:6, padding:"2px 8px", fontSize:11, color:"#E8005A", fontWeight:600,
+                    <td><span style={{ background:"rgba(238,104,94,0.08)", border:"1px solid rgba(238,104,94,0.15)",
+                      borderRadius:6, padding:"2px 8px", fontSize:11, color:"var(--coral)", fontWeight:600,
                       whiteSpace:"nowrap" }}>{r.company_type||"—"}</span></td>
                     <td style={{ color:"#666", fontSize:12 }}>{r.profile_title||"—"}</td>
                     <td>{r.company||"—"}</td>
@@ -590,11 +598,11 @@ function LinkedInSearch({ user, token }) {
                           {r.linkedin_url}
                           <span id={`url-copied-${i}`} style={{ marginLeft:6, fontSize:10,
                             color:"#16a34a", opacity:0, transition:"opacity 0.2s",
-                            fontFamily:"'DM Sans',sans-serif" }}>✓ copied</span>
+                            fontFamily:"var(--font-body)" }}>✓ copied</span>
                         </span>
                       ) : "—"}
                     </td>
-                    <td style={{ color:"#E8005A", fontSize:12 }}>{r.email||"—"}</td>
+                    <td style={{ color:"var(--coral)", fontSize:12 }}>{r.email||"—"}</td>
                   </tr>
                 ))}
               </tbody>
@@ -639,7 +647,7 @@ function LinkedInSearch({ user, token }) {
                       borderRadius:6, padding:"2px 8px", fontSize:11, color:"#9333ea", fontWeight:600,
                       whiteSpace:"nowrap" }}>{r.internship_type||"—"}</span></td>
                     <td>{r.company||"—"}</td>
-                    <td style={{ color:"#E8005A", fontSize:12 }}>{r.email||"—"}</td>
+                    <td style={{ color:"var(--coral)", fontSize:12 }}>{r.email||"—"}</td>
                     <td style={{ fontSize:11, maxWidth:160 }}>
                       {r.company_website
                         ? <a href={r.company_website} target="_blank" rel="noreferrer"
@@ -841,7 +849,7 @@ function URLScraper({ user, token }) {
           <div style={{ display:"grid", gridTemplateColumns:"1fr 2fr", gap:16, marginBottom:16 }}>
             <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
               <div>
-                <label className="field-label">Company Type <span style={{color:"#E8005A"}}>*</span></label>
+                <label className="field-label">Company Type <span style={{color:"var(--coral)"}}>*</span></label>
                 <select className="field-select" value={companyType} onChange={e=>setCompanyType(e.target.value)}>
                   <option value="">Select type…</option>
                   {Object.entries(COMPANY_TYPES_GROUPED).map(([letter, types]) => (
@@ -915,7 +923,7 @@ function URLScraper({ user, token }) {
                 {results.map((r,i) => (
                   <tr key={i}>
                     <td style={{fontWeight:500}}>{r.name}</td>
-                    <td style={{color:"#E8005A"}}>{r.email}</td>
+                    <td style={{color:"var(--coral)"}}>{r.email}</td>
                     <td style={{fontSize:12,color:"#555"}}>{r.phone||"—"}</td>
                     <td>
                       <a href={r.website} target="_blank" rel="noreferrer"
