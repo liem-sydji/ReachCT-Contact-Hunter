@@ -668,6 +668,92 @@ export const y2kCss = `
     .y2k-nav__actions { gap: 8px; }
   }
 
+  /* ── Plasma / halftone color wash (reference texture) ── */
+  .y2k-plasma {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    background-color: #1a0a2e;
+    background-image:
+      radial-gradient(circle, rgba(10,15,31,0.35) 0.7px, transparent 1px),
+      url('/y2k-halftone-plasma.jpg'),
+      radial-gradient(120% 80% at 20% 30%, #E12963 0%, transparent 55%),
+      radial-gradient(90% 70% at 80% 20%, #1B1448 0%, transparent 50%),
+      radial-gradient(100% 80% at 60% 85%, #E85018 0%, transparent 55%),
+      linear-gradient(145deg, #E12963 0%, #6B1F6E 35%, #1B1448 55%, #E85018 100%);
+    background-size:
+      5px 5px,
+      cover,
+      cover,
+      cover,
+      cover,
+      cover;
+    background-position:
+      center,
+      var(--y2k-plasma-pos, center),
+      center,
+      center,
+      center,
+      center;
+    background-blend-mode: multiply, normal, soft-light, soft-light, soft-light, normal;
+  }
+  .y2k-plasma--soft { opacity: 0.55; }
+  .y2k-plasma--full { opacity: 1; }
+  .y2k-plasma--punch { opacity: 1; filter: saturate(1.15) contrast(1.05); }
+  .y2k-plasma--veil::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      105deg,
+      rgba(10, 15, 31, 0.72) 0%,
+      rgba(10, 15, 31, 0.35) 42%,
+      rgba(10, 15, 31, 0.15) 100%
+    );
+  }
+  .y2k-root:not([data-theme="dark"]) .y2k-plasma--veil::after {
+    background: linear-gradient(
+      105deg,
+      rgba(237, 234, 226, 0.88) 0%,
+      rgba(237, 234, 226, 0.45) 48%,
+      rgba(237, 234, 226, 0.12) 100%
+    );
+  }
+  .y2k-plasma-panel {
+    position: relative;
+    overflow: hidden;
+    border: var(--y2k-border);
+    min-height: 180px;
+    color: var(--palette-paper);
+  }
+  .y2k-plasma-panel > *:not(.y2k-plasma) {
+    position: relative;
+    z-index: 1;
+  }
+  .y2k-btn--plasma {
+    background-image: url('/y2k-halftone-plasma.jpg');
+    background-size: 220% 220%;
+    background-position: 30% 40%;
+    color: var(--palette-paper);
+    text-shadow: 0 1px 0 rgba(10,15,31,0.45);
+    border-color: var(--ink);
+  }
+  .y2k-btn--plasma:hover:not(:disabled) {
+    background-image: url('/y2k-halftone-plasma.jpg');
+    filter: brightness(1.08);
+    color: var(--palette-paper);
+  }
+  .y2k-display--plasma {
+    background-image: url('/y2k-halftone-plasma.jpg');
+    background-size: cover;
+    background-position: center;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    -webkit-text-stroke: 0;
+  }
+
   /* ── Hero ── */
   .y2k-hero {
     position: relative;
@@ -679,6 +765,41 @@ export const y2kCss = `
     flex-direction: column;
     justify-content: center;
     gap: 28px;
+  }
+  .y2k-hero--plasma {
+    color: var(--ink);
+  }
+  .y2k-root[data-theme="dark"] .y2k-hero--plasma {
+    color: var(--palette-paper);
+  }
+  .y2k-root[data-theme="dark"] .y2k-hero--plasma .y2k-bracket,
+  .y2k-root[data-theme="dark"] .y2k-hero--plasma .y2k-rail {
+    color: var(--palette-paper);
+  }
+  .y2k-root[data-theme="dark"] .y2k-hero--plasma .y2k-display--outline {
+    -webkit-text-stroke-color: var(--palette-paper);
+  }
+  .y2k-hero__plasma-slab {
+    position: absolute;
+    right: -8%;
+    top: 8%;
+    width: min(58vw, 520px);
+    height: min(70vh, 560px);
+    border: var(--y2k-border);
+    overflow: hidden;
+    z-index: 1;
+    box-shadow: var(--y2k-shadow);
+    border-radius: 0;
+  }
+  .y2k-root[data-theme="dark"] .y2k-hero__plasma-slab {
+    inset: 0;
+    width: auto;
+    height: auto;
+    right: 0;
+    top: 0;
+    border: 0;
+    box-shadow: none;
+    border-radius: 0;
   }
   .y2k-hero__ring-wrap {
     position: absolute;
@@ -775,6 +896,40 @@ export const y2kCss = `
   .y2k-section--pink { background: var(--pink); color: var(--paper); }
   .y2k-section--pink .y2k-bracket,
   .y2k-section--pink .y2k-rail { color: var(--paper); }
+  .y2k-section--plasma {
+    background: var(--palette-ink-deep);
+    color: var(--palette-paper);
+    isolation: isolate;
+  }
+  .y2k-section--plasma .y2k-bracket,
+  .y2k-section--plasma .y2k-rail,
+  .y2k-section--plasma .y2k-sg__h2,
+  .y2k-section--plasma .y2k-sg__lead {
+    color: var(--palette-paper);
+  }
+  .y2k-section--plasma .y2k-sg__lead { opacity: 0.9; }
+  .y2k-section--plasma > .y2k-plasma { z-index: 0; }
+  .y2k-section--plasma > *:not(.y2k-plasma):not(.y2k-section__num):not(.y2k-rail) {
+    position: relative;
+    z-index: 1;
+  }
+  .y2k-section--plasma .y2k-btn--ghost {
+    color: var(--palette-paper);
+    border-color: var(--palette-paper);
+  }
+  .y2k-section--plasma .y2k-btn--ghost:hover:not(:disabled) {
+    background: var(--palette-paper);
+    color: var(--palette-ink-deep);
+  }
+  .y2k-poster__header--plasma {
+    background-image:
+      linear-gradient(rgba(10,15,31,0.25), rgba(10,15,31,0.25)),
+      url('/y2k-halftone-plasma.jpg');
+    background-size: cover;
+    background-position: center;
+    color: var(--palette-paper);
+    border-bottom-color: var(--ink);
+  }
   .y2k-section__num {
     font-family: var(--y2k-font-condensed);
     font-size: clamp(4rem, 10vw, 7rem);
@@ -827,13 +982,14 @@ export const y2kCss = `
     overflow: hidden;
     border-top: var(--y2k-border);
     border-bottom: var(--y2k-border);
-    background: var(--palette-ink);
+    background-color: var(--palette-ink-deep);
+    background-image:
+      linear-gradient(rgba(10,15,31,0.55), rgba(10,15,31,0.55)),
+      url('/y2k-halftone-plasma.jpg');
+    background-size: cover;
+    background-position: 50% 40%;
     color: var(--palette-paper);
     padding: 8px 0;
-  }
-  .y2k-root[data-theme="dark"] .y2k-ticker {
-    background: var(--palette-ink-void);
-    color: var(--palette-paper);
   }
   .y2k-ticker__track {
     display: flex;
@@ -849,19 +1005,6 @@ export const y2kCss = `
   @keyframes y2k-ticker {
     from { transform: translateX(0); }
     to { transform: translateX(-50%); }
-  }
-
-  /* ── Cursor sparkle (creative) ── */
-  .y2k-cursor-sparkle {
-    position: fixed;
-    width: 18px;
-    height: 18px;
-    pointer-events: none;
-    z-index: 9999;
-    color: var(--pink);
-    transform: translate(-50%, -50%);
-    transition: opacity 200ms ease;
-    opacity: 0.85;
   }
 
   /* ── Style guide layout ── */
@@ -968,6 +1111,5 @@ export const y2kCss = `
       animation: none !important;
       transition: none !important;
     }
-    .y2k-cursor-sparkle { display: none !important; }
   }
 `;

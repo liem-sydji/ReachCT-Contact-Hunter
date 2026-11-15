@@ -19,5 +19,5 @@ export { default as Section } from "./Section.jsx";
 export { default as Footer } from "./Footer.jsx";
 export { default as StickerBadge } from "./StickerBadge.jsx";
 export { default as MonoTicker } from "./MonoTicker.jsx";
-export { default as CursorSparkle } from "./CursorSparkle.jsx";
+export { default as PlasmaWash } from "./PlasmaWash.jsx";
 export { default as ThemeToggle } from "./ThemeToggle.jsx";

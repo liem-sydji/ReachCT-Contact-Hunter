@@ -28,7 +28,7 @@ import {
   Footer,
   StickerBadge,
   MonoTicker,
-  CursorSparkle,
+  PlasmaWash,
 } from "../components/y2k/index.js";
 
 const LIGHT_SWATCHES = [
@@ -91,7 +91,6 @@ export default function StyleGuideY2kPage() {
 
   return (
     <div className="y2k-root y2k-sg" data-theme={theme}>
-      <CursorSparkle />
       <MonoTicker />
       <Navbar
         centerLabel="Y2K POSTER"
@@ -107,7 +106,7 @@ export default function StyleGuideY2kPage() {
         tagline="VISUAL IDENTITY // REVIEW"
         title="PRINT"
         titleLine2="POSTER"
-        subtitle="Grainy paper, navy ink blocks, chrome accents, and one iridescent ring — a print object, not a SaaS template. Style guide only; sitewide rollout paused."
+        subtitle="Grainy paper, magenta–indigo–orange halftone plasma, chrome accents, and one iridescent ring — a print object, not a SaaS template. Style guide only; sitewide rollout paused."
         primaryCta={{
           label: "Jump to tokens",
           onClick: () =>
@@ -216,6 +215,7 @@ export default function StyleGuideY2kPage() {
           <div className="y2k-sg__row">
             <Button variant="solid">Solid</Button>
             <Button variant="accent">Accent</Button>
+            <Button variant="plasma">Plasma</Button>
             <Button variant="ghost">Ghost</Button>
             <Button variant="solid" disabled>
               Disabled
@@ -253,6 +253,9 @@ export default function StyleGuideY2kPage() {
             </DisplayHeading>
             <DisplayHeading size="md" bleed pink as="p">
               Bleed edge
+            </DisplayHeading>
+            <DisplayHeading size="md" plasma as="p">
+              Plasma fill
             </DisplayHeading>
           </div>
 
@@ -319,6 +322,18 @@ export default function StyleGuideY2kPage() {
           </DisplayHeading>
         </div>
 
+        <div className="y2k-sg__type-label">PlasmaWash</div>
+        <div className="y2k-sg__cards" style={{ marginBottom: 28 }}>
+          <div className="y2k-plasma-panel" style={{ minHeight: 200, padding: 20 }}>
+            <PlasmaWash intensity="full" position="20% 30%" />
+            <BracketLabel>FULL WASH</BracketLabel>
+          </div>
+          <div className="y2k-plasma-panel" style={{ minHeight: 200, padding: 20 }}>
+            <PlasmaWash intensity="punch" veil position="70% 60%" />
+            <BracketLabel>VEILED // READABLE</BracketLabel>
+          </div>
+        </div>
+
         <div className="y2k-sg__type-label">StarfieldPanel</div>
         <StarfieldPanel>
           <BracketLabel>STARFIELD // WIREFRAME FLOOR</BracketLabel>
@@ -366,10 +381,10 @@ export default function StyleGuideY2kPage() {
         <div className="y2k-sg__cards">
           <PosterCard header="Unit Alpha" meta={["REF A", "COBALT", "A3"]} />
           <PosterCard
-            header="Pink strip"
+            header="Plasma strip"
             pinkHeader
-            duotone="ink"
-            meta={["REF B", "INK/PINK", "A2"]}
+            plasma
+            meta={["REF B", "PLASMA", "A2"]}
           />
         </div>
 
@@ -389,11 +404,9 @@ export default function StyleGuideY2kPage() {
           >
             <BracketLabel>INK</BracketLabel>
           </div>
-          <div
-            className="y2k-sg__window"
-            style={{ background: "var(--pink)", color: "var(--paper)", padding: 20 }}
-          >
-            <BracketLabel>PINK</BracketLabel>
+          <div className="y2k-sg__window y2k-plasma-panel" style={{ padding: 20 }}>
+            <PlasmaWash intensity="soft" position="50% 40%" />
+            <BracketLabel>PLASMA</BracketLabel>
           </div>
         </div>
 
@@ -406,15 +419,16 @@ export default function StyleGuideY2kPage() {
         </div>
       </Section>
 
-      <Section tone="pink" number={6} rail="06 / NOTES">
+      <Section tone="plasma" number={6} rail="06 / NOTES">
         <h2 className="y2k-sg__h2">Pause point</h2>
         <p className="y2k-sg__lead">
           Step 3 sitewide restyle is held until this identity wins the comparison against Groovy
-          Halftone. No app pages were restyled in this pass.
+          Halftone. No app pages were restyled in this pass. Plasma wash is the signature color
+          field — magenta / indigo / orange with print-dot grain.
         </p>
         <div className="y2k-sg__row">
           <Button
-            variant="solid"
+            variant="plasma"
             onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
           >
             Back to top

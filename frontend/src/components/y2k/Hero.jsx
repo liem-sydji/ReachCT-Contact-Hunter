@@ -2,6 +2,7 @@ import BracketLabel from "./BracketLabel.jsx";
 import Button from "./Button.jsx";
 import DisplayHeading from "./DisplayHeading.jsx";
 import IridescentRing from "./IridescentRing.jsx";
+import PlasmaWash from "./PlasmaWash.jsx";
 import VerticalRail from "./VerticalRail.jsx";
 
 export default function Hero({
@@ -14,9 +15,16 @@ export default function Hero({
   leftRail = "REACHCT / VISUAL SYSTEM",
   rightRail = "41.3874° N  ·  2.1686° E",
   showRing = true,
+  plasma = true,
 }) {
   return (
-    <section className="y2k-hero">
+    <section className={`y2k-hero ${plasma ? "y2k-hero--plasma" : ""}`.trim()}>
+      {plasma && (
+        <div className="y2k-hero__plasma-slab" aria-hidden="true">
+          <PlasmaWash intensity="punch" veil position="30% 40%" />
+        </div>
+      )}
+
       <VerticalRail side="left">{leftRail}</VerticalRail>
       <VerticalRail side="right">{rightRail}</VerticalRail>
 
@@ -41,7 +49,7 @@ export default function Hero({
         ) : null}
         <div className="y2k-hero__cta" style={{ marginTop: 28 }}>
           {primaryCta && (
-            <Button variant="solid" onClick={primaryCta.onClick}>
+            <Button variant="plasma" onClick={primaryCta.onClick}>
               {primaryCta.label}
             </Button>
           )}

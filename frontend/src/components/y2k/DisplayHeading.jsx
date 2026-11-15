@@ -7,6 +7,7 @@ export default function DisplayHeading({
   cutTone = "paper",
   cutImage,
   pink = false,
+  plasma = false,
   as: Tag = "h1",
   className = "",
   style,
@@ -18,6 +19,7 @@ export default function DisplayHeading({
     outline ? "y2k-display--outline" : "",
     cut ? "y2k-display--cut" : "",
     pink ? "y2k-display--pink" : "",
+    plasma ? "y2k-display--plasma" : "",
     className,
   ]
     .filter(Boolean)
