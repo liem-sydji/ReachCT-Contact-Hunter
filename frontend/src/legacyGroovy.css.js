@@ -726,44 +726,89 @@ export const legacyGroovyCss = `
     z-index: 0;
     background: var(--cream);
   }
+  .paper-heat__wash {
+    position: absolute;
+    inset: -8%;
+    background:
+      radial-gradient(ellipse 90% 70% at 12% 18%, rgba(252,197,109,0.55) 0%, transparent 58%),
+      radial-gradient(ellipse 85% 65% at 88% 22%, rgba(247,167,124,0.48) 0%, transparent 60%),
+      radial-gradient(ellipse 95% 75% at 50% 100%, rgba(183,166,232,0.42) 0%, transparent 55%),
+      radial-gradient(ellipse 80% 60% at 70% 55%, rgba(238,104,94,0.18) 0%, transparent 62%),
+      radial-gradient(ellipse 70% 55% at 30% 70%, rgba(246,235,217,0.9) 0%, transparent 65%),
+      linear-gradient(165deg,
+        rgba(252,197,109,0.35) 0%,
+        rgba(246,235,217,0.9) 35%,
+        rgba(247,167,124,0.28) 60%,
+        rgba(183,166,232,0.32) 100%);
+    animation: paperHeatDrift 16s ease-in-out infinite alternate;
+  }
   .paper-heat__blob {
     position: absolute;
     border-radius: 50%;
-    filter: blur(42px);
-    opacity: 0.72;
+    filter: blur(48px);
+    opacity: 0.8;
     will-change: transform;
   }
   .paper-heat__blob--a {
-    width: min(520px, 80vw); height: min(420px, 55vh);
-    left: 8%; top: 6%;
-    background: radial-gradient(circle, rgba(252,197,109,0.85) 0%, transparent 68%);
+    width: 78%; height: 62%;
+    left: -18%; top: -22%;
+    background: radial-gradient(circle, rgba(252,197,109,0.9) 0%, transparent 70%);
     animation: paperHeatDrift 14s ease-in-out infinite alternate;
   }
   .paper-heat__blob--b {
-    width: min(480px, 75vw); height: min(400px, 52vh);
-    right: 0; top: 18%;
-    background: radial-gradient(circle, rgba(247,167,124,0.7) 0%, transparent 70%);
+    width: 72%; height: 58%;
+    right: -20%; top: -10%;
+    background: radial-gradient(circle, rgba(247,167,124,0.78) 0%, transparent 70%);
     animation: paperHeatDrift 11s ease-in-out infinite alternate-reverse;
     animation-delay: 0.4s;
   }
   .paper-heat__blob--c {
-    width: min(560px, 85vw); height: min(460px, 58vh);
-    left: 18%; bottom: -8%;
-    background: radial-gradient(circle, rgba(183,166,232,0.55) 0%, transparent 68%);
+    width: 88%; height: 70%;
+    left: -12%; bottom: -28%;
+    background: radial-gradient(circle, rgba(183,166,232,0.65) 0%, transparent 68%);
     animation: paperHeatDrift 13s ease-in-out infinite alternate;
     animation-delay: 0.9s;
   }
   .paper-heat__blob--d {
-    width: min(360px, 55vw); height: min(300px, 40vh);
-    left: 42%; top: 36%;
-    background: radial-gradient(circle, rgba(246,235,217,0.95) 0%, rgba(238,104,94,0.22) 45%, transparent 72%);
+    width: 70%; height: 55%;
+    right: -16%; bottom: -18%;
+    background: radial-gradient(circle, rgba(238,104,94,0.28) 0%, rgba(252,197,109,0.4) 40%, transparent 72%);
     animation: paperHeatDrift 10s ease-in-out infinite alternate-reverse;
     animation-delay: 1.2s;
+  }
+  .paper-heat__blob--e {
+    width: 55%; height: 48%;
+    left: 22%; top: 28%;
+    background: radial-gradient(circle, rgba(246,235,217,0.95) 0%, rgba(252,197,109,0.35) 45%, transparent 75%);
+    animation: paperHeatDrift 12s ease-in-out infinite alternate;
+    animation-delay: 0.6s;
+  }
+  .paper-heat__blob--f {
+    width: 48%; height: 42%;
+    left: 55%; top: 48%;
+    background: radial-gradient(circle, rgba(183,166,232,0.45) 0%, transparent 70%);
+    animation: paperHeatDrift 9.5s ease-in-out infinite alternate-reverse;
+    animation-delay: 1.5s;
+  }
+  .paper-heat__waves {
+    position: absolute;
+    inset: -4% -6% -10%;
+    width: 112%;
+    height: 118%;
+    opacity: 0.7;
+  }
+  .paper-heat__ridge {
+    transform-box: fill-box;
+    transform-origin: 50% 100%;
+    animation-name: paperRidgeWave;
+    animation-timing-function: ease-in-out;
+    animation-iteration-count: infinite;
+    animation-direction: alternate;
   }
   .paper-heat__noise {
     position: absolute; inset: 0;
     mix-blend-mode: multiply;
-    opacity: 0.45;
+    opacity: 0.5;
   }
   .paper-heat__dots {
     position: absolute; inset: 0;
@@ -772,12 +817,17 @@ export const legacyGroovyCss = `
       radial-gradient(circle, rgba(45,43,44,0.12) 0.4px, transparent 0.55px);
     background-size: 4px 4px, 6px 6px;
     background-position: 0 0, 2px 3px;
-    opacity: 0.35;
+    opacity: 0.4;
     mix-blend-mode: multiply;
   }
   @keyframes paperHeatDrift {
     from { transform: translate3d(0, 0, 0) scale(1); }
-    to   { transform: translate3d(12px, -16px, 0) scale(1.06); }
+    to   { transform: translate3d(14px, -18px, 0) scale(1.08); }
+  }
+  @keyframes paperRidgeWave {
+    0%   { transform: translateY(6px) scaleX(0.99); }
+    50%  { transform: translateY(-12px) scaleX(1.03); }
+    100% { transform: translateY(-2px) scaleX(1.01); }
   }
 
   .reachai-empty {
@@ -832,7 +882,7 @@ export const legacyGroovyCss = `
     text-align: left;
   }
   .reachai-suggest {
-    background: rgba(250,244,231,0.92);
+    background: rgba(250,244,231,0.96);
     border: var(--border-chunky);
     border-radius: 14px;
     padding: 14px 16px;
@@ -842,6 +892,7 @@ export const legacyGroovyCss = `
     color: var(--ink);
     line-height: 1.45;
     box-shadow: 3px 3px 0 rgba(45,43,44,0.55);
+    backdrop-filter: blur(2px);
     transition: transform var(--dur-ui) var(--ease-bounce), box-shadow var(--dur-ui) var(--ease-bounce),
       background var(--dur-fast) ease;
   }
@@ -876,7 +927,9 @@ export const legacyGroovyCss = `
     .landing-waves__heat,
     .landing-waves__ridge,
     .landing-waves__grain,
-    .paper-heat__blob {
+    .paper-heat__blob,
+    .paper-heat__wash,
+    .paper-heat__ridge {
       animation: none !important;
     }
     .landing::before { transform: translate(-50%, -42%); opacity: 0.72; }

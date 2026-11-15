@@ -204,16 +204,51 @@ export function LandingWaveField({ className = "" }) {
 }
 
 /**
- * Light paper heatmap — cream / marigold / peach / lavender blobs + grain.
+ * Light paper heatmap — full-bleed cream / marigold / peach / lavender wash + grain.
  * For empty/home surfaces that must stay readable (not night).
  */
 export function PaperHeatmapField({ className = "" }) {
   return (
     <div className={`paper-heat ${className}`} aria-hidden="true">
+      <div className="paper-heat__wash" />
       <div className="paper-heat__blob paper-heat__blob--a" />
       <div className="paper-heat__blob paper-heat__blob--b" />
       <div className="paper-heat__blob paper-heat__blob--c" />
       <div className="paper-heat__blob paper-heat__blob--d" />
+      <div className="paper-heat__blob paper-heat__blob--e" />
+      <div className="paper-heat__blob paper-heat__blob--f" />
+
+      <svg
+        className="paper-heat__waves"
+        viewBox="0 0 800 600"
+        preserveAspectRatio="none"
+        focusable="false"
+      >
+        <defs>
+          <linearGradient id="paperWaveGrad" x1="0" y1="1" x2="0" y2="0">
+            <stop offset="0%" stopColor="#FCC56D" stopOpacity="0.55" />
+            <stop offset="40%" stopColor="#F7A77C" stopOpacity="0.4" />
+            <stop offset="70%" stopColor="#B7A6E8" stopOpacity="0.32" />
+            <stop offset="100%" stopColor="#F6EBD9" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        {[0, 1, 2, 3, 4].map((i) => (
+          <ellipse
+            key={i}
+            className={`paper-heat__ridge paper-heat__ridge--${i + 1}`}
+            cx="400"
+            cy={520 - i * 55}
+            rx={420 + i * 55}
+            ry={160 + i * 28}
+            fill="none"
+            stroke="url(#paperWaveGrad)"
+            strokeWidth={70 - i * 6}
+            opacity={0.55 - i * 0.05}
+            style={{ animationDelay: `${i * 0.35}s`, animationDuration: `${10 + i * 0.7}s` }}
+          />
+        ))}
+      </svg>
+
       <svg className="paper-heat__noise" width="100%" height="100%" preserveAspectRatio="none">
         <defs>
           <filter id="paperHeatNoise" x="0%" y="0%" width="100%" height="100%">
